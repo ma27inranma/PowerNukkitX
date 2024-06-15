@@ -850,8 +850,6 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     }
 
     protected void handleMovement(Location clientPos) {
-        log.debug("handling movement...");
-
         if (this.firstMove) this.firstMove = false;
         boolean invalidMotion = false;
         var revertPos = this.getLocation().clone();
