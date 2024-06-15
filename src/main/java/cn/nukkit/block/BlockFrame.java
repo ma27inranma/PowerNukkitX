@@ -116,7 +116,7 @@ public class BlockFrame extends BlockTransparent implements BlockEntityHolder<Bl
             BlockEntityItemFrame blockEntity = getOrCreateBlockEntity();
             if (player.isCreative()) {
                 blockEntity.setItem(Item.AIR);
-            } else {
+            } else if(!player.isAdventure()) {
                 blockEntity.dropItem(player);
             }
         }

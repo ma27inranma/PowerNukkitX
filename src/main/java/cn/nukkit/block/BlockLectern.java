@@ -198,6 +198,8 @@ public class BlockLectern extends BlockTransparent implements RedstoneComponent,
     }
 
     public void dropBook(Player player) {
+        if(player.isAdventure()) return;
+
         BlockEntityLectern lectern = getBlockEntity();
         if (lectern == null) {
             return;

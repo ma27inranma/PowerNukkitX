@@ -14,7 +14,7 @@ import static cn.nukkit.block.property.CommonBlockProperties.*;
 /**
  * @author good777LUCKY
  */
-public class BlockStructureVoid extends BlockSolid {
+public class BlockStructureVoid extends BlockTransparent {
 
     public static final BlockProperties PROPERTIES = new BlockProperties(STRUCTURE_VOID, STRUCTURE_VOID_TYPE);
 
@@ -66,7 +66,10 @@ public class BlockStructureVoid extends BlockSolid {
 
     @Override
     public boolean isBreakable(@NotNull Vector3 vector, int layer, @Nullable BlockFace face, @Nullable Item item, @Nullable Player player) {
-        return false;
+        if(player.isCreative())
+            return true;
+        else
+            return false;
     }
     
     @Override
