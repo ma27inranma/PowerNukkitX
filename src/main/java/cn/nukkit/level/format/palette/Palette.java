@@ -204,6 +204,11 @@ public class Palette<V> {
                                    RuntimeDataDeserializer<V> deserializer,
                                    NBTInputStream input) throws IOException {
         Pair<Integer, SemVersion> p = PaletteUtils.fastReadBlockHash(input, byteBuf);//depend on LinkCompoundTag
+        if(p == null){
+            log.error("P was null. returned.. i don't know if this is correct");
+            return;
+        }
+
         if (p.left() == null) {
             CompoundTag oldBlockNbt = (CompoundTag) input.readTag();
             SemVersion semVersion = p.right();
