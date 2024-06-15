@@ -354,7 +354,10 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
 
     private final @NotNull PlayerInfo info;
 
-    public boolean isMoving;
+    /**
+     * tick stamp
+     */
+    public Integer lastMovement;
 
     @UsedByReflection
     public Player(@NotNull BedrockSession session, @NotNull PlayerInfo info) {
@@ -847,6 +850,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     }
 
     protected void handleMovement(Location clientPos) {
+        log.debug("handling movement...");
+
         if (this.firstMove) this.firstMove = false;
         boolean invalidMotion = false;
         var revertPos = this.getLocation().clone();
@@ -879,11 +884,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         this.setRotation(clientPos.getYaw(), clientPos.getPitch(), clientPos.getHeadYaw());
         this.fastMove(diffX, diffY, diffZ);
 
-        if(diffX == 0 && diffY == 0 && diffZ == 0){
-            this.isMoving = false;
-        }else{
-            this.isMoving = true;
-        }
+        lastMovement = server.getTick();
 
         //after check
         double corrX = this.x - clientPos.getX();
