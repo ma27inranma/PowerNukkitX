@@ -21,6 +21,7 @@ import cn.nukkit.event.HandlerList;
 import cn.nukkit.event.level.LevelInitEvent;
 import cn.nukkit.event.level.LevelLoadEvent;
 import cn.nukkit.event.player.PlayerLoginEvent;
+import cn.nukkit.event.server.PlayerListGetEvent;
 import cn.nukkit.event.server.QueryRegenerateEvent;
 import cn.nukkit.event.server.ServerStartedEvent;
 import cn.nukkit.event.server.ServerStopEvent;
@@ -1549,6 +1550,14 @@ public class Server {
      * @param player 玩家
      */
     public void sendFullPlayerListData(Player player) {
+        PlayerListPacket pk = getFullPlayerListData();
+
+        getPluginManager().callEvent(new PlayerListGetEvent(player, pk, "%s", null));
+
+        player.dataPacket(pk);
+    }
+
+    public PlayerListPacket getFullPlayerListData(){
         PlayerListPacket pk = new PlayerListPacket();
         pk.type = PlayerListPacket.TYPE_ADD;
         pk.entries = this.playerList.values().stream()
@@ -1560,7 +1569,7 @@ public class Server {
                         p.getLoginChainData().getXUID()))
                 .toArray(PlayerListPacket.Entry[]::new);
 
-        player.dataPacket(pk);
+        return pk;
     }
 
     /**
