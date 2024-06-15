@@ -354,6 +354,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
 
     private final @NotNull PlayerInfo info;
 
+    public boolean isMoving;
+
     @UsedByReflection
     public Player(@NotNull BedrockSession session, @NotNull PlayerInfo info) {
         super(null, new CompoundTag());
@@ -876,6 +878,12 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         double diffZ = clientPos.getZ() - this.z;
         this.setRotation(clientPos.getYaw(), clientPos.getPitch(), clientPos.getHeadYaw());
         this.fastMove(diffX, diffY, diffZ);
+
+        if(diffX == 0 && diffY == 0 && diffZ == 0){
+            this.isMoving = false;
+        }else{
+            this.isMoving = true;
+        }
 
         //after check
         double corrX = this.x - clientPos.getX();
