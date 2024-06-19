@@ -525,6 +525,11 @@ public abstract class Enchantment implements Cloneable {
         return this.setLevel(level, true);
     }
 
+    @NotNull
+    public Enchantment setLevelUnsafe(int level) {
+        return this.setLevel(level, false);
+    }
+
     /**
      * Changes the level of this enchantment.
      * When the {@code safe} param is {@code true}, the level is clamped between the values

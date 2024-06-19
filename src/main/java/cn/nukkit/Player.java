@@ -3795,6 +3795,10 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         }
     }
 
+    public void killByDamage(){
+        attack(new EntityDamageEvent(this, DamageCause.SUICIDE, 32767f));
+    }
+
     @Override
     public void setHealth(float health) {
         if (health < 1) {

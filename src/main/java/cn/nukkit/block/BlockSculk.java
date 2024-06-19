@@ -30,7 +30,7 @@ public class BlockSculk extends BlockSolid {
 
     @Override
     public double getHardness() {
-        return 0.6;
+        return 0.2; // TODO: this is just temporal, have to find out real value
     }
 
     @Override
