@@ -129,6 +129,8 @@ public final class EntityDataMap implements Map<EntityDataType<?>, Object> {
                 value = number.floatValue();
             } else if (type == double.class || type == Double.class) {
                 value = number.doubleValue();
+            }else if(type == boolean.class || type == Boolean.class){
+                value = number.byteValue() >= 1 ? true : false;
             }
         }
         return this.map.put(key, value);
