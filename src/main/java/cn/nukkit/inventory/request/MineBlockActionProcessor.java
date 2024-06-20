@@ -44,7 +44,9 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
             allowClientDurabilityPrediction = Server.getInstance().getProperties().getBoolean("allow_client_item_durability_prediction", true);
         }
         
-        if (!allowClientDurabilityPrediction && itemInHand.getDamage() != action.getPredictedDurability()) {
+        if(allowClientDurabilityPrediction){
+            itemInHand.setDamage(action.getPredictedDurability());
+        }else if (itemInHand.getDamage() != action.getPredictedDurability()) {
             log.warn("Durability predicted by the client does not match that of the server client {} server {} player {}", action.getPredictedDurability(), itemInHand.getDamage(), player.getName());
         }
         var itemStackResponseSlot =
