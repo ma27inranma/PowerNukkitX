@@ -1,6 +1,7 @@
 package cn.nukkit.inventory.request;
 
 import cn.nukkit.Player;
+import cn.nukkit.Server;
 import cn.nukkit.inventory.HumanInventory;
 import cn.nukkit.item.Item;
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
@@ -15,6 +16,9 @@ import java.util.List;
 
 @Slf4j
 public class MineBlockActionProcessor implements ItemStackRequestActionProcessor<MineBlockAction> {
+    public static Boolean allowClientDurabilityPrediction = false;
+
+
     @Override
     public ItemStackRequestActionType getType() {
         return ItemStackRequestActionType.MINE_BLOCK;
@@ -36,7 +40,11 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
             return context.error();
         }
 
-        if (itemInHand.getDamage() != action.getPredictedDurability()) {
+        if(allowClientDurabilityPrediction == null){
+            allowClientDurabilityPrediction = Server.getInstance().getProperties().getBoolean("allow_client_item_durability_prediction", true);
+        }
+        
+        if (!allowClientDurabilityPrediction && itemInHand.getDamage() != action.getPredictedDurability()) {
             log.warn("Durability predicted by the client does not match that of the server client {} server {} player {}", action.getPredictedDurability(), itemInHand.getDamage(), player.getName());
         }
         var itemStackResponseSlot =
