@@ -2965,10 +2965,18 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
 
-    public void removeTag(String tag) {
-        ListTag<StringTag> tags = this.namedTag.getList("Tags", StringTag.class);
-        tags.remove(new StringTag(tag));
-        this.namedTag.putList("Tags", tags);
+    public void removeTag(String removingTag) {
+        ListTag<StringTag> oldTags = this.namedTag.getList("Tags", StringTag.class);
+        ListTag<StringTag> newTags = new ListTag<>();
+
+        for(StringTag tag : oldTags.list){
+            if(tag.data.equals(removingTag)) continue;
+
+            newTags.add(tag);
+        }
+
+        oldTags.list = newTags.list;
+        this.namedTag.putList("Tags", oldTags);
     }
 
 

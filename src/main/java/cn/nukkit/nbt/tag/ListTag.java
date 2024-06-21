@@ -9,7 +9,7 @@ import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 public class ListTag<T extends Tag> extends Tag {
-    private List<T> list = new ArrayList<>();
+    public List<T> list = new ArrayList<>();
 
     public byte type;
 
