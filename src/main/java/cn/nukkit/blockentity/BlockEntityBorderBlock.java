@@ -7,16 +7,12 @@ import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.UpdateBlockPacket;
 import cn.nukkit.plugin.InternalPlugin;
-import lombok.extern.slf4j.Slf4j;
 
 /**
 * @author ma27inranma
 */
 
-@Slf4j
 public class BlockEntityBorderBlock extends BlockEntity {
-  
-  
   public BlockEntityBorderBlock(IChunk chunk, CompoundTag nbt) {
     super(chunk, nbt);
 
@@ -25,8 +21,6 @@ public class BlockEntityBorderBlock extends BlockEntity {
 
       sendBorderBlockToAll();
     }, 1, 20, false);
-
-    log.info("spawned blockEntityBordreBloco to " + chunk);
   }
   
   @Override
