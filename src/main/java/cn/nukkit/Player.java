@@ -4356,6 +4356,39 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         }, delay, true);
     }
 
+    public void refreshChunkBlockEntity(int centerChunkX, int centerChunkZ, int chunkRadius) {
+        for (var b : this.level.getBlockEntities().values()) {
+            if (b instanceof BlockEntitySpawnable blockEntitySpawnable) {
+                IChunk chunk = blockEntitySpawnable.getChunk();
+
+                if(
+                    chunk.getX() < centerChunkX - chunkRadius || chunk.getX() > centerChunkX + chunkRadius ||
+                    chunk.getZ() < centerChunkZ - chunkRadius || chunk.getZ() > centerChunkZ + chunkRadius
+                ){
+                    continue;
+                }
+
+                UpdateBlockPacket setAir = new UpdateBlockPacket();
+                setAir.blockRuntimeId = BlockAir.STATE.blockStateHash();
+                setAir.flags = UpdateBlockPacket.FLAG_NETWORK;
+                setAir.x = b.getFloorX();
+                setAir.y = b.getFloorY();
+                setAir.z = b.getFloorZ();
+                this.dataPacket(setAir);
+
+                UpdateBlockPacket revertAir = new UpdateBlockPacket();
+                revertAir.blockRuntimeId = b.getBlock().getRuntimeId();
+                revertAir.flags = UpdateBlockPacket.FLAG_NETWORK;
+                revertAir.x = b.getFloorX();
+                revertAir.y = b.getFloorY();
+                revertAir.z = b.getFloorZ();
+                this.dataPacket(revertAir);
+
+                blockEntitySpawnable.spawnTo(this);
+            }
+        }
+    }
+
     /**
      * Automatic id assignment
      *
