@@ -16,7 +16,7 @@ import java.util.List;
 
 @Slf4j
 public class MineBlockActionProcessor implements ItemStackRequestActionProcessor<MineBlockAction> {
-    public static Boolean allowClientDurabilityPrediction = false;
+    public static Boolean allowClientDurabilityPrediction = null;
 
 
     @Override
@@ -47,7 +47,7 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
         if(allowClientDurabilityPrediction){
             itemInHand.setDamage(action.getPredictedDurability());
         }else if (itemInHand.getDamage() != action.getPredictedDurability()) {
-            log.warn("Durability predicted by the client does not match that of the server client {} server {} player {}", action.getPredictedDurability(), itemInHand.getDamage(), player.getName());
+            log.warn("Durability predicted by the client does not match that of the server client {} server {} player {} allowClientDurabilityPrediction {}", action.getPredictedDurability(), itemInHand.getDamage(), player.getName(), allowClientDurabilityPrediction);
         }
         var itemStackResponseSlot =
                 new ItemStackResponseContainer(
