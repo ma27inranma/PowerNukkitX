@@ -98,4 +98,6 @@ public interface BlockEntityID {
     String END_GATEWAY = "EndGateway";
 
     String TARGET = "Target";//???? todo check this
+
+    String BORDER_BLOCK = "BorderBlock";
 }

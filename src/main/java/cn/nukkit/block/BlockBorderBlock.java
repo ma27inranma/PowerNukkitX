@@ -2,6 +2,8 @@ package cn.nukkit.block;
 
 import cn.nukkit.Player;
 import cn.nukkit.block.property.CommonBlockProperties;
+import cn.nukkit.blockentity.BlockEntity;
+import cn.nukkit.blockentity.BlockEntityBorderBlock;
 import cn.nukkit.item.Item;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
@@ -10,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
-public class BlockBorderBlock extends BlockWallBase {
+public class BlockBorderBlock extends BlockWallBase implements BlockEntityHolder<BlockEntityBorderBlock> {
     public static final BlockProperties PROPERTIES = new BlockProperties(BORDER_BLOCK, CommonBlockProperties.WALL_CONNECTION_TYPE_EAST, CommonBlockProperties.WALL_CONNECTION_TYPE_NORTH, CommonBlockProperties.WALL_CONNECTION_TYPE_SOUTH, CommonBlockProperties.WALL_CONNECTION_TYPE_WEST, CommonBlockProperties.WALL_POST_BIT);
 
     @Override
@@ -58,6 +60,8 @@ public class BlockBorderBlock extends BlockWallBase {
 
     @Override
     public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, @NotNull BlockFace face, double fx, double fy, double fz, @Nullable Player player) {
+        if(getBlockEntity() == null) createBlockEntity();
+        
         if (player != null && (!player.isCreative() || !player.isOp())) {
             return false;
         }
@@ -83,5 +87,15 @@ public class BlockBorderBlock extends BlockWallBase {
         aabb.setMinY(Double.MIN_VALUE);
         aabb.setMaxY(Double.MAX_VALUE);
         return aabb;
+    }
+
+    @Override
+    public @NotNull Class<? extends BlockEntityBorderBlock> getBlockEntityClass() {
+        return BlockEntityBorderBlock.class;
+    }
+
+    @Override
+    public @NotNull String getBlockEntityType() {
+        return BlockEntity.BORDER_BLOCK;
     }
 }
