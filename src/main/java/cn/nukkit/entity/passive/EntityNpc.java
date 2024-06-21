@@ -124,6 +124,8 @@ public class EntityNpc extends EntityLiving implements IEntityNPC, EntityInterac
                     }
                 }
             }
+
+            saveNBT();
         });
         this.dialog.setBindEntity(this);
     }
