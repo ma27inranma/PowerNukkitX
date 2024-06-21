@@ -12,7 +12,7 @@ import cn.nukkit.plugin.InternalPlugin;
 * @author ma27inranma
 */
 
-public class BlockEntityBorderBlock extends BlockEntity {
+public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be lag source
   public BlockEntityBorderBlock(IChunk chunk, CompoundTag nbt) {
     super(chunk, nbt);
 
