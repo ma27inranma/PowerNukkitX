@@ -15,11 +15,14 @@ import cn.nukkit.level.format.IChunk;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.NPCRequestPacket;
+import lombok.extern.slf4j.Slf4j;
+
 import org.jetbrains.annotations.NotNull;
 
 /**
  * @author good777LUCKY
  */
+@Slf4j
 public class EntityNpc extends EntityLiving implements IEntityNPC, EntityInteractable {
     @Override
     @NotNull
