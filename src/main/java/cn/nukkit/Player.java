@@ -4362,7 +4362,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                 IChunk chunk = blockEntitySpawnable.getChunk();
 
                 if(
-                    chunk.getX() < centerChunkX - chunkRadius || chunk.getX() > centerChunkX + chunkRadius ||
+                    chunk.getX() < centerChunkX - chunkRadius || chunk.getX() > centerChunkX + chunkRadius || // FLAG::MARKER could be lag source
                     chunk.getZ() < centerChunkZ - chunkRadius || chunk.getZ() > centerChunkZ + chunkRadius
                 ){
                     continue;

@@ -3405,7 +3405,7 @@ public class Level implements Metadatable {
                 pk.data = pair.left();
                 player.sendChunk(x, z, pk);
 
-                player.refreshChunkBlockEntity(x, z, 0);
+                player.refreshChunkBlockEntity(x, z, 0); // FLAG::MARKER could be lag source
             }
             this.chunkSendQueue.remove(index);
         }
