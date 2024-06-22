@@ -489,7 +489,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             return;
         }
 
-        if (this.isSurvival()) {
+        if (this.isSurvival() || this.isAdventure()) {
             this.breakingBlockTime = currentBreak;
             double miningTimeRequired;
             if (target instanceof CustomBlock customBlock) {
@@ -497,7 +497,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             } else miningTimeRequired = target.calculateBreakTime(this.inventory.getItemInHand(), this);
             int breakTime = (int) Math.ceil(miningTimeRequired * 20);
             if (breakTime > 0) {
-                LevelEventPacket pk = new LevelEventPacket();
+                LevelEventPacket pk = new LevelEventPacket(); // FLAG::INFO the client will start to destroy block when received this packet
                 pk.evid = LevelEventPacket.EVENT_BLOCK_START_BREAK;
                 pk.x = (float) pos.x;
                 pk.y = (float) pos.y;
