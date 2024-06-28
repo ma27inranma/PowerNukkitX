@@ -3381,16 +3381,15 @@ public class Level implements Metadatable {
         }
     }
 
-    private void processChunkRequest() {
+    public void processChunkRequest() {
         for (long index : this.chunkSendQueue.keySet()) {
             int x = getHashX(index);
             int z = getHashZ(index);
             final Int2ObjectNonBlockingMap<Player> players = this.chunkSendQueue.get(index);
-            if (players == null) continue;
 
             final var pair = this.requireProvider().requestChunkData(x, z);
             for (Player player : Objects.requireNonNull(players).values()) {
-                if(!player.isConnected()) return;
+                if(!player.isConnected()) continue;
 
                 NetworkChunkPublisherUpdatePacket ncp = new NetworkChunkPublisherUpdatePacket();
                 ncp.position = player.asBlockVector3();

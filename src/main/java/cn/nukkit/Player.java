@@ -131,6 +131,8 @@ import cn.nukkit.utils.Identifier;
 import cn.nukkit.utils.LoginChainData;
 import cn.nukkit.utils.PortalHelper;
 import cn.nukkit.utils.TextFormat;
+
+import com.dfsek.terra.lib.commons.lang3.builder.ToStringBuilder;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
@@ -4449,16 +4451,23 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         dialog.getBindEntity().setDataProperty(NPC_DATA, dialog.getSkinData());
         dialog.getBindEntity().setDataProperty(ACTIONS, actionJson);
         dialog.getBindEntity().setDataProperty(INTERACT_TEXT, dialog.getContent());
+        // dialog.getBindEntity().setDataProperty(NAME, dialog.getTitle()); // FLAG::CHANGED
+        // dialog.getBindEntity().setNameTag(dialog.getTitle());
+        dialog.getBindEntity().spawnToAll();
 
-        NPCDialoguePacket packet = new NPCDialoguePacket();
-        packet.runtimeEntityId = dialog.getEntityId();
-        packet.action = NPCDialoguePacket.NPCDialogAction.OPEN;
-        packet.dialogue = dialog.getContent();
-        packet.npcName = dialog.getTitle();
-        if (book) packet.sceneName = dialog.getSceneName();
-        packet.actionJson = dialog.getButtonJSONData();
-        if (book) this.dialogWindows.put(dialog.getSceneName(), dialog);
-        this.dataPacket(packet);
+        Server.getInstance().getScheduler().scheduleDelayedTask(() -> {
+            NPCDialoguePacket packet = new NPCDialoguePacket();
+            packet.runtimeEntityId = dialog.getEntityId();
+            packet.action = NPCDialoguePacket.NPCDialogAction.OPEN;
+            packet.dialogue = dialog.getContent();
+            packet.npcName = dialog.getTitle();
+            log.info("npcName: " + packet.npcName);
+            
+            if (book) packet.sceneName = dialog.getSceneName();
+            packet.actionJson = dialog.getButtonJSONData();
+            if (book) this.dialogWindows.put(dialog.getSceneName(), dialog);
+            this.dataPacket(packet);
+        }, 5);
     }
 
     /**
