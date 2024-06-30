@@ -201,7 +201,7 @@ public abstract class BlockEntity extends Position implements BlockEntityID {
             getLevel().getServer().getScheduler().scheduleTask(new Task() {
                 @Override
                 public void onRun(int currentTick) {
-                    if (isValid() && isBlockEntityValid()) {
+                    if (isValid() && isBlockEntityValid() && getLevel() != null) {
                         getLevel().updateComparatorOutputLevelSelective(BlockEntity.this, isObservable());
                     }
                 }
