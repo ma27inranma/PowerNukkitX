@@ -13,12 +13,15 @@ import cn.nukkit.level.particle.SplashParticle;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.Vector3;
+import lombok.extern.slf4j.Slf4j;
+
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.ThreadLocalRandom;
 
 
+@Slf4j
 public class BlockBubbleColumn extends BlockTransparent {
     public static final BlockProperties PROPERTIES = new BlockProperties(BUBBLE_COLUMN, CommonBlockProperties.DRAG_DOWN);
     @Override
@@ -127,7 +130,7 @@ public class BlockBubbleColumn extends BlockTransparent {
                 if (isDragDown()) {
                     entity.motionY = Math.max(-0.3, entity.motionY - 0.3);
                 } else {
-                    entity.motionY = Math.min(0.7, entity.motionY + 0.06);
+                    entity.motionY = Math.max(0.7, entity.motionY + 0.06); // FLAG::NOTE this was Math.min before.
                 }
             }
             entity.motionChanged = true;
