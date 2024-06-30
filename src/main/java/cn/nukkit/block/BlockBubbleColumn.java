@@ -111,27 +111,18 @@ public class BlockBubbleColumn extends BlockTransparent {
     public void onEntityCollide(Entity entity) {
         if (entity.canBeMovedByCurrents()) {
             if (up().isAir()) {
-                if (isDragDown()) {
-                    entity.motionY = Math.max(-0.9, entity.motionY - 0.03);
-                } else {
-                    if (entity instanceof EntityPhysical entityPhysical && entity.motionY < -entityPhysical.getGravity() * 8) {
-                        entity.motionY = -entityPhysical.getGravity() * 2;
-                    }
-                    entity.motionY = Math.min(1.8, entity.motionY + 0.1);
-                }
-                
                 ThreadLocalRandom random = ThreadLocalRandom.current();
                 for(int i = 0; i < 2; ++i) {
                     level.addParticle(new SplashParticle(add(random.nextFloat(), random.nextFloat() + 1, random.nextFloat())));
                     level.addParticle(new BubbleParticle(add(random.nextFloat(), random.nextFloat() + 1, random.nextFloat())));
                 }
                 
+            }
+
+            if (isDragDown()) {
+                entity.motionY = Math.max(-0.3, entity.motionY - 0.3);
             } else {
-                if (isDragDown()) {
-                    entity.motionY = Math.max(-0.3, entity.motionY - 0.3);
-                } else {
-                    entity.motionY = Math.max(0.7, entity.motionY + 0.06); // FLAG::NOTE this was Math.min before.
-                }
+                entity.motionY = Math.min(0.7, entity.motionY + 0.37); // FLAG::NOTE this was Math.min before.
             }
             entity.motionChanged = true;
             entity.resetFallDistance();
