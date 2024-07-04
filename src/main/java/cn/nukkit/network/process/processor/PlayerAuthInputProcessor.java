@@ -25,12 +25,26 @@ import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.protocol.types.AuthInputAction;
 import cn.nukkit.network.protocol.types.PlayerActionType;
 import cn.nukkit.network.protocol.types.PlayerBlockActionData;
+import lombok.extern.slf4j.Slf4j;
+
 import org.jetbrains.annotations.NotNull;
 
+@Slf4j
 public class PlayerAuthInputProcessor extends DataPacketProcessor<PlayerAuthInputPacket> {
     @Override
     public void handle(@NotNull PlayerHandle playerHandle, @NotNull PlayerAuthInputPacket pk) {
         Player player = playerHandle.player;
+
+        if(!player.isJumping() && pk.inputData.contains(AuthInputAction.JUMPING)){
+            PlayerJumpEvent playerJumpEvent = new PlayerJumpEvent(player);
+            player.getServer().getPluginManager().callEvent(playerJumpEvent);
+
+            player.lastJumpStart = player.getServer().getTick();
+        }
+        if(player.isJumping() && !pk.inputData.contains(AuthInputAction.JUMPING)){
+            player.lastJumpEnd = player.getServer().getTick();
+        }
+
         if (!pk.blockActionData.isEmpty()) {
             for (PlayerBlockActionData action : pk.blockActionData.values()) {
                 //hack 自从1.19.70开始，创造模式剑客户端不会发送PREDICT_DESTROY_BLOCK，但仍然发送START_DESTROY_BLOCK，过滤掉
@@ -110,10 +124,8 @@ public class PlayerAuthInputProcessor extends DataPacketProcessor<PlayerAuthInpu
                 player.setFlySneaking(true);
             } else player.setFlySneaking(false);
         }
-        if (pk.inputData.contains(AuthInputAction.START_JUMPING)) {
-            PlayerJumpEvent playerJumpEvent = new PlayerJumpEvent(player);
-            player.getServer().getPluginManager().callEvent(playerJumpEvent);
-        }
+
+
         if (pk.inputData.contains(AuthInputAction.START_SWIMMING)) {
             var playerSwimmingEvent = new PlayerToggleSwimEvent(player, true);
             player.getServer().getPluginManager().callEvent(playerSwimmingEvent);

@@ -361,6 +361,15 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
      */
     public Integer lastMovement;
 
+    /**
+     * tick stamp
+     */
+    public Integer lastJumpStart;
+    /**
+     * tick stamp
+     */
+    public Integer lastJumpEnd;
+
     @UsedByReflection
     public Player(@NotNull BedrockSession session, @NotNull PlayerInfo info) {
         super(null, new CompoundTag());
@@ -5541,5 +5550,11 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     @NotNull
     public PlayerInfo getPlayerInfo() {
         return this.info;
+    }
+
+    public boolean isJumping() {
+        if(this.lastJumpStart == null) return false;
+
+        return this.lastJumpEnd == null || this.lastJumpEnd < this.lastJumpStart;
     }
 }
