@@ -28,6 +28,7 @@ import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.process.DataPacketProcessor;
 import cn.nukkit.network.protocol.InventoryTransactionPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
@@ -269,7 +270,7 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                         if (player.level.useItemOn(blockVector.asVector3(), i, face, useItemData.clickPos.x, useItemData.clickPos.y, useItemData.clickPos.z, player) != null) {
                             return;
                         }
-                    } else if (player.getInventory().getItemInHand().equals(useItemData.itemInHand)) {
+                    } else if (isItemuseValid(player, player.getInventory().getItemInHand(), useItemData.itemInHand)) {
                         Item i = player.getInventory().getItemInHand();
                         Item oldItem = i.clone();
                         //TODO: Implement adventure mode checks
@@ -375,6 +376,15 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 //unknown
             }
         }
+    }
+
+    public static boolean isItemuseValid(Player player, Item item1, Item item2) {
+        if (player.isAdventure()) { // somehow client adds CanPlaceOn tag to the item in Adventure mode
+            item1.getOrCreateNamedTag().remove("CanPlaceOn");
+            item2.getOrCreateNamedTag().remove("CanPlaceOn");
+        }
+
+        return item1.equals(item2);
     }
 
     private void logTriedToSetButHadInHand(PlayerHandle playerHandle, Item tried, Item had) {
