@@ -259,3 +259,5 @@ __pycache__
 /.gradle/
 /terra/
 /services/
+
+build-cache/
