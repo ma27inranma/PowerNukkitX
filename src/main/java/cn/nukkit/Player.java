@@ -1155,7 +1155,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             nbt.putInt("playerGameType", this.gamemode);
         }
 
-        this.adventureSettings = new AdventureSettings(this, nbt);
+        this.adventureSettings = new AdventureSettings(this);
+        this.adventureSettings.init(nbt);
 
         Level level;
         if ((level = this.server.getLevelByName(nbt.getString("Level"))) == null) {
@@ -1618,7 +1619,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
      * @param adventureSettings 玩家权限设置<br>player permissions settings
      */
     public void setAdventureSettings(AdventureSettings adventureSettings) {
-        this.adventureSettings = adventureSettings.clone(this);
+        this.adventureSettings = adventureSettings.clone();
         this.adventureSettings.update();
     }
 
@@ -1668,7 +1669,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
      */
     public void setAllowInteract(boolean value, boolean containers) {
         this.getAdventureSettings().set(Type.WORLD_IMMUTABLE, !value);
-        this.getAdventureSettings().set(Type.DOORS_AND_SWITCHED, value);
+        this.getAdventureSettings().set(Type.DOORS_AND_SWITCHES, value);
         this.getAdventureSettings().set(Type.OPEN_CONTAINERS, containers);
         this.getAdventureSettings().update();
     }
@@ -2380,7 +2381,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         }
 
         if (newSettings == null) {
-            newSettings = this.getAdventureSettings().clone(this);
+            newSettings = this.getAdventureSettings().clone();
             newSettings.set(Type.WORLD_IMMUTABLE, (gamemode & 0x02) > 0);
             newSettings.set(Type.BUILD, (gamemode & 0x02) <= 0);
             newSettings.set(Type.WORLD_BUILDER, (gamemode & 0x02) <= 0);
