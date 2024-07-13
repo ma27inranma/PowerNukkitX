@@ -1522,4 +1522,11 @@ public abstract class Item implements Cloneable, ItemID {
         @SerializedName(value = "minecraft:keep_on_death", alternate = {"keep_on_death"})
         public KeepOnDeath keepOnDeath;
     }
+
+    public Item withCount(int count){
+        Item item = this.clone();
+        item.setCount(count);
+
+        return item;
+    }
 }
