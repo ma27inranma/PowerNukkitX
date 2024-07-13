@@ -740,7 +740,7 @@ public abstract class Item implements Cloneable, ItemID {
     }
 
     public CompoundTag getOrCreateNamedTag() {
-        if (!hasCompoundTag()) {
+        if (!hasCompoundTag() || cachedNBT == null) {
             setNamedTag(new CompoundTag());
             return cachedNBT;
         }
