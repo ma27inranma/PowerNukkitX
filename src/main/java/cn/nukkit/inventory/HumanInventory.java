@@ -18,10 +18,14 @@ import cn.nukkit.network.protocol.MobArmorEquipmentPacket;
 import cn.nukkit.network.protocol.MobEquipmentPacket;
 import cn.nukkit.network.protocol.PlayerArmorDamagePacket;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
+
+import com.dfsek.terra.lib.commons.lang3.builder.ToStringBuilder;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import lombok.extern.slf4j.Slf4j;
+
 import org.jetbrains.annotations.Range;
 
 import java.util.ArrayList;
@@ -44,6 +48,7 @@ import java.util.Map;
  *
  * @author MagicDroidX (Nukkit Project)
  */
+@Slf4j
 public class HumanInventory extends BaseInventory {
     protected int itemInHandIndex = 0;
 
@@ -383,6 +388,7 @@ public class HumanInventory extends BaseInventory {
         }
         Item old = this.getItem(index);
         this.slots.put(index, item.clone());
+
         this.onSlotChange(index, old, send);
         return true;
     }

@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 /**
@@ -904,7 +905,9 @@ public abstract class Item implements Cloneable, ItemID {
     }
 
     public int getDamage() {
-        return meta;
+        if(this.cachedNBT == null) return meta;
+
+        return Optional.ofNullable(this.cachedNBT.getInt("Damage")).orElse(meta);
     }
 
     public void setDamage(int damage) {
