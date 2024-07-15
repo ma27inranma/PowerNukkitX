@@ -1340,7 +1340,7 @@ public abstract class Item implements Cloneable, ItemID {
         try {
             byte[] tags = EmptyArrays.EMPTY_BYTES;
             if (this.hasCompoundTag()) {
-                tags = this.tags.clone();
+                tags = writeCompoundTag(this.cachedNBT); // FLAG::CHANGED before this.tags.clone(); because in ItemTool.java, setDamage method just does getNamedTag().writeInt, but doesn't update tags
             }
             Item item = (Item) super.clone();
             item.setCompoundTag(tags);
