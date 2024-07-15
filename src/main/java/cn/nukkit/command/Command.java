@@ -409,6 +409,18 @@ public abstract class Command {
         }
     }
 
+    public void setServerSideOnly(boolean value){
+        this.serverSideOnly = value;
+    }
+
+    public CommandMap getCommandMap(){
+        return this.commandMap;
+    }
+
+    public void setCommandMap(CommandMap commandMap){
+        this.commandMap = commandMap;
+    }
+
     @Override
     public String toString() {
         return this.name;
