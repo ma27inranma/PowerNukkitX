@@ -35,7 +35,8 @@ public enum ServerPropertiesKeys {
     DISABLE_AUTO_BUG_REPORT("disable-auto-bug-report"),
     ALLOW_SHADED("allow-shaded"),
     SERVER_AUTHORITATIVE_MOVEMENT("server-authoritative-movement"),
-    NETWORK_ENCRYPTION("network-encryption");
+    NETWORK_ENCRYPTION("network-encryption"),
+    ALLOW_CLIENT_ITEM_DURABILITY_PREDICTION("allow-client-item-durability-prediction");
 
     private final String key;
 

@@ -2,6 +2,7 @@ package cn.nukkit.inventory.request;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
+import cn.nukkit.config.ServerPropertiesKeys;
 import cn.nukkit.inventory.HumanInventory;
 import cn.nukkit.item.Item;
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
@@ -41,7 +42,8 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
         }
 
         if(allowClientDurabilityPrediction == null){
-            allowClientDurabilityPrediction = Server.getInstance().getProperties().getBoolean("allow_client_item_durability_prediction", true);
+            // allowClientDurabilityPrediction = Server.getInstance().getProperties().getBoolean("allow_client_item_durability_prediction", true);
+            allowClientDurabilityPrediction = Server.getInstance().getProperties().get(ServerPropertiesKeys.ALLOW_CLIENT_ITEM_DURABILITY_PREDICTION, true);
         }
         
         if(allowClientDurabilityPrediction){
