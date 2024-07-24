@@ -1,6 +1,9 @@
 package cn.nukkit.inventory.request;
 
 import cn.nukkit.Player;
+import cn.nukkit.Server;
+import cn.nukkit.event.Event;
+import cn.nukkit.event.player.PlayerTransferItemEvent;
 import cn.nukkit.inventory.CreativeOutputInventory;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.inventory.SoleInventory;
@@ -75,6 +78,13 @@ public abstract class TransferItemActionProcessor<T extends TransferItemStackReq
         }
         if (destItem.getCount() + count > destItem.getMaxStackSize()) {
             log.warn("destination stack size bigger than the max stack size!");
+            return context.error();
+        }
+
+        PlayerTransferItemEvent transferEvent = new PlayerTransferItemEvent(player, source, destination, destItem, sourItem, sourceSlot, destinationSlot);
+        Server.getInstance().getPluginManager().callEvent(transferEvent);
+
+        if(transferEvent.isCancelled()) {
             return context.error();
         }
 
