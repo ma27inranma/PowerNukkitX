@@ -7,6 +7,7 @@ import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockID;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntitySpawnable;
+import cn.nukkit.config.ServerPropertiesKeys;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityLiving;
 import cn.nukkit.entity.data.EntityFlag;
@@ -185,7 +186,7 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 } else if (target instanceof Player) {
                     if ((((Player) target).getGamemode() & 0x01) > 0) {
                         return;
-                    } else if (!player.getServer().getPropertyBoolean("pvp")) {
+                    } else if (!player.getServer().getProperties().get(ServerPropertiesKeys.PVP, true)) {
                         return;
                     }
                 }
@@ -270,7 +271,8 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                         if (player.level.useItemOn(blockVector.asVector3(), i, face, useItemData.clickPos.x, useItemData.clickPos.y, useItemData.clickPos.z, player) != null) {
                             return;
                         }
-                    } else if (isItemuseValid(player, player.getInventory().getItemInHand(), useItemData.itemInHand)) {
+                    // } else if (isItemuseValid(player, player.getInventory().getItemInHand(), useItemData.itemInHand)) { // old
+                    } else if (player.getInventory().getItemInHand().equals(useItemData.itemInHand, true, false)) {
                         Item i = player.getInventory().getItemInHand();
                         Item oldItem = i.clone();
                         //TODO: Implement adventure mode checks

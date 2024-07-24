@@ -15,7 +15,7 @@ public interface ProtocolInfo {
 
     String MINECRAFT_VERSION_NETWORK = dynamic("1.21.2");
 
-    SemVersion MINECRAFT_SEMVERSION = new SemVersion(1, 21, 1, 0, 0);
+    SemVersion MINECRAFT_SEMVERSION = new SemVersion(1, 21, 2, 0, 0);
 
     int BLOCK_STATE_VERSION_NO_REVISION = (MINECRAFT_SEMVERSION.major() << 24) | //major
             (MINECRAFT_SEMVERSION.minor() << 16) | //minor
@@ -161,7 +161,7 @@ public interface ProtocolInfo {
     int EDUCATION_SETTINGS_PACKET = 0x89;
     int EMOTE_PACKET = 0x8a;
     int MULTIPLAYER_SETTINGS_PACKET = 0x8b;
-    int SETTINGS_COMMAND_PACKET = 0x8c;
+    int SETTINGS_COMMAND_PACKET = 140;
     int ANVIL_DAMAGE_PACKET = 0x8d;
     int COMPLETED_USING_ITEM_PACKET = 0x8e;
     int NETWORK_SETTINGS_PACKET = 0x8f;
