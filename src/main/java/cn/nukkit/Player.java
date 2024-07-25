@@ -1134,6 +1134,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             }
         }
 
+        this.namedTag = nbt;
+
         if (nbt == null) {
             this.close(this.getLeaveMessage(), "Invalid data");
             return;
@@ -1145,6 +1147,22 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
 
 
         nbt.putString("NameTag", this.getName());
+
+        reloadPlayerFromNamedTag();
+
+        log.info(server.getLanguage().tr("nukkit.player.logIn",
+                TextFormat.AQUA + this.getName() + TextFormat.WHITE,
+                this.getAddress(),
+                String.valueOf(this.getPort()),
+                String.valueOf(this.getId()),
+                this.level.getName(),
+                String.valueOf(NukkitMath.round(this.x, 4)),
+                String.valueOf(NukkitMath.round(this.y, 4)),
+                String.valueOf(NukkitMath.round(this.z, 4))));
+    }
+
+    public void reloadPlayerFromNamedTag(){
+        CompoundTag nbt = this.namedTag;
 
         int exp = nbt.getInt("EXP");
         int expLevel = nbt.getInt("expLevel");
@@ -1243,16 +1261,6 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         if (!this.server.getSettings().playerSettings().checkMovement()) {
             this.checkMovement = false;
         }
-
-        log.info(server.getLanguage().tr("nukkit.player.logIn",
-                TextFormat.AQUA + this.getName() + TextFormat.WHITE,
-                this.getAddress(),
-                String.valueOf(this.getPort()),
-                String.valueOf(this.getId()),
-                this.level.getName(),
-                String.valueOf(NukkitMath.round(this.x, 4)),
-                String.valueOf(NukkitMath.round(this.y, 4)),
-                String.valueOf(NukkitMath.round(this.z, 4))));
     }
 
     public Vector3 getSafeSpawn() {

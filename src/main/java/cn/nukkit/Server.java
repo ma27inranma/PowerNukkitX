@@ -1798,6 +1798,17 @@ public class Server {
         }
     }
 
+    public void deleteOfflinePlayerData(UUID uuid) {
+        if(uuid == null) {
+            return;
+        }
+
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        buffer.putLong(uuid.getMostSignificantBits());
+        buffer.putLong(uuid.getLeastSignificantBits());
+        playerDataDB.delete(buffer.array());
+    }
+
     /**
      * 从玩家名获得一个在线玩家，这个方法是模糊匹配，只要玩家名带有name前缀就会被返回.
      * <p>

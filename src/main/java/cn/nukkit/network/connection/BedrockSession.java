@@ -110,7 +110,7 @@ public class BedrockSession {
                 })
                 .permit(SessionState.RESOURCE_PACK, SessionState.RESOURCE_PACK);
 
-        cfg.configure(SessionState.RESOURCE_PACK)
+        cfg.configure(SessionState.RESOURCE_PACK) // FLAG::NOTE: executes after login
                 .onEntry(() -> {
                     log.debug("Player {} enter RESOURCE_PACK stage", getPeer().getSocketAddress().toString());
                     this.setPacketHandler(new ResourcePackHandler(this));
