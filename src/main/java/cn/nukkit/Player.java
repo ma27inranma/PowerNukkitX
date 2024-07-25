@@ -3506,7 +3506,15 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         //unload chunk for the player
         LongIterator iterator = this.playerChunkManager.getUsedChunks().iterator();
         while (iterator.hasNext()) {
-            long l = iterator.nextLong();
+            long l = 0;
+            try{
+                l = iterator.nextLong();
+            }catch(NullPointerException e){
+                log.error("LongIterator nullPointerException, Ignoring element.", e);
+
+                iterator.remove();
+                continue;
+            }
             int chunkX = Level.getHashX(l);
             int chunkZ = Level.getHashZ(l);
             if (level.unregisterChunkLoader(this, chunkX, chunkZ, false)) {
