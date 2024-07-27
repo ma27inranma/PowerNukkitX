@@ -69,4 +69,8 @@ public final class LevelDBStorage {
             }
         }
     }
+
+    public DB getDB() {
+        return db;
+    }
 }
