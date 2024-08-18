@@ -18,6 +18,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
 import cn.nukkit.network.protocol.types.EntityLink;
+import cn.nukkit.network.protocol.types.inventory.FullContainerName;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 import cn.nukkit.network.protocol.types.itemstack.request.ItemStackRequest;
 import cn.nukkit.network.protocol.types.itemstack.request.ItemStackRequestSlotData;
@@ -1431,8 +1432,8 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public void writeEntityLink(EntityLink link) {
-        writeEntityUniqueId(link.fromEntityUniquieId);
-        writeEntityUniqueId(link.toEntityUniquieId);
+        writeEntityUniqueId(link.fromEntityUniqueId);
+        writeEntityUniqueId(link.toEntityUniqueId);
         writeByte(link.type);
         writeBoolean(link.immediate);
         writeBoolean(link.riderInitiated);
@@ -1523,15 +1524,17 @@ public class HandleByteBuf extends ByteBuf {
 
     protected ItemStackRequestAction readRequestActionData(ItemStackRequestActionType type) {
         return switch (type) {
-            case CRAFT_REPAIR_AND_DISENCHANT -> new CraftGrindstoneAction(readUnsignedVarInt(), readVarInt());
+            case CRAFT_REPAIR_AND_DISENCHANT -> new CraftGrindstoneAction(readUnsignedVarInt(), readByte(), readInt());
             case CRAFT_LOOM -> new CraftLoomAction(readString());
             case CRAFT_RECIPE_AUTO -> {
                 int recipeId = readUnsignedVarInt();
+                int numberOfRequestedCrafts = readUnsignedByte();
                 int timesCrafted = readUnsignedByte();
                 List<ItemDescriptor> ingredients = new ObjectArrayList<>();
                 readArray(ingredients, HandleByteBuf::readUnsignedByte, HandleByteBuf::readRecipeIngredient);
                 yield new AutoCraftRecipeAction(
                         recipeId,
+                        numberOfRequestedCrafts,
                         timesCrafted,
                         ingredients
                 );
@@ -1578,10 +1581,12 @@ public class HandleByteBuf extends ByteBuf {
                     readVarInt()
             );
             case CRAFT_RECIPE -> new CraftRecipeAction(
-                    readUnsignedVarInt()
+                    readUnsignedVarInt(),
+                    readVarInt()
             );
             case CRAFT_CREATIVE -> new CraftCreativeAction(
-                    readUnsignedVarInt()
+                    readUnsignedVarInt(),
+                    readVarInt()
             );
             case CRAFT_NON_IMPLEMENTED_DEPRECATED -> new CraftNonImplementedAction();
             default -> throw new UnsupportedOperationException("Unhandled stack request action type: " + type);
@@ -1589,10 +1594,15 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     private ItemStackRequestSlotData readStackRequestSlotInfo() {
-        return new ItemStackRequestSlotData(
+        FullContainerName containerName = new FullContainerName(
                 ContainerSlotType.fromId(readByte()),
+                readIntLE()
+        );
+        return new ItemStackRequestSlotData(
+                containerName.getContainer(),
                 readUnsignedByte(),
-                readVarInt()
+                readVarInt(),
+                containerName
         );
     }
 

@@ -62,7 +62,8 @@ public abstract class TransferItemActionProcessor<T extends TransferItemStackReq
                                         sourItem.getCustomName(),
                                         sourItem.getDamage()
                                 )
-                        )
+                        ),
+                        action.getDestination().getContainerName()
                 )));
             }
         }
@@ -136,7 +137,8 @@ public abstract class TransferItemActionProcessor<T extends TransferItemStackReq
                                         resultDestItem.getCustomName(),
                                         resultDestItem.getDamage()
                                 )
-                        )
+                        ),
+                        action.getDestination().getContainerName()
                 );
         //CREATED_OUTPUT不需要发source响应
         if (source instanceof CreativeOutputInventory) {
@@ -154,7 +156,8 @@ public abstract class TransferItemActionProcessor<T extends TransferItemStackReq
                                             resultSourItem.getCustomName(),
                                             resultSourItem.getDamage()
                                     )
-                            )
+                            ),
+                            action.getSource().getContainerName()
                     ), destItemStackResponseSlot));
         }
     }

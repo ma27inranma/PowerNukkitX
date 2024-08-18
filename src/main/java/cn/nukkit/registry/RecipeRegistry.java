@@ -1,5 +1,6 @@
 package cn.nukkit.registry;
 
+import ca.solostudios.strata.parser.tokenizer.Char;
 import cn.nukkit.Server;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
@@ -16,6 +17,7 @@ import cn.nukkit.utils.Identifier;
 import cn.nukkit.utils.MinecraftNamespaceComparator;
 import cn.nukkit.utils.Utils;
 import com.google.common.collect.Collections2;
+import com.google.gson.internal.LinkedTreeMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.util.ReferenceCountUtil;
@@ -26,9 +28,11 @@ import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @Slf4j
 @SuppressWarnings("unchecked")
@@ -491,6 +495,12 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
             log.warn("Failed to load furnace xp config");
         }
 
+        // INFORMATION:
+        // This code is used to read the recipes.json provided by endstone, but since
+        // we do not have that data at the moment (for 1.21.20), we use recipes.json provided by Kaooot:
+        // https://github.com/Kaooot/bedrock-network-data
+        // We can use the original reader again, once endstone generates data again
+
         var recipeConfig = new Config(Config.JSON);
         try (var r = Server.class.getClassLoader().getResourceAsStream("recipes.json")) {
             recipeConfig.load(r);
@@ -498,21 +508,19 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
             //load potionMixes
             List<Map<String, Object>> potionMixes = (List<Map<String, Object>>) recipeConfig.getList("potionMixes");
             for (Map<String, Object> recipe : potionMixes) {
-                Map<String, Object> input = (Map<String, Object>) recipe.get("input");
-                String inputId = input.get("item").toString();
-                int inputMeta = Utils.toInt(input.get("data"));
+                String inputId = (String) recipe.get("inputId");
+                int inputMeta = (int) ((double) recipe.get("inputMeta"));
 
-                Map<String, Object> output = (Map<String, Object>) recipe.get("output");
-                String outputId = output.get("item").toString();
-                int outputMeta = Utils.toInt(output.get("data"));
+                String reagentId = (String) recipe.get("reagentId");
+                int reagentMeta = (int) ((double) recipe.get("reagentMeta"));
 
-                Map<String, Object> reagent = (Map<String, Object>) recipe.get("reagent");
-                String reagentId = reagent.get("item").toString();
-                int reagentMeta = Utils.toInt(reagent.get("data"));
+                String outputId = (String) recipe.get("outputId");
+                int outputMeta = (int) ((double) recipe.get("outputMeta"));
 
                 Item inputItem = Item.get(inputId, inputMeta);
                 Item reagentItem = Item.get(reagentId, reagentMeta);
                 Item outputItem = Item.get(outputId, outputMeta);
+
                 if (inputItem.isNull() || reagentItem.isNull() || outputItem.isNull()) {
                     continue;
                 }
@@ -521,101 +529,301 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                         reagentItem,
                         outputItem
                 ));
+
+                // Endstone Reader
+//                Map<String, Object> input = (Map<String, Object>) recipe.get("input");
+//                String inputId = input.get("item").toString();
+//                int inputMeta = Utils.toInt(input.get("data"));
+//
+//                Map<String, Object> output = (Map<String, Object>) recipe.get("output");
+//                String outputId = output.get("item").toString();
+//                int outputMeta = Utils.toInt(output.get("data"));
+//
+//                Map<String, Object> reagent = (Map<String, Object>) recipe.get("reagent");
+//                String reagentId = reagent.get("item").toString();
+//                int reagentMeta = Utils.toInt(reagent.get("data"));
+//
+//                Item inputItem = Item.get(inputId, inputMeta);
+//                Item reagentItem = Item.get(reagentId, reagentMeta);
+//                Item outputItem = Item.get(outputId, outputMeta);
+//                if (inputItem.isNull() || reagentItem.isNull() || outputItem.isNull()) {
+//                    continue;
+//                }
+//                register(new BrewingRecipe(
+//                        inputItem,
+//                        reagentItem,
+//                        outputItem
+//                ));
             }
 
             //load containerMixes
             List<Map<String, Object>> containerMixes = (List<Map<String, Object>>) recipeConfig.getList("containerMixes");
             for (Map<String, Object> containerMix : containerMixes) {
-                String fromItemId = containerMix.get("input").toString();
-                String ingredient = containerMix.get("reagent").toString();
-                String toItemId = containerMix.get("output").toString();
-                register(new ContainerRecipe(Item.get(fromItemId), Item.get(ingredient), Item.get(toItemId)));
+
+                String inputId = (String) containerMix.get("inputId");
+                String reagentId = (String) containerMix.get("reagentId");
+                String outputId = (String) containerMix.get("outputId");
+
+                this.register(new ContainerRecipe(
+                        Item.get(inputId),
+                        Item.get(reagentId),
+                        Item.get(outputId)
+                ));
+
+                // Endstone Reader
+//                String fromItemId = containerMix.get("input").toString();
+//                String ingredient = containerMix.get("reagent").toString();
+//                String toItemId = containerMix.get("output").toString();
+//                register(new ContainerRecipe(Item.get(fromItemId), Item.get(ingredient), Item.get(toItemId)));
+            }
+
+            //load all other recipes (Not Endstone Reader)
+            List<Map<String, Object>> recipes = (List<Map<String, Object>>) recipeConfig.getList("recipes");
+            for (Map<String, Object> recipe : recipes) {
+
+                String block = (String) recipe.get("block");
+
+                if (block == null)
+                    continue;
+
+                switch (block) {     // the block defines the type of recipe
+                    case "smithing_table" -> {
+                        String recipeId = (String) recipe.get("id");
+
+                        ItemDescriptor baseDescriptor = parseDescription(
+                                (Map<String, Object>) recipe.get("base"),
+                                ParseType.SMITHING_TABLE
+                        );
+                        ItemDescriptor additionDescriptor = parseDescription(
+                                (Map<String, Object>) recipe.get("addition"),
+                                ParseType.SMITHING_TABLE
+                        );
+                        ItemDescriptor templateDescriptor = parseDescription(
+                                (Map<String, Object>) recipe.get("template"),
+                                ParseType.SMITHING_TABLE
+                        );
+
+                        if (recipe.containsKey("result")) { // is smithing transform recipe
+                            Map<String, Object> result = (Map<String, Object>) recipe.get("result");
+                            String itemId = (String) result.get("id");
+                            int count = (int) ((double) result.get("count"));
+                            this.register(new SmithingTransformRecipe(
+                                    recipeId,
+                                    Item.get(itemId, 0, count),
+                                    baseDescriptor,
+                                    additionDescriptor,
+                                    templateDescriptor
+                            ));
+                        } else {    // is smithing trim recipe
+                            this.register(new SmithingTrimRecipe(
+                                    recipeId,
+                                    baseDescriptor,
+                                    additionDescriptor,
+                                    templateDescriptor,
+                                    "smithing_table"
+                            ));
+                        }
+                    }
+                    case "crafting_table", "stonecutter", "cartography_table" -> {
+                        ParseType inputParseType = ParseType.CRAFTING_TABLE_INPUT;
+                        ParseType outputParseType = ParseType.CRAFTING_TABLE_OUTPUT;
+
+                        switch (block) {
+                            case "stonecutter" -> {
+                                inputParseType = ParseType.STONECUTTER_INPUT;
+                                outputParseType = ParseType.STONECUTTER_OUTPUT;
+                            }
+                            case "cartography_table" -> {
+                                inputParseType = ParseType.CARTOGRAPHY_TABLE_INPUT;
+                                outputParseType = ParseType.CARTOGRAPHY_TABLE_OUTPUT;
+                            }
+                        }
+
+                        String recipeId = (String) recipe.get("id");
+                        UUID uuid = UUID.fromString((String) recipe.get("uuid"));
+                        int priority = (int) ((double) recipe.get("priority"));
+
+                        List<Map<String, Object>> outputs = (List<Map<String, Object>>) recipe.get("output");
+                        Map<String, Object> primaryResultData = outputs.removeFirst();
+                        ItemDescriptor primaryResult = parseDescription(primaryResultData, outputParseType);
+
+                        if (recipe.containsKey("shape")) {
+                            List<Item> extraResults = new ArrayList<>();
+                            for (Map<String, Object> output : outputs) {
+                                extraResults.add(parseDescription(output, outputParseType).toItem());
+                            }
+
+                            String[] shape = ((List<String>) recipe.get("shape")).toArray(String[]::new);
+
+                            Map<Character, ItemDescriptor> ingredients = new CharObjectHashMap<>();
+
+                            LinkedTreeMap<String, Object> inputs = (LinkedTreeMap<String, Object>) recipe.get("input");
+
+                            for (Map.Entry<String, Object> inputData : inputs.entrySet()) {
+                                char patternKey = inputData.getKey().charAt(0);
+                                Map<String, Object> ingredientData = (Map<String, Object>) inputData.getValue();
+
+                                ingredients.put(
+                                        patternKey,
+                                        parseDescription(
+                                                ingredientData,
+                                                inputParseType
+                                        )
+                                );
+                            }
+
+                            this.register(new ShapedRecipe(
+                                    recipeId,
+                                    uuid,
+                                    priority,
+                                    primaryResult.toItem(),
+                                    shape,
+                                    ingredients,
+                                    extraResults,
+                                    false,
+                                    new RecipeUnlockingRequirement(
+                                            RecipeUnlockingRequirement.UnlockingContext.ALWAYS_UNLOCKED
+                                    )
+                            ));
+                        } else {    // is shapeless recipe
+
+                            List<ItemDescriptor> ingredients = new ArrayList<>();
+                            List<Map<String, Object>> inputs = (List<Map<String, Object>>) recipe.get("input");
+
+                            for (Map<String, Object> input : inputs) {
+                                ingredients.add(parseDescription(input, inputParseType));
+                            }
+
+                            this.register(new ShapelessRecipe(
+                                    recipeId,
+                                    uuid,
+                                    priority,
+                                    primaryResult.toItem(),
+                                    ingredients,
+                                    new RecipeUnlockingRequirement(
+                                            RecipeUnlockingRequirement.UnlockingContext.ALWAYS_UNLOCKED
+                                    )
+                            ));
+                        }
+                    }
+                    case "furnace", "blast_furnace", "smoker", "campfire", "soul_campfire" -> {
+                        Map<String, Object> inputData = (Map<String, Object>) recipe.get("input");
+                        Map<String, Object> outputData = (Map<String, Object>) recipe.get("output");
+                        Item inputItem = parseDescription(inputData, ParseType.FURNACE_INPUT).toItem();
+                        Item outputItem = parseDescription(outputData, ParseType.FURNACE_OUTPUT).toItem();
+
+                        SmeltingRecipe smeltingRecipe = switch (block) {
+                            case "blast_furnace" -> new BlastFurnaceRecipe(outputItem, inputItem);
+                            case "smoker" -> new SmokerRecipe(outputItem, inputItem);
+                            case "campfire" -> new CampfireRecipe(outputItem, inputItem);
+                            case "soul_campfire" -> new SoulCampfireRecipe(outputItem, inputItem);
+                            default -> new FurnaceRecipe(outputItem, inputItem);
+                        };
+
+                        double xp = furnaceXpConfig.getDouble(inputItem.getId() + ":" + inputItem.getDamage());
+                        if (xp != 0) {
+                            this.setRecipeXp(smeltingRecipe, xp);
+                        }
+
+                        try {
+                            this.register(smeltingRecipe);
+                        } catch (Exception e) {     //this can be removed once duplicate recipes no longer exist
+                        }
+                    }
+                }
             }
 
             //load furnace recipes
-            List<Map<String, Object>> furnaceAuxes = (List<Map<String, Object>>) recipeConfig.getList("furnaceAux");
-            for (Map<String, Object> furnaceAux : furnaceAuxes) {
-                Map<String, Object> input = (Map<String, Object>) furnaceAux.get("input");
-                Item inputItem = Item.get(input.get("item").toString());
-                Map<String, Object> output = (Map<String, Object>) furnaceAux.get("output");
-                double outputCount = (double) output.get("count");
-                double outputData;
-                if(output.get("data") != null) {
-                    outputData = (double) output.get("data");
-                } else {
-                    outputData = 0;
-                }
-
-                Item outputItem = Item.get(output.get("item").toString());
-                outputItem.setCount((int) outputCount);
-                outputItem.setMeta((int) outputData);
-
-                String tag = furnaceAux.get("tag").toString();
-
-                Recipe furnaceRecipe = switch (tag) {
-                    case "furnace" -> new FurnaceRecipe(outputItem, inputItem);
-                    case "blast_furnace" -> new BlastFurnaceRecipe(outputItem, inputItem);
-                    case "smoker" -> new SmokerRecipe(outputItem, inputItem);
-                    case "campfire" -> new CampfireRecipe(outputItem, inputItem);
-                    case "soul_campfire" -> new SoulCampfireRecipe(outputItem, inputItem);
-                    default -> throw new IllegalStateException("Unexpected value: " + tag);
-                };
-
-                try {
-                    register(furnaceRecipe);
-                } catch (RuntimeException e) {
-
-                } //TODO: remove this when Endstone will fix duplication of furnaceAux recipes
-
-                var xp = furnaceXpConfig.getDouble(input.get("item") + ":" + (int)outputData);
-                if (xp != 0) {
-                    this.setRecipeXp(furnaceRecipe, xp);
-                }
-            }
+            // Endstone reader
+//            List<Map<String, Object>> furnaceAuxes = (List<Map<String, Object>>) recipeConfig.getList("furnaceAux");
+//            for (Map<String, Object> furnaceAux : furnaceAuxes) {
+//                Map<String, Object> input = (Map<String, Object>) furnaceAux.get("input");
+//                Item inputItem = Item.get(input.get("item").toString());
+//                Map<String, Object> output = (Map<String, Object>) furnaceAux.get("output");
+//                double outputCount = (double) output.get("count");
+//                double outputData;
+//                if (output.get("data") != null) {
+//                    outputData = (double) output.get("data");
+//                } else {
+//                    outputData = 0;
+//                }
+//
+//                Item outputItem = Item.get(output.get("item").toString());
+//                outputItem.setCount((int) outputCount);
+//                outputItem.setMeta((int) outputData);
+//
+//                String tag = furnaceAux.get("tag").toString();
+//
+//                Recipe furnaceRecipe = switch (tag) {
+//                    case "furnace" -> new FurnaceRecipe(outputItem, inputItem);
+//                    case "blast_furnace" -> new BlastFurnaceRecipe(outputItem, inputItem);
+//                    case "smoker" -> new SmokerRecipe(outputItem, inputItem);
+//                    case "campfire" -> new CampfireRecipe(outputItem, inputItem);
+//                    case "soul_campfire" -> new SoulCampfireRecipe(outputItem, inputItem);
+//                    default -> throw new IllegalStateException("Unexpected value: " + tag);
+//                };
+//
+//                try {
+//                    register(furnaceRecipe);
+//                } catch (RuntimeException e) {
+//
+//                } //TODO: remove this when Endstone will fix duplication of furnaceAux recipes
+//
+//                var xp = furnaceXpConfig.getDouble(input.get("item") + ":" + (int) outputData);
+//                if (xp != 0) {
+//                    this.setRecipeXp(furnaceRecipe, xp);
+//                }
+//            }
 
             //Shaped recipes
-            List<Map<String, Object>> shaped = (List<Map<String, Object>>) recipeConfig.getList("shaped");
-            for (Map<String, Object> shapedRecipe : shaped) {
-                register(parseShapeRecipe(shapedRecipe));
-            }
+            // Endstone reader
+//            List<Map<String, Object>> shaped = (List<Map<String, Object>>) recipeConfig.getList("shaped");
+//            for (Map<String, Object> shapedRecipe : shaped) {
+//                register(parseShapeRecipe(shapedRecipe));
+//            }
 
             //Shapeless
-            List<Map<String, Object>> shapeless = (List<Map<String, Object>>) recipeConfig.getList("shapeless");
-            for (Map<String, Object> shapelessRecipe : shapeless) {
-                String block = (String) shapelessRecipe.get("tag");
-                register(parseShapelessRecipe(shapelessRecipe, block));
-            }
+            //Endstone Reader
+//            List<Map<String, Object>> shapeless = (List<Map<String, Object>>) recipeConfig.getList("shapeless");
+//            for (Map<String, Object> shapelessRecipe : shapeless) {
+//                String block = (String) shapelessRecipe.get("tag");
+//                register(parseShapelessRecipe(shapelessRecipe, block));
+//            }
 
             //Multi recipes
-            List<Map<String, Object>> multi = (List<Map<String, Object>>) recipeConfig.getList("multi");
-            for (Map<String, Object> multiRecipe : multi) {
-                UUID uuid = UUID.fromString((String) multiRecipe.get("uuid"));
-                register(new MultiRecipe(uuid));
-            }
+            // Endstone Reader
+//            List<Map<String, Object>> multi = (List<Map<String, Object>>) recipeConfig.getList("multi");
+//            for (Map<String, Object> multiRecipe : multi) {
+//                UUID uuid = UUID.fromString((String) multiRecipe.get("uuid"));
+//                register(new MultiRecipe(uuid));
+//            }
 
             //Smithing Recipes
-            List<Map<String, Object>> smithingTrim = (List<Map<String, Object>>) recipeConfig.getList("smithingTrim");
-            for (Map<String, Object> smithingTrimRecipe : smithingTrim) {
-                String id = (String) smithingTrimRecipe.get("id");
-                Map<String, Object> base = (Map<String, Object>) smithingTrimRecipe.get("base");
-                ItemDescriptor baseItem = parseRecipeItem(base);
-                Map<String, Object> addition = (Map<String, Object>) smithingTrimRecipe.get("addition");
-                ItemDescriptor additionItem = parseRecipeItem(addition);
-                Map<String, Object> template = (Map<String, Object>) smithingTrimRecipe.get("template");
-                ItemDescriptor templateItem = parseRecipeItem(template);
+            // Endstone Reader
+//            List<Map<String, Object>> smithingTrim = (List<Map<String, Object>>) recipeConfig.getList("smithingTrim");
+//            for (Map<String, Object> smithingTrimRecipe : smithingTrim) {
+//                String id = (String) smithingTrimRecipe.get("id");
+//                Map<String, Object> base = (Map<String, Object>) smithingTrimRecipe.get("base");
+//                ItemDescriptor baseItem = parseRecipeItem(base);
+//                Map<String, Object> addition = (Map<String, Object>) smithingTrimRecipe.get("addition");
+//                ItemDescriptor additionItem = parseRecipeItem(addition);
+//                Map<String, Object> template = (Map<String, Object>) smithingTrimRecipe.get("template");
+//                ItemDescriptor templateItem = parseRecipeItem(template);
+//
+//                register(new SmithingTrimRecipe(id, baseItem, additionItem, templateItem, "smithing_table"));
+//            }
 
-                register(new SmithingTrimRecipe(id, baseItem, additionItem, templateItem, "smithing_table"));
-            }
+            // Endstone Reader
+//            List<Map<String, Object>> smithingTransform = (List<Map<String, Object>>) recipeConfig.getList("smithingTransform");
+//            for (Map<String, Object> smithingTransformRecipe : smithingTransform) {
+//                register(parseShapelessRecipe(smithingTransformRecipe, "smithing_table"));
+//            }
 
-            List<Map<String, Object>> smithingTransform = (List<Map<String, Object>>) recipeConfig.getList("smithingTransform");
-            for (Map<String, Object> smithingTransformRecipe : smithingTransform) {
-                register(parseShapelessRecipe(smithingTransformRecipe, "smithing_table"));
-            }
-
-            List<Map<String, Object>> shulkerBox = (List<Map<String, Object>>) recipeConfig.getList("shulkerBox");
-            for (Map<String, Object> shulkerBoxRecipe : shulkerBox) {
-                register(parseShapelessRecipe(shulkerBoxRecipe, "crafting_table"));
-            }
+            // Endstone Reader
+//            List<Map<String, Object>> shulkerBox = (List<Map<String, Object>>) recipeConfig.getList("shulkerBox");
+//            for (Map<String, Object> shulkerBoxRecipe : shulkerBox) {
+//                register(parseShapelessRecipe(shulkerBoxRecipe, "crafting_table"));
+//            }
 
         } catch (IOException e) {
             log.warn("Failed to load recipes config");
@@ -634,6 +842,85 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                 Collections.singletonList(Item.get(ItemID.FILLED_MAP, 4, 1, EmptyArrays.EMPTY_BYTES, false))));
         register(new CartographyRecipe(Item.get(ItemID.FILLED_MAP, 5, 1, EmptyArrays.EMPTY_BYTES, false),
                 Collections.singletonList(Item.get(ItemID.FILLED_MAP, 5, 1, EmptyArrays.EMPTY_BYTES, false))));
+    }
+
+    /**
+     * Temporary used for parsing information out of the new recipes.json format
+     *
+     * @return parsed ItemDescriptor
+     */
+    private ItemDescriptor parseDescription(Map<String, Object> data, ParseType parseType) {
+        ItemDescriptor descriptor = null;
+
+        switch (parseType) {
+            case SMITHING_TABLE, CRAFTING_TABLE_INPUT, CARTOGRAPHY_TABLE_INPUT, STONECUTTER_INPUT -> {
+                if (data.get("type").equals("item_tag")) {
+                    String itemTag = (String) data.get("itemTag");
+                    int count = data.containsKey("count") ? Utils.toInt(data.get("count")) : 1;
+                    descriptor = new ItemTagDescriptor(itemTag, count);
+
+                } else if (data.get("type").equals("complex_alias")) {
+                    String itemId = (String) data.get("name");
+                    int count = (int) ((double) data.get("count"));
+                    Item item = Item.get(itemId, 0, count);
+                    item.disableMeta();
+                    descriptor = new DefaultDescriptor(item);
+
+                } else {    // only other possibility is the "default" type
+                    String itemId = (String) data.get("itemId");
+                    int count = data.containsKey("count") ? Utils.toInt(data.get("count")) : 1;
+                    short meta = (short) ((double) data.get("auxValue"));
+                    Item item;
+                    if (meta == Short.MAX_VALUE || meta == -1) {
+                        item = Item.get(itemId, 0, count);
+                        item.disableMeta();
+                    } else {
+                        item = Item.get(itemId, meta, count);
+                    }
+                    descriptor = new DefaultDescriptor(item);
+                }
+            }
+            case CRAFTING_TABLE_OUTPUT, CARTOGRAPHY_TABLE_OUTPUT, STONECUTTER_OUTPUT, FURNACE_INPUT, FURNACE_OUTPUT -> {
+                String id = (String) data.get("id");
+                int count = 1;
+                short meta = 0;
+
+                if (data.containsKey("count")) {
+                    count = (int) ((double) data.get("count"));
+                }
+
+                if (data.containsKey("damage")) {
+                    meta = (short) ((double) data.get("damage"));
+                }
+
+                Item item;
+
+                if (meta == Short.MAX_VALUE || meta == -1) {
+                    item = Item.get(id, 0, count);
+                    item.disableMeta();
+                } else {
+                    item = Item.get(id, meta, count);
+                }
+                descriptor = new DefaultDescriptor(item);
+            }
+        }
+
+        return descriptor;
+    }
+
+    enum ParseType {
+        SMITHING_TABLE,
+        CRAFTING_TABLE_INPUT,
+        CRAFTING_TABLE_OUTPUT,
+        STONECUTTER_INPUT,
+        STONECUTTER_OUTPUT,
+        CARTOGRAPHY_TABLE_INPUT,
+        CARTOGRAPHY_TABLE_OUTPUT,
+
+        // we use this two parse types for all blocks similar to furnace:
+        // blast_furnace, smoker, campfire and soul_campfire
+        FURNACE_INPUT,
+        FURNACE_OUTPUT
     }
 
     private Recipe parseShapelessRecipe(Map<String, Object> recipeObject, String craftingBlock) {
@@ -743,7 +1030,7 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                 nbtBytes = nbt != null ? Base64.getDecoder().decode(nbt) : EmptyArrays.EMPTY_BYTES; //TODO: idk how to fix nbt, cuz we don't use Cloudburst NBT
 
                 Integer meta = null;
-                if(data.containsKey("data")) meta = Utils.toInt(data.get("data"));
+                if (data.containsKey("data")) meta = Utils.toInt(data.get("data"));
 
                 //normal item
                 if (meta != null) {

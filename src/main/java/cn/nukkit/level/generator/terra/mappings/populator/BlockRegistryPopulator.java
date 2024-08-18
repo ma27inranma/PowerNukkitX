@@ -6,14 +6,7 @@ import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.level.generator.terra.mappings.BlockMappings;
 import cn.nukkit.level.generator.terra.mappings.JeBlockState;
 import cn.nukkit.level.updater.Updater;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_10;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_30;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_40;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_50;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_60;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_70;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_20_80;
-import cn.nukkit.level.updater.block.BlockStateUpdater_1_21_0;
+import cn.nukkit.level.updater.block.*;
 import cn.nukkit.level.updater.util.tagupdater.CompoundTagUpdaterContext;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.TreeMapCompoundTag;
@@ -62,14 +55,16 @@ public final class BlockRegistryPopulator {
             BlockStateUpdater_1_20_60.INSTANCE,
             BlockStateUpdater_1_20_70.INSTANCE,
             BlockStateUpdater_1_20_80.INSTANCE,
-            BlockStateUpdater_1_21_0.INSTANCE
+            BlockStateUpdater_1_21_0.INSTANCE,
+            BlockStateUpdater_1_21_10.INSTANCE,
+            BlockStateUpdater_1_21_20.INSTANCE
     );
 
     public static BlockMappings initMapping() {
         try (InputStream stream = BlockRegistryPopulator.class.getClassLoader().getResourceAsStream("mappings/blocks.json")) {
             Map<String, Map<String, Object>> blocks = JSONUtils.from(
                     stream,
-                    new TypeToken<Map<String, Map<String, Object>>>() {
+                    new TypeToken<>() {
                     }
             );
             Object2ObjectOpenHashMap<JeBlockState, cn.nukkit.block.BlockState> MAP1 = new Object2ObjectOpenHashMap<>();

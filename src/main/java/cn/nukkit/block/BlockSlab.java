@@ -29,6 +29,12 @@ public abstract class BlockSlab extends BlockTransparent {
 
     public abstract String getSlabName();
 
+    public abstract boolean canHarvestWithHand();
+
+    public abstract int getToolTier();
+
+    public abstract int getToolType();
+
     @Override
     public String getName() {
         return (isOnTop() ? "Upper " : "") + getSlabName() + " Slab";
@@ -51,7 +57,7 @@ public abstract class BlockSlab extends BlockTransparent {
 
     @Override
     public double getResistance() {
-        return getToolType() < ItemTool.TYPE_AXE ? 30 : 15;
+        return getToolType() == ItemTool.TYPE_PICKAXE ? 6 : 3;
     }
 
     @Override

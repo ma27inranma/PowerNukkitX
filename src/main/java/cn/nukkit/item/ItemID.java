@@ -19,6 +19,8 @@ public interface ItemID {
 
     String ANGLER_POTTERY_SHERD = "minecraft:angler_pottery_sherd";
 
+    String ANVIL = "minecraft:anvil";
+
     String APPLE = "minecraft:apple";
 
     String ARCHER_POTTERY_SHERD = "minecraft:archer_pottery_sherd";
@@ -250,6 +252,8 @@ public interface ItemID {
     String DIAMOND_SHOVEL = "minecraft:diamond_shovel";
 
     String DIAMOND_SWORD = "minecraft:diamond_sword";
+
+    String DIRT = "minecraft:dirt";
 
     String DISC_FRAGMENT_5 = "minecraft:disc_fragment_5";
 
@@ -673,6 +677,8 @@ public interface ItemID {
 
     String POWDER_SNOW_BUCKET = "minecraft:powder_snow_bucket";
 
+    String PRISMARINE = "minecraft:prismarine";
+
     String PRISMARINE_CRYSTALS = "minecraft:prismarine_crystals";
 
     String PRISMARINE_SHARD = "minecraft:prismarine_shard";
@@ -692,6 +698,8 @@ public interface ItemID {
     String PURPLE_DYE = "minecraft:purple_dye";
 
     String QUARTZ = "minecraft:quartz";
+
+    String QUARTZ_BLOCK = "minecraft:quartz_block";
 
     String RABBIT = "minecraft:rabbit";
 
@@ -721,6 +729,8 @@ public interface ItemID {
 
     String RED_FLOWER = "minecraft:red_flower";
 
+    String RED_SANDSTONE = "minecraft:red_sandstone";
+
     String REDSTONE = "minecraft:redstone";
 
     String REPEATER = "minecraft:repeater";
@@ -736,6 +746,10 @@ public interface ItemID {
     String SALMON_BUCKET = "minecraft:salmon_bucket";
 
     String SALMON_SPAWN_EGG = "minecraft:salmon_spawn_egg";
+
+    String SAND = "minecraft:sand";
+
+    String SANDSTONE = "minecraft:sandstone";
 
     String SAPLING = "minecraft:sapling";
 

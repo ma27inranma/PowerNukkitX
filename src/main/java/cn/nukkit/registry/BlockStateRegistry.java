@@ -2,6 +2,7 @@ package cn.nukkit.registry;
 
 import cn.nukkit.block.BlockState;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.UnmodifiableView;
 

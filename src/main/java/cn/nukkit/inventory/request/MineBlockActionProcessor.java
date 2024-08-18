@@ -5,6 +5,7 @@ import cn.nukkit.Server;
 import cn.nukkit.config.ServerPropertiesKeys;
 import cn.nukkit.inventory.HumanInventory;
 import cn.nukkit.item.Item;
+import cn.nukkit.network.protocol.types.inventory.FullContainerName;
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
 import cn.nukkit.network.protocol.types.itemstack.request.action.MineBlockAction;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseContainer;
@@ -63,6 +64,10 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
                                         itemInHand.getCustomName(),
                                         itemInHand.getDamage()
                                 )
+                        ),
+                        new FullContainerName(
+                                inventory.getSlotType(heldItemIndex),
+                                0   // I don't know the purpose of the dynamicId yet, this is why I leave it at 0 for the MineBlockAction
                         )
                 );
         return context.success(List.of(itemStackResponseSlot));

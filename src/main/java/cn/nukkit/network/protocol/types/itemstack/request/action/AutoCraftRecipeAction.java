@@ -11,15 +11,10 @@ import java.util.List;
  */
 @Value
 public class AutoCraftRecipeAction implements RecipeItemStackRequestAction {
-    int recipeNetworkId;
-    /**
-     * @since v448
-     */
-    int timesCrafted;
 
-    /**
-     * @since v557
-     */
+    int recipeNetworkId;
+    int numberOfRequestedCrafts;
+    int timesCrafted;
     List<ItemDescriptor> ingredients;
 
     @Override

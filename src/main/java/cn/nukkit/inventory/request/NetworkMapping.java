@@ -8,9 +8,11 @@ import cn.nukkit.inventory.InventoryHolder;
 import cn.nukkit.inventory.fake.FakeInventory;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 import lombok.experimental.UtilityClass;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
 
+@Slf4j
 @UtilityClass
 public class NetworkMapping {
     public Inventory getInventory(Player player, ContainerSlotType containerSlotType) {

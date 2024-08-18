@@ -40,6 +40,7 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(ALLAY_SPAWN_EGG, ItemAllaySpawnEgg.class);
             register(AMETHYST_SHARD, ItemAmethystShard.class);
             register(ANGLER_POTTERY_SHERD, ItemAnglerPotterySherd.class);
+            register(ANVIL, ItemAnvil.class);
             register(APPLE, ItemApple.class);
             register(ARCHER_POTTERY_SHERD, ItemArcherPotterySherd.class);
             register(ARMADILLO_SCUTE, ItemArmadilloScute.class);
@@ -156,6 +157,7 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(DIAMOND_PICKAXE, ItemDiamondPickaxe.class);
             register(DIAMOND_SHOVEL, ItemDiamondShovel.class);
             register(DIAMOND_SWORD, ItemDiamondSword.class);
+            register(DIRT, ItemDirt.class);
             register(DISC_FRAGMENT_5, ItemDiscFragment5.class);
             register(DOLPHIN_SPAWN_EGG, ItemDolphinSpawnEgg.class);
             register(DONKEY_SPAWN_EGG, ItemDonkeySpawnEgg.class);
@@ -367,6 +369,7 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(POTATO, ItemPotato.class);
             register(POTION, ItemPotion.class);
             register(POWDER_SNOW_BUCKET, ItemPowderSnowBucket.class);
+            register(PRISMARINE, ItemPrismarine.class);
             register(PRISMARINE_CRYSTALS, ItemPrismarineCrystals.class);
             register(PRISMARINE_SHARD, ItemPrismarineShard.class);
             register(PRIZE_POTTERY_SHERD, ItemPrizePotterySherd.class);
@@ -377,6 +380,7 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(PUMPKIN_SEEDS, ItemPumpkinSeeds.class);
             register(PURPLE_DYE, ItemPurpleDye.class);
             register(QUARTZ, ItemQuartz.class);
+            register(QUARTZ_BLOCK, ItemQuartzBlock.class);
             register(RABBIT, ItemRabbit.class);
             register(RABBIT_FOOT, ItemRabbitFoot.class);
             register(RABBIT_HIDE, ItemRabbitHide.class);
@@ -391,6 +395,7 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(RECOVERY_COMPASS, ItemRecoveryCompass.class);
             register(RED_DYE, ItemRedDye.class);
             register(RED_FLOWER, ItemRedFlower.class);
+            register(RED_SANDSTONE, ItemRedSandstone.class);
             register(REDSTONE, ItemRedstone.class);
             register(REPEATER, ItemRepeater.class);
             register(RIB_ARMOR_TRIM_SMITHING_TEMPLATE, ItemRibArmorTrimSmithingTemplate.class);
@@ -399,6 +404,8 @@ public final class ItemRegistry implements ItemID, IRegistry<String, Item, Class
             register(SALMON, ItemSalmon.class);
             register(SALMON_BUCKET, ItemSalmonBucket.class);
             register(SALMON_SPAWN_EGG, ItemSalmonSpawnEgg.class);
+            register(SAND, ItemSand.class);
+            register(SANDSTONE, ItemSandstone.class);
             register(SAPLING, ItemSapling.class);
             register(SCRAPE_POTTERY_SHERD, ItemScrapePotterySherd.class);
             register(SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE, ItemSentryArmorTrimSmithingTemplate.class);
