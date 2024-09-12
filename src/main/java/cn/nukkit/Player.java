@@ -3522,7 +3522,11 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             }catch(NullPointerException e){
                 log.error("LongIterator nullPointerException, Ignoring element.", e);
 
-                iterator.remove();
+                try{
+                    iterator.remove();
+                }catch(NullPointerException e2){
+                    log.error("nullPointerException in LongIterator Ingnoring element.", e2);
+                }
                 continue;
             }
             int chunkX = Level.getHashX(l);
