@@ -4,7 +4,9 @@ import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.config.ServerPropertiesKeys;
 import cn.nukkit.inventory.HumanInventory;
+import cn.nukkit.inventory.SpecialWindowId;
 import cn.nukkit.item.Item;
+import cn.nukkit.network.protocol.InventorySlotPacket;
 import cn.nukkit.network.protocol.types.inventory.FullContainerName;
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
 import cn.nukkit.network.protocol.types.itemstack.request.action.MineBlockAction;
@@ -51,7 +53,15 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
             itemInHand.setDamage(action.getPredictedDurability());
         }else if (itemInHand.getDamage() != action.getPredictedDurability()) {
             log.warn("Durability predicted by the client does not match that of the server client {} server {} player {} allowClientDurabilityPrediction {}", action.getPredictedDurability(), itemInHand.getDamage(), player.getName(), allowClientDurabilityPrediction);
+            if (itemInHand.getDamage() != action.getPredictedDurability()) {
+                InventorySlotPacket inventorySlotPacket = new InventorySlotPacket();
+                inventorySlotPacket.inventoryId = SpecialWindowId.PLAYER.getId();
+                inventorySlotPacket.item = itemInHand;
+                inventorySlotPacket.slot = action.getHotbarSlot();
+                player.dataPacket(inventorySlotPacket);
+            }
         }
+        
         var itemStackResponseSlot =
                 new ItemStackResponseContainer(
                         inventory.getSlotType(heldItemIndex),

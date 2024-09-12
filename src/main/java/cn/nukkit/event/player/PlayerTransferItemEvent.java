@@ -6,52 +6,99 @@ import cn.nukkit.event.HandlerList;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.item.Item;
 
+import javax.annotation.Nullable;
+import java.util.Optional;
+
 public class PlayerTransferItemEvent extends PlayerEvent implements Cancellable {
+
+    private final Player player;
+    private final Type type;
+    private final Item sourceItem;
+
+    @Nullable
+    private final Item destinationItem;
+
+    private final int sourceSlot;
+
+    private final int destinationSlot;  // -1 if not present
+
+    private final Inventory sourceInventory;
+
+    @Nullable
+    private final Inventory destinationInventory;
+
     private static final HandlerList handlers = new HandlerList();
-    
-    public static HandlerList getHandlers(){
+
+
+    public PlayerTransferItemEvent(
+            Player player,
+            Type type,
+            Item sourceItem,
+            @Nullable Item destinationItem,
+            int sourceSlot,
+            int destinationSlot,    // set this to -1 if not present
+            Inventory sourceInventory,
+            @Nullable Inventory destinationInventory
+    ) {
+        this.player = player;
+        this.type = type;
+        this.sourceItem = sourceItem;
+        this.destinationItem = destinationItem;
+        this.sourceSlot = sourceSlot;
+        this.destinationSlot = destinationSlot;
+        this.sourceInventory = sourceInventory;
+        this.destinationInventory = destinationInventory;
+    }
+
+
+    public static HandlerList getHandlers() {
         return handlers;
     }
 
-    private final Inventory sourceInv;
-    private final Inventory targetInv;
-    private final Item targetItem;
-    private final Item sourceItem;
-    private final int sourceSlot;
-    private final int targetSlot;
 
-
-    public PlayerTransferItemEvent(Player who, Inventory sourceInventroy, Inventory targetInventory, Item targetItem, Item sourceItem, int sourceSlot, int targetSlot) {
-        this.player = who;
-        this.sourceInv = sourceInventroy;
-        this.targetInv = targetInventory;
-        this.targetItem = targetItem;
-        this.sourceItem = sourceItem;
-        this.targetSlot = targetSlot;
-        this.sourceSlot = sourceSlot;
+    public Player getPlayer() {
+        return this.player;
     }
 
-    public Item getTargetItem(){
-        return this.targetItem;
+
+    public Type getType() {
+        return this.type;
     }
 
-    public Item getSourceItem(){
+
+    public Item getSourceItem() {
         return this.sourceItem;
     }
 
-    public int getTargetSlot(){
-        return this.targetSlot;
+
+    public Optional<Item> getDestinationItem() {
+        return Optional.ofNullable(this.destinationItem);
     }
 
-    public int getSourceSlot(){
+
+    public int getSourceSlot() {
         return this.sourceSlot;
     }
 
-    public Inventory getSourceInventory(){
-        return this.sourceInv;
+
+    public Optional<Integer> getDestinationSlot() {
+        return this.destinationSlot == -1 ? Optional.empty() : Optional.of(this.destinationSlot);
     }
 
-    public Inventory getTargetInventory(){
-        return this.targetInv;
+
+    public Inventory getSourceInventory() {
+        return this.sourceInventory;
+    }
+
+
+    public Optional<Inventory> getDestinationInventory() {
+        return Optional.ofNullable(this.destinationInventory);
+    }
+
+
+    public enum Type {
+        TRANSFER,
+        SWAP,
+        DROP
     }
 }
