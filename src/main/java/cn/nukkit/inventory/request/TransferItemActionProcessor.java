@@ -82,13 +82,6 @@ public abstract class TransferItemActionProcessor<T extends TransferItemStackReq
             return context.error();
         }
 
-        PlayerTransferItemEvent transferEvent = new PlayerTransferItemEvent(player, source, destination, destItem, sourItem, sourceSlot, destinationSlot);
-        Server.getInstance().getPluginManager().callEvent(transferEvent);
-
-        if(transferEvent.isCancelled()) {
-            return context.error();
-        }
-
         Item resultSourItem;
         Item resultDestItem;
         boolean sendSource = !(source instanceof SoleInventory);
