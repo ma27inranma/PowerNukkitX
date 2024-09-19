@@ -2,6 +2,7 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.item.Item;
 import cn.nukkit.network.connection.util.HandleByteBuf;
+import cn.nukkit.network.protocol.types.inventory.FullContainerName;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
@@ -17,7 +18,8 @@ public class InventorySlotPacket extends DataPacket {
     public int inventoryId;
     public int slot;
     public Item item;
-    private int dynamicInventoryId;
+    public FullContainerName fullContainerName;
+    public int dynamicContainerSize;
 
 
     @Override
@@ -29,7 +31,8 @@ public class InventorySlotPacket extends DataPacket {
     public void decode(HandleByteBuf byteBuf) {
         this.inventoryId = byteBuf.readUnsignedVarInt();
         this.slot = byteBuf.readUnsignedVarInt();
-        this.dynamicInventoryId = byteBuf.readUnsignedVarInt();
+        this.fullContainerName = byteBuf.readFullContainerName();
+        this.dynamicContainerSize = byteBuf.readUnsignedVarInt();
         this.item = byteBuf.readSlot();
     }
 
@@ -37,7 +40,8 @@ public class InventorySlotPacket extends DataPacket {
     public void encode(HandleByteBuf byteBuf) {
         byteBuf.writeUnsignedVarInt(this.inventoryId);
         byteBuf.writeUnsignedVarInt(this.slot);
-        byteBuf.writeUnsignedVarInt(this.dynamicInventoryId);
+        byteBuf.writeFullContainerName(this.fullContainerName);
+        byteBuf.writeUnsignedVarInt(this.dynamicContainerSize);
         byteBuf.writeSlot(this.item);
     }
 
