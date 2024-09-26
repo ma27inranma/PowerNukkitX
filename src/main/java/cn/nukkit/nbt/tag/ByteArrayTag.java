@@ -43,7 +43,10 @@ public class ByteArrayTag extends Tag {
         for (int i = 0; i < this.data.length - 1; i++) {
             builder.append(data[i]).append("b, ");
         }
-        builder.append(data[data.length - 1]).append("b]");
+        if(data.length > 0) {
+            builder.append(data[data.length - 1]).append("b");
+        }
+        builder.append("]");
         return builder.toString();
     }
 
