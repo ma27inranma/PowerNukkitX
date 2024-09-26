@@ -20,6 +20,8 @@ public class InventoryContentPacket extends DataPacket {
     public FullContainerName fullContainerName;
     public int dynamicContainerSize;
 
+    public boolean useOldProtocol = false;
+
     @Override
     public int pid() {
         return ProtocolInfo.INVENTORY_CONTENT_PACKET;
@@ -37,8 +39,15 @@ public class InventoryContentPacket extends DataPacket {
         for (Item slot : this.slots) {
             byteBuf.writeSlot(slot);
         }
-        byteBuf.writeFullContainerName(this.fullContainerName);
-        byteBuf.writeUnsignedVarInt(this.dynamicContainerSize);
+
+        if(!useOldProtocol){
+            byteBuf.writeFullContainerName(this.fullContainerName);
+            byteBuf.writeUnsignedVarInt(this.dynamicContainerSize);
+        }else{
+            byteBuf.writeByte((byte) 0); // fullContainerName.id
+            byteBuf.writeBoolean(false); // fullContainerName.optional.present
+            byteBuf.writeUnsignedVarInt(0); // dynamicContainerSize
+        }
     }
 
     public void handle(PacketHandler handler) {

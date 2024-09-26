@@ -4,17 +4,25 @@ import cn.nukkit.Player;
 import cn.nukkit.blockentity.BlockEntityEnderChest;
 import cn.nukkit.blockentity.BlockEntityNameable;
 import cn.nukkit.entity.IHuman;
+import cn.nukkit.item.Item;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Sound;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.BlockEventPacket;
 import cn.nukkit.network.protocol.ContainerClosePacket;
 import cn.nukkit.network.protocol.ContainerOpenPacket;
+import cn.nukkit.network.protocol.InventoryContentPacket;
+import cn.nukkit.network.protocol.InventorySlotPacket;
+import cn.nukkit.network.protocol.OldInventoryContentPacket;
+import cn.nukkit.network.protocol.types.inventory.FullContainerName;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class HumanEnderChestInventory extends BaseInventory implements BlockEntityInventoryNameable {
@@ -42,7 +50,7 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         if (blockEntityEnderChest == null) {
             enderChest = null;
             player.setEnderChestOpen(false);
-        } else {
+        }else{
             enderChest = blockEntityEnderChest;
             player.setEnderChestOpen(true);
         }
@@ -56,8 +64,11 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         if (enderChest == null) {
             return;
         }
+
+        who.addWindow(this, SpecialWindowId.FAKE_ENDER_CHEST.getId());
+
         ContainerOpenPacket containerOpenPacket = new ContainerOpenPacket();
-        containerOpenPacket.windowId = SpecialWindowId.ENDER_CHEST.getId();
+        containerOpenPacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
         containerOpenPacket.type = this.getType().getNetworkType();
         containerOpenPacket.x = (int) enderChest.getX();
         containerOpenPacket.y = (int) enderChest.getY();
@@ -85,12 +96,13 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         if (who != this.getHolder()) {
             return;
         }
+
         if (enderChest == null) {
             return;
         }
 
         ContainerClosePacket containerClosePacket = new ContainerClosePacket();
-        containerClosePacket.windowId = SpecialWindowId.ENDER_CHEST.getId();
+        containerClosePacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
         containerClosePacket.wasServerInitiated = who.getClosingWindowId() != containerClosePacket.windowId;
         containerClosePacket.type = getType();
         who.dataPacket(containerClosePacket);
@@ -130,5 +142,54 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         if (enderChest != null) {
             return enderChest.getName();
         } else return "Unknown";
+    }
+
+    @Override
+    public void sendContents(Player... players) {
+        // InventorySlotPacket firstSlotPacket = new InventorySlotPacket();
+        // firstSlotPacket.slot = toNetworkSlot(0);
+        // firstSlotPacket.item = this.getUnclonedItem(0);
+        // firstSlotPacket.dynamicContainerSize = this.getSize();
+
+        // for (Player player : players) {
+        //     int id = player.getWindowId(this);
+        //     log.info("Inventory Id: " + id + " Enderchest ID: " + SpecialWindowId.FAKE_ENDER_CHEST.getId());
+
+        //     firstSlotPacket.inventoryId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
+            
+        //     firstSlotPacket.fullContainerName = new FullContainerName(
+        //         getSlotType(firstSlotPacket.slot),
+        //         id
+        //     );
+
+        //     player.dataPacket(firstSlotPacket);
+        // }
+
+        InventoryContentPacket pk = new InventoryContentPacket();
+        pk.useOldProtocol = true;
+
+        pk.slots = new Item[this.getSize()];
+        for (int i = 0; i < this.getSize(); ++i) {
+            Item item = this.getUnclonedItem(i);
+            // if(item.isNull()) continue;
+
+            // item.getOrCreateNamedTag().putString("Name", item.getId()).putByte("Count", item.getCount());
+
+            // log.info(item.getId() + ": " + Optional.ofNullable(item.getNamedTag()).orElse(new CompoundTag()).toSNBT(2));
+            pk.slots[i] = item;
+        }
+
+        for (Player player : players) {
+            int id = SpecialWindowId.FAKE_ENDER_CHEST.getId();
+
+            if (id == -1 || !player.spawned) {
+                this.close(player);
+                continue;
+            }
+            pk.inventoryId = id;
+
+            player.sendMessage("[Plogger] HumanEnderChestInventory sendContents");
+            player.dataPacket(pk);
+        }
     }
 }

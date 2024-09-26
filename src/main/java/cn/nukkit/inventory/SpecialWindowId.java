@@ -7,7 +7,8 @@ public enum SpecialWindowId {
     OFFHAND(119),
     ARMOR(120),
     CURSOR(124),
-    ENDER_CHEST(125);
+    ENDER_CHEST(125),
+    FAKE_ENDER_CHEST(118);
 
     private final int id;
 
