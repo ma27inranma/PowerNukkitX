@@ -187,7 +187,6 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
             }
             pk.inventoryId = id;
 
-            player.sendMessage("[Plogger] HumanEnderChestInventory sendContents");
             player.dataPacket(pk);
         }
     }
