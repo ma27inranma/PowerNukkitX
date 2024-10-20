@@ -2459,9 +2459,17 @@ public class Level implements Metadatable {
                         if (!(v instanceof StringTag stringTag)) {
                             continue;
                         }
+
                         Item entry = Item.get(stringTag.data);
+                        // log.info("target id: " + entry.getBlock().getId() + ", actual id: " + target.getId());
+
                         if (!entry.isNull() &&
                                 entry.getBlock().getId().equals(target.getId())) {
+                            canBreak = true;
+                            break;
+                        }
+
+                        if(stringTag.data.equals(target.getId())){ // todo: remove this and fix the problem better
                             canBreak = true;
                             break;
                         }
