@@ -67,7 +67,8 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         who.addWindow(this, SpecialWindowId.FAKE_ENDER_CHEST.getId());
 
         ContainerOpenPacket containerOpenPacket = new ContainerOpenPacket();
-        containerOpenPacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
+        // containerOpenPacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
+        containerOpenPacket.windowId = SpecialWindowId.ENDER_CHEST.getId();
         containerOpenPacket.type = this.getType().getNetworkType();
         containerOpenPacket.x = (int) enderChest.getX();
         containerOpenPacket.y = (int) enderChest.getY();
@@ -143,8 +144,7 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         } else return "Unknown";
     }
 
-    @Override
-    public void sendContents(Player... players) {
+    public void sendContentsFake(Player... players) {
         // InventorySlotPacket firstSlotPacket = new InventorySlotPacket();
         // firstSlotPacket.slot = toNetworkSlot(0);
         // firstSlotPacket.item = this.getUnclonedItem(0);
@@ -165,7 +165,6 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         // }
 
         InventoryContentPacket pk = new InventoryContentPacket();
-        pk.useOldProtocol = true;
 
         pk.slots = new Item[this.getSize()];
         for (int i = 0; i < this.getSize(); ++i) {

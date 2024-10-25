@@ -20,8 +20,6 @@ public class InventoryContentPacket extends DataPacket {
     public FullContainerName fullContainerName;
     public Item storageItem = Item.AIR; // is air if the item is not a bundle
 
-    public boolean useOldProtocol = false;
-
     @Override
     public int pid() {
         return ProtocolInfo.INVENTORY_CONTENT_PACKET;
@@ -39,8 +37,18 @@ public class InventoryContentPacket extends DataPacket {
         for (Item slot : this.slots) {
             byteBuf.writeSlot(slot);
         }
+
         byteBuf.writeFullContainerName(this.fullContainerName);
         byteBuf.writeSlot(this.storageItem);
+
+        // if(!useOldProtocol){
+        //     byteBuf.writeFullContainerName(this.fullContainerName);
+        //     byteBuf.writeSlot(this.storageItem);
+        // }else{
+        //     byteBuf.writeByte((byte) 0); // fullContainerName.id
+        //     byteBuf.writeBoolean(false); // fullContainerName.optional.present
+        //     byteBuf.writeUnsignedVarInt(0); // dynamicContainerSize
+        // }
     }
 
     public void handle(PacketHandler handler) {
