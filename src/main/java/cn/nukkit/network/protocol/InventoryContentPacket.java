@@ -18,7 +18,7 @@ public class InventoryContentPacket extends DataPacket {
     public int inventoryId;
     public Item[] slots = Item.EMPTY_ARRAY;
     public FullContainerName fullContainerName;
-    public int dynamicContainerSize;
+    public Item storageItem = Item.AIR; // is air if the item is not a bundle
 
     public boolean useOldProtocol = false;
 
@@ -39,15 +39,8 @@ public class InventoryContentPacket extends DataPacket {
         for (Item slot : this.slots) {
             byteBuf.writeSlot(slot);
         }
-
-        if(!useOldProtocol){
-            byteBuf.writeFullContainerName(this.fullContainerName);
-            byteBuf.writeUnsignedVarInt(this.dynamicContainerSize);
-        }else{
-            byteBuf.writeByte((byte) 0); // fullContainerName.id
-            byteBuf.writeBoolean(false); // fullContainerName.optional.present
-            byteBuf.writeUnsignedVarInt(0); // dynamicContainerSize
-        }
+        byteBuf.writeFullContainerName(this.fullContainerName);
+        byteBuf.writeSlot(this.storageItem);
     }
 
     public void handle(PacketHandler handler) {
