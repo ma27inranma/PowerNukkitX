@@ -53,10 +53,8 @@ public class ResourcePacksInfoPacket extends DataPacket {
             byteBuf.writeString(!entry.getEncryptionKey().isEmpty() ? entry.getPackId().toString() : ""); // content identity
             byteBuf.writeBoolean(false); // scripting
             byteBuf.writeBoolean(false);    // isAddonPack
+            byteBuf.writeBoolean(false); // raytracing capable
             byteBuf.writeString(entry.cdnUrl());    // cdnUrl
-            if (!behaviour) {
-                byteBuf.writeBoolean(false); // raytracing capable
-            }
         }
     }
 
