@@ -67,15 +67,15 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
         who.addWindow(this, SpecialWindowId.FAKE_ENDER_CHEST.getId());
 
         ContainerOpenPacket containerOpenPacket = new ContainerOpenPacket();
-        // containerOpenPacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
-        containerOpenPacket.windowId = SpecialWindowId.ENDER_CHEST.getId();
+        containerOpenPacket.windowId = SpecialWindowId.FAKE_ENDER_CHEST.getId();
+        // containerOpenPacket.windowId = SpecialWindowId.ENDER_CHEST.getId();
         containerOpenPacket.type = this.getType().getNetworkType();
         containerOpenPacket.x = (int) enderChest.getX();
         containerOpenPacket.y = (int) enderChest.getY();
         containerOpenPacket.z = (int) enderChest.getZ();
         super.onOpen(who);
         who.dataPacket(containerOpenPacket);
-        this.sendContents(who);
+        this.sendContentsFake(who);
 
         BlockEventPacket blockEventPacket = new BlockEventPacket();
         blockEventPacket.x = (int) enderChest.getX();
@@ -185,6 +185,7 @@ public class HumanEnderChestInventory extends BaseInventory implements BlockEnti
                 continue;
             }
             pk.inventoryId = id;
+            pk.fullContainerName = new FullContainerName(ContainerSlotType.HOTBAR_AND_INVENTORY, id);
 
             player.dataPacket(pk);
         }
