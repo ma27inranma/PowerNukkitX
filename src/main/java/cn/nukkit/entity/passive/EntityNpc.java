@@ -73,9 +73,6 @@ public class EntityNpc extends EntityLiving implements IEntityNPC, EntityInterac
 
     @Override
     public void initEntity() {
-        for(int i = 0; i < 10; i++)
-            log.info("initing NPC...");
-
         super.initEntity();
         this.setMaxHealth(Integer.MAX_VALUE); // Should be Float max value
         this.setHealth(20);
@@ -151,8 +148,8 @@ public class EntityNpc extends EntityLiving implements IEntityNPC, EntityInterac
         this.setNameTag(this.getDialog().getTitle());
         log.info("set nametag into " + this.getDialog().getTitle());
 
-        //对于创造模式玩家，NPC发送过去的dialog的sceneName必须为空，否则客户端会不允许修改对话框内容
-        //另外的，我们不需要记录发送给创造模式玩家的对话框，首先因为我们无法清除，其次没有必要
+        // For creative mode players, the sceneName of the dialog sent by the NPC must be empty, otherwise the client will not allow modification of the dialog content.
+        // Additionally, we do not need to record the dialog sent to creative mode players, firstly because we cannot clear it, and secondly because it is unnecessary.
         player.showDialogWindow(this.dialog, !player.isCreative());
         return true;
     }
