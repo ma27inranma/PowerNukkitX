@@ -344,8 +344,9 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 ////
                 if (player.isCreative()) {
                     item = player.getInventory().getItemInHand();
-                } else if (!player.getInventory().getItemInHand().equals(useItemDataItem)) {
+                } else if (!player.getInventory().getItemInHand().equals(useItemDataItem, true, false)) {
                     player.getInventory().sendHeldItem(player);
+                    player.getInventory().sendArmorContents(player);
                     return;
                 } else {
                     item = player.getInventory().getItemInHand();
