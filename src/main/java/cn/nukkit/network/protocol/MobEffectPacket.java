@@ -49,7 +49,6 @@ public class MobEffectPacket extends DataPacket {
         byteBuf.writeBoolean(this.particles);
         byteBuf.writeVarInt(this.duration);
         byteBuf.writeUnsignedVarLong(this.tick);
-        // byteBuf.writeLongLE(this.tick);
     }
 
     public void handle(PacketHandler handler) {

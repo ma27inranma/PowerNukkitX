@@ -40,15 +40,6 @@ public class InventoryContentPacket extends DataPacket {
 
         byteBuf.writeFullContainerName(this.fullContainerName);
         byteBuf.writeSlot(this.storageItem);
-
-        // if(!useOldProtocol){
-        //     byteBuf.writeFullContainerName(this.fullContainerName);
-        //     byteBuf.writeSlot(this.storageItem);
-        // }else{
-        //     byteBuf.writeByte((byte) 0); // fullContainerName.id
-        //     byteBuf.writeBoolean(false); // fullContainerName.optional.present
-        //     byteBuf.writeUnsignedVarInt(0); // dynamicContainerSize
-        // }
     }
 
     public void handle(PacketHandler handler) {
