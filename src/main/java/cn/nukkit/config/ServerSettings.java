@@ -92,6 +92,8 @@ public final class ServerSettings extends OkaeriConfig {
         boolean command = false;
         @Comment("nukkit.server.settings.debugSettings.ignoredPackets")
         ArrayList<String> ignoredPackets = new ArrayList<>();
+        @Comment("nukkit.server.settings.debugSettings.allowBeta")
+        boolean allowBeta = false;
     }
 
     @EqualsAndHashCode(callSuper = true)
@@ -112,6 +114,8 @@ public final class ServerSettings extends OkaeriConfig {
         boolean tickRedstone = true;
         @Comment("nukkit.server.settings.levelSettings.chunkUnloadDelay")
         int chunkUnloadDelay = 15000;
+        @Comment("nukkit.server.settings.levelSettings.levelThread")
+        boolean levelThread = false;
     }
 
     @EqualsAndHashCode(callSuper = true)

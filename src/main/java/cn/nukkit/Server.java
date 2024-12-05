@@ -740,8 +740,8 @@ public class Server {
             log.debug("Unloading all levels");
             for (Level level : this.levelArray) {
                 this.unloadLevel(level, true);
+                while(level.isThreadRunning()) Thread.sleep(1);
             }
-
             if (positionTrackingService != null) {
                 log.debug("Closing position tracking service");
                 positionTrackingService.close();
@@ -820,7 +820,7 @@ public class Server {
         }
     }
 
-    private void checkTickUpdates(int currentTick, long tickTime) {
+    private void checkTickUpdates(int currentTick) {
         if (getSettings().levelSettings().alwaysTickPlayers()) {
             for (Player p : new ArrayList<>(this.players.values())) {
                 p.onUpdate(currentTick);
@@ -828,49 +828,51 @@ public class Server {
         }
 
         int baseTickRate = getSettings().levelSettings().baseTickRate();
-        //Do level ticks
-        for (Level level : this.getLevels().values()) {
-            if (level.getTickRate() > baseTickRate && --level.tickRateCounter > 0) {
-                continue;
-            }
-
-            try {
-                long levelTime = System.currentTimeMillis();
-                //Ensures that the server won't try to tick a level without providers.
-                if (level.getProvider().getLevel() == null) {
-                    log.warn("Tried to tick Level " + level.getName() + " without a provider!");
+        //Do level ticks if level threading is disabled
+        if(!this.getSettings().levelSettings().levelThread()) {
+            for (Level level : this.getLevels().values()) {
+                if (level.getTickRate() > baseTickRate && --level.tickRateCounter > 0) {
                     continue;
                 }
-                level.doTick(currentTick);
-                int tickMs = (int) (System.currentTimeMillis() - levelTime);
-                level.tickRateTime = tickMs;
-                if ((currentTick & 511) == 0) { // % 511
-                    level.tickRateOptDelay = level.recalcTickOptDelay();
-                }
 
-                if (getSettings().levelSettings().autoTickRate()) {
-                    if (tickMs < 50 && level.getTickRate() > baseTickRate) {
-                        int r;
-                        level.setTickRate(r = level.getTickRate() - 1);
-                        if (r > baseTickRate) {
+                try {
+                    long levelTime = System.currentTimeMillis();
+                    //Ensures that the server won't try to tick a level without providers.
+                    if (level.getProvider().getLevel() == null) {
+                        log.warn("Tried to tick Level " + level.getName() + " without a provider!");
+                        continue;
+                    }
+                    level.doTick(currentTick);
+                    int tickMs = (int) (System.currentTimeMillis() - levelTime);
+                    level.tickRateTime = tickMs;
+                    if ((currentTick & 511) == 0) { // % 511
+                        level.tickRateOptDelay = level.recalcTickOptDelay();
+                    }
+
+                    if (getSettings().levelSettings().autoTickRate()) {
+                        if (tickMs < 50 && level.getTickRate() > baseTickRate) {
+                            int r;
+                            level.setTickRate(r = level.getTickRate() - 1);
+                            if (r > baseTickRate) {
+                                level.tickRateCounter = level.getTickRate();
+                            }
+                            log.debug("Raising level \"{}\" tick rate to {} ticks", level.getName(), level.getTickRate());
+                        } else if (tickMs >= 50) {
+                            int autoTickRateLimit = getSettings().levelSettings().autoTickRateLimit();
+                            if (level.getTickRate() == baseTickRate) {
+                                level.setTickRate(Math.max(baseTickRate + 1, Math.min(autoTickRateLimit, tickMs / 50)));
+                                log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", level.getName(), NukkitMath.round(tickMs, 2), level.getTickRate());
+                            } else if ((tickMs / level.getTickRate()) >= 50 && level.getTickRate() < autoTickRateLimit) {
+                                level.setTickRate(level.getTickRate() + 1);
+                                log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", level.getName(), NukkitMath.round(tickMs, 2), level.getTickRate());
+                            }
                             level.tickRateCounter = level.getTickRate();
                         }
-                        log.debug("Raising level \"{}\" tick rate to {} ticks", level.getName(), level.getTickRate());
-                    } else if (tickMs >= 50) {
-                        int autoTickRateLimit = getSettings().levelSettings().autoTickRateLimit();
-                        if (level.getTickRate() == baseTickRate) {
-                            level.setTickRate(Math.max(baseTickRate + 1, Math.min(autoTickRateLimit, tickMs / 50)));
-                            log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", level.getName(), NukkitMath.round(tickMs, 2), level.getTickRate());
-                        } else if ((tickMs / level.getTickRate()) >= 50 && level.getTickRate() < autoTickRateLimit) {
-                            level.setTickRate(level.getTickRate() + 1);
-                            log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", level.getName(), NukkitMath.round(tickMs, 2), level.getTickRate());
-                        }
-                        level.tickRateCounter = level.getTickRate();
                     }
+                } catch (Exception e) {
+                    log.error(this.getLanguage().tr("nukkit.level.tickError",
+                            level.getFolderPath(), Utils.getExceptionMessage(e)), e);
                 }
-            } catch (Exception e) {
-                log.error(this.getLanguage().tr("nukkit.level.tickError",
-                        level.getFolderPath(), Utils.getExceptionMessage(e)), e);
             }
         }
     }
@@ -918,11 +920,7 @@ public class Server {
 
         this.getScheduler().mainThreadHeartbeat(this.tickCounter);
 
-        this.checkTickUpdates(this.tickCounter, tickTime);
-
-        for (Player player : this.players.values()) {
-            player.checkNetwork();
-        }
+        this.checkTickUpdates(this.tickCounter);
 
         if ((this.tickCounter & 0b1111) == 0) {
             this.titleTick();
@@ -1202,11 +1200,8 @@ public class Server {
      * @throws ServerException 服务器异常
      */
     public int executeCommand(CommandSender sender, String commandLine) throws ServerException {
-        // First we need to check if this command is on the main thread or not, if not, warn the user
+        // First we need to check if this command is on the main thread or not, if not, merge it in the main thread.
         if (!this.isPrimaryThread()) {
-            log.warn("Command Dispatched Async: {}\nPlease notify author of plugin causing this execution to fix this bug!", commandLine,
-                    new ConcurrentModificationException("Command Dispatched Async: " + commandLine));
-
             this.scheduler.scheduleTask(null, () -> executeCommand(sender, commandLine));
             return 1;
         }
