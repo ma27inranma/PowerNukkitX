@@ -133,8 +133,10 @@ public class LevelDBChunkSerializer {
                     byte[] skyLights = new byte[i2];
                     byteBuf.readBytes(skyLights);
                     final ChunkSection section = builder.getSections()[ySection - minSectionY];
-                    section.blockLights().copyFrom(blockLights);
-                    section.skyLights().copyFrom(skyLights);
+                    if (section != null) {
+                        section.blockLights().copyFrom(blockLights);
+                        section.skyLights().copyFrom(skyLights);
+                    }
                 } finally {
                     byteBuf.release();
                 }
