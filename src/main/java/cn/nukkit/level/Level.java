@@ -2592,10 +2592,6 @@ public class Level implements Metadatable {
                     return null;
                 }
 
-                if (!ev.getInstaBreak() && ev.isFastBreak()) {
-                    return null;
-                }
-
                 player.lastBreak = System.currentTimeMillis();
 
                 drops = ev.getDrops();
