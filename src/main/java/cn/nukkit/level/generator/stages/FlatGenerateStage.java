@@ -30,9 +30,9 @@ public class FlatGenerateStage extends GenerateStage {
                 chunk.setHeightMap(x, z, 5);
                 for (int y = 0; y < 5; y++) {
                     if (y == 0) {
-                        chunk.setBlockState(x, y, z, bedrock);
-                    } else if (y == 4) chunk.setBlockState(x, y, z, grass);
-                    else chunk.setBlockState(x, y, z, dirt);
+                        chunk.setBlockStateNoSave(x, y, z, bedrock);
+                    } else if (y == 4) chunk.setBlockStateNoSave(x, y, z, grass);
+                    else chunk.setBlockStateNoSave(x, y, z, dirt);
                 }
                 for (int i = context.getGenerator().getDimensionData().getMinSectionY(); i < context.getGenerator().getDimensionData().getMinSectionY(); i++) {
                     chunk.setBiomeId(x, i, z, BiomeID.PLAINS);

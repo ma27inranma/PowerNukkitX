@@ -55,7 +55,7 @@ public abstract class Generator implements BlockID {
 
     public final IChunk syncGenerate(IChunk chunk, String to) {
         final ChunkGenerateContext context = new ChunkGenerateContext(this, level, chunk);
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+        CompletableFuture<java.lang.Void> future = CompletableFuture.runAsync(() -> {
             start.apply(context);
         }, start.getExecutor());
         GenerateStage now = start;

@@ -3177,6 +3177,10 @@ public class Level implements Metadatable {
         this.getChunk(x >> 4, z >> 4, true).setBlockSkyLight(x & 0x0f, ensureY(y), z & 0x0f, level & 0x0f);
     }
 
+    public void setBlockSkyLightAtNoSave(int x, int y, int z, int level) {
+        this.getChunk(x >> 4, z >> 4, true).setBlockSkyLightNoSave(x & 0x0f, ensureY(y), z & 0x0f, level & 0x0f);
+    }
+
     /**
      * @param x the x
      * @param y the y

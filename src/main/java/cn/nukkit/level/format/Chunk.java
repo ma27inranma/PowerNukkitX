@@ -231,6 +231,17 @@ public class Chunk implements IChunk {
     }
 
     @Override
+    public void setBlockStateNoSave(int x, int y, int z, BlockState blockstate, int layer) {
+        long stamp = blockLock.writeLock();
+        try {
+            getOrCreateSection(y >> 4).setBlockState(x, y & 0x0f, z, blockstate, layer);
+        } finally {
+            blockLock.unlockWrite(stamp);
+            removeInvalidTile(x, y, z);
+        }
+    }
+
+    @Override
     public int getBlockSkyLight(int x, int y, int z) {
         long stamp = lightLock.tryOptimisticRead();
         try {
@@ -252,6 +263,16 @@ public class Chunk implements IChunk {
         long stamp = lightLock.writeLock();
         try {
             setChanged();
+            getOrCreateSection(y >> 4).setBlockSkyLight(x, y & 0x0f, z, (byte) level);
+        } finally {
+            lightLock.unlockWrite(stamp);
+        }
+    }
+
+    @Override
+    public void setBlockSkyLightNoSave(int x, int y, int z, int level) {
+        long stamp = lightLock.writeLock();
+        try {
             getOrCreateSection(y >> 4).setBlockSkyLight(x, y & 0x0f, z, (byte) level);
         } finally {
             lightLock.unlockWrite(stamp);

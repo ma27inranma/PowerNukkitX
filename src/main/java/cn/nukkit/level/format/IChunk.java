@@ -105,8 +105,14 @@ public interface IChunk {
 
     void setBlockState(int x, int y, int z, BlockState blockstate, int layer);
 
+    void setBlockStateNoSave(int x, int y, int z, BlockState blockstate, int layer);
+
     default void setBlockState(int x, int y, int z, BlockState blockstate) {
         setBlockState(x, y, z, blockstate, 0);
+    }
+
+    default void setBlockStateNoSave(int x, int y, int z, BlockState blockstate) {
+        setBlockStateNoSave(x, y, z, blockstate, 0);
     }
 
     /**
@@ -118,6 +124,8 @@ public interface IChunk {
     int getBlockSkyLight(int x, int y, int z);
 
     void setBlockSkyLight(int x, int y, int z, int level);
+
+    void setBlockSkyLightNoSave(int x, int y, int z, int level);
 
     /**
      * @param x the x 0~15
