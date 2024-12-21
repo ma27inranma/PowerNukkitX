@@ -2652,6 +2652,10 @@ public class Level implements Metadatable {
                 }
             }
         }
+
+        if(player != null)
+            player.getInventory().setItemInHand(item);
+
         return item;
     }
 
