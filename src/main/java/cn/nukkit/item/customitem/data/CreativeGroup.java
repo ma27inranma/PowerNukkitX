@@ -102,13 +102,21 @@ public enum CreativeGroup {
 
     BOOTS("itemGroup.name.boots"),
 
+    BUNDLES("itemGroup.name.bundles"),
+
     BUTTONS("itemGroup.name.buttons"),
+
+    CANDLES("itemGroup.name.candles"),
 
     CHALKBOARD("itemGroup.name.chalkboard"),
 
     CHEST("itemGroup.name.chest"),
 
+    CHESTBOAT("itemGroup.name.chestboat"),
+
     CHESTPLATE("itemGroup.name.chestplate"),
+
+    COMPOUNDS("itemGroup.name.compounds"),
 
     CONCRETE("itemGroup.name.concrete"),
 
@@ -146,7 +154,11 @@ public enum CreativeGroup {
 
     GLAZED_TERRACOTTA("itemGroup.name.glazedTerracotta"),
 
+    GOAT_HORN("itemGroup.name.goatHorn"),
+
     GRASS("itemGroup.name.grass"),
+
+    HANGING_SIGN("itemGroup.name.hanging_sign"),
 
     HELMET("itemGroup.name.helmet"),
 
@@ -174,6 +186,8 @@ public enum CreativeGroup {
 
     NETHERWART_BLOCK("itemGroup.name.netherWartBlock"),
 
+    OMINOUS_BOTTLE("itemGroup.name.ominousBottle"),
+
     ORE("itemGroup.name.ore"),
 
     PERMISSION("itemGroup.name.permission"),
@@ -184,7 +198,11 @@ public enum CreativeGroup {
 
     POTION("itemGroup.name.potion"),
 
+    POTTERY_SHERDS("itemGroup.name.potterySherds"),
+
     PRESSURE_PLATE("itemGroup.name.pressurePlate"),
+
+    PRODUCTS("itemGroup.name.products"),
 
     RAIL("itemGroup.name.rail"),
 
@@ -195,6 +213,8 @@ public enum CreativeGroup {
     SANDSTONE("itemGroup.name.sandstone"),
 
     SAPLING("itemGroup.name.sapling"),
+
+    SCULK("itemGroup.name.sculk"),
 
     SEED("itemGroup.name.seed"),
 
@@ -208,7 +228,9 @@ public enum CreativeGroup {
 
     SLAB("itemGroup.name.slab"),
 
-    SLASH_POTION("itemGroup.name.splashPotion"),
+    SMITHING_TEMPLATES("itemGroup.name.smithing_templates"),
+
+    SPLASH_POTION("itemGroup.name.splashPotion"),
 
     STAINED_CLAY("itemGroup.name.stainedClay"),
 
@@ -228,11 +250,7 @@ public enum CreativeGroup {
 
     WOOL("itemGroup.name.wool"),
 
-    WOOL_CARPET("itemGroup.name.woolCarpet"),
-
-    CANDLES("itemGroup.name.candles"),
-
-    GOAT_HORN("itemGroup.name.goatHorn");
+    WOOL_CARPET("itemGroup.name.woolCarpet");
 
     private final String groupName;
 
