@@ -881,7 +881,12 @@ public class Server {
         if (this.getAutoSave()) {
             for (Player player : new ArrayList<>(this.players.values())) {
                 if (player.isOnline()) {
-                    player.save(true);
+                    try{
+                        player.save(true);
+                    }catch(IllegalStateException e){
+                        log.info("doAutoSave error", e);
+                        e.printStackTrace();
+                    }
                 } else if (!player.isConnected()) {
                     this.removePlayer(player);
                 }

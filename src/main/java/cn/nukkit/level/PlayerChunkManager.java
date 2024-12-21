@@ -190,7 +190,12 @@ public final class PlayerChunkManager {
                 player.getServer().getPluginManager().callEvent(ev);
                 player.level.requestChunk(chunkX, chunkZ, player);
             }
-            sentChunks.addAll(chunkReadyToSend.keySet());
+            try{
+                sentChunks.addAll(chunkReadyToSend.keySet());
+            }catch(ArrayIndexOutOfBoundsException e){
+                log.info("sentChunks error", e);
+                e.printStackTrace();
+            }
         }
         chunkReadyToSend.clear();
     }

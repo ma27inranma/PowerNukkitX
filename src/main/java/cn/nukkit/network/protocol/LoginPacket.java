@@ -15,6 +15,7 @@ import com.google.gson.reflect.TypeToken;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.UUID;
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class LoginPacket extends DataPacket {
     public static final int NETWORK_ID = ProtocolInfo.LOGIN_PACKET;
 
@@ -91,6 +93,7 @@ public class LoginPacket extends DataPacket {
 
     private void decodeSkinData(BinaryStream binaryStream) {
         JsonObject skinToken = decodeToken(new String(binaryStream.get(binaryStream.getLInt())));
+        if (skinToken == null) return;
         if (skinToken.has("ClientRandomId")) this.clientId = skinToken.get("ClientRandomId").getAsLong();
 
         skin = new Skin();
@@ -172,7 +175,17 @@ public class LoginPacket extends DataPacket {
     private JsonObject decodeToken(String token) {
         String[] base = token.split("\\.");
         if (base.length < 2) return null;
-        return new Gson().fromJson(new String(Base64.getDecoder().decode(base[1]), StandardCharsets.UTF_8), JsonObject.class);
+
+        byte[] data = null;
+        try{
+            data = Base64.getDecoder().decode(base[1]);
+
+            log.info("succeed data: {}", base[1]);
+        }catch(IllegalArgumentException e){
+            log.info("failed data: {}", base[1]);
+        }
+
+        return new Gson().fromJson(new String(data, StandardCharsets.UTF_8), JsonObject.class);
     }
 
     private static SkinAnimation getAnimation(JsonObject element) {
