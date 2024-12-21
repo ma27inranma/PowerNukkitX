@@ -180,7 +180,7 @@ public class LoginPacket extends DataPacket {
         try{
             data = Base64.getDecoder().decode(base[1]);
 
-            log.info("succeed data: {}", base[1]);
+            // log.info("succeed data: {}", base[1]);
         }catch(IllegalArgumentException e){
             log.info("failed data: {}", base[1]);
         }
