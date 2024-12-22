@@ -1,22 +1,26 @@
 package cn.nukkit.level.generator.object;
 
-import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.network.protocol.LevelChunkPacket;
 import cn.nukkit.network.protocol.UpdateBlockPacket;
 import cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket;
 import cn.nukkit.network.protocol.types.BlockChangeEntry;
+import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.function.Predicate;
 
+@Slf4j
 public class BlockManager {
     private final Level level;
     private final Long2ObjectOpenHashMap<Block> caches;
@@ -112,22 +116,41 @@ public class BlockManager {
             this.level.setBlock(b, b, true, true);
         }
     }
-
+    
     public void applySubChunkUpdate() {
-        this.applySubChunkUpdate(new ArrayList<>(this.places.values()), null);
+        this.applySubChunkUpdate(new ArrayList<>(this.places.values()), null, false);
+    }
+    
+    public void applySubChunkUpdateAndSendInChunk() {
+        this.applySubChunkUpdate(new ArrayList<>(this.places.values()), null, true);
     }
 
     public void applySubChunkUpdate(List<Block> blockList) {
-        this.applySubChunkUpdate(blockList, null);
+        this.applySubChunkUpdate(blockList, null, false);
+    }
+
+    public void applySubChunkUpdateAndSendInChunk(List<Block> blockList) {
+        this.applySubChunkUpdate(blockList, null, true);
     }
 
     public void applySubChunkUpdate(List<Block> blockList, Predicate<Block> predicate) {
+        this.applySubChunkUpdate(blockList, predicate, false);
+    }
+
+    public void applySubChunkUpdate(List<Block> blockList, Predicate<Block> predicate, boolean sendInChunk) {
         if (predicate != null) {
             blockList = blockList.stream().filter(predicate).toList();
         }
+
         HashMap<IChunk, ArrayList<Block>> chunks = new HashMap<>();
         HashMap<SubChunkEntry, UpdateSubChunkBlocksPacket> batchs = new HashMap<>();
+        HashSet<Pair<Integer, Integer>> changedChunks = new HashSet<>();
         for (var b : blockList) {
+            // changedChunks.add(((long) b.getChunkX() << 32) | ((long) b.getChunkZ()));
+            if(sendInChunk) {
+                changedChunks.add(Pair.of(b.getChunkX(), b.getChunkZ()));
+            }
+
             ArrayList<Block> chunk = chunks.computeIfAbsent(level.getChunk(b.getChunkX(), b.getChunkZ(), true), c -> new ArrayList<>());
             chunk.add(b);
             UpdateSubChunkBlocksPacket batch = batchs.computeIfAbsent(new SubChunkEntry(b.getChunkX() << 4, (b.getFloorY() >> 4) << 4, b.getChunkZ() << 4), s -> new UpdateSubChunkBlocksPacket(s.x, s.y, s.z));
@@ -148,11 +171,31 @@ public class BlockManager {
             });
             key.reObfuscateChunk();
         });
-        for (var p : batchs.values()) {
-            Server.broadcastPacket(level.getPlayers().values(), p);
-        }
+        // for (var p : batchs.values()) {
+        //     Server.broadcastPacket(level.getPlayers().values(), p);
+        // }
         places.clear();
         caches.clear();
+
+        for(Pair<Integer, Integer> chunk : changedChunks) {
+            int chunkX = chunk.left();
+            int chunkZ = chunk.right();
+
+            final var chunkResponse = this.level.getProvider().requestChunkData(chunkX, chunkZ);
+
+            log.info("changedChunkX: " + chunkX + " changedChunkZ: " + chunkZ);
+
+            level.getPlayers().values().forEach(player -> {
+                LevelChunkPacket chunkPacket = new LevelChunkPacket();
+                chunkPacket.chunkX = chunkX;
+                chunkPacket.chunkZ = chunkZ;
+                chunkPacket.dimension = level.getDimensionData().getDimensionId();
+                chunkPacket.subChunkCount = chunkResponse.right();
+                chunkPacket.data = chunkResponse.left();
+
+                player.sendChunk(chunkX, chunkZ, chunkPacket);
+            });
+        }
     }
 
     public int getMaxHeight() {
