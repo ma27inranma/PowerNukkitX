@@ -183,6 +183,7 @@ public class LoginPacket extends DataPacket {
             // log.info("succeed data: {}", base[1]);
         }catch(IllegalArgumentException e){
             log.info("failed data: {}", base[1]);
+            throw e;
         }
 
         return new Gson().fromJson(new String(data, StandardCharsets.UTF_8), JsonObject.class);
