@@ -176,6 +176,10 @@ public class LoginPacket extends DataPacket {
         String[] base = token.split("\\.");
         if (base.length < 2) return null;
 
+        if(base[1].contains("-")){
+            base[1] = base[1].substring(0, base[1].indexOf("-"));
+        }
+
         byte[] data = null;
         try{
             data = Base64.getDecoder().decode(base[1]);
