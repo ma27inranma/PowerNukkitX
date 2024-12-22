@@ -100,6 +100,7 @@ import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
 import cn.nukkit.network.connection.BedrockDisconnectReasons;
 import cn.nukkit.network.connection.BedrockSession;
+import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.network.process.SessionState;
 import cn.nukkit.network.protocol.*;
 import cn.nukkit.network.protocol.types.CommandOriginData;
@@ -142,6 +143,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.util.internal.EmptyArrays;
 import io.netty.util.internal.PlatformDependent;
 import it.unimi.dsi.fastutil.Pair;
@@ -2272,6 +2276,13 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
      * @param packet 发送的数据包<br>packet to send
      */
     public void dataPacket(DataPacket packet) {
+        // ByteBuf buf = ByteBufAllocator.DEFAULT.ioBuffer();
+        // HandleByteBuf bufHandle = HandleByteBuf.of(buf);
+
+        // packet.encode(bufHandle);
+
+        // log.info("{} => {} x{}", packet.getClass().getSimpleName(), this.getName(), bufHandle.readableBytes());
+
         this.getSession().sendPacket(packet);
     }
 
