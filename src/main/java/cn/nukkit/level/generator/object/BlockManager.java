@@ -183,8 +183,6 @@ public class BlockManager {
 
             final var chunkResponse = this.level.getProvider().requestChunkData(chunkX, chunkZ);
 
-            log.info("changedChunkX: " + chunkX + " changedChunkZ: " + chunkZ);
-
             level.getPlayers().values().forEach(player -> {
                 LevelChunkPacket chunkPacket = new LevelChunkPacket();
                 chunkPacket.chunkX = chunkX;
