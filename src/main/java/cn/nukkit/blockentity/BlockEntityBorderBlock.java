@@ -7,17 +7,27 @@ import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.UpdateBlockPacket;
 import cn.nukkit.plugin.InternalPlugin;
+import cn.nukkit.scheduler.TaskHandler;
+import lombok.extern.slf4j.Slf4j;
 
 /**
 * @author ma27inranma
 */
 
+@Slf4j
 public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be lag source
   public BlockEntityBorderBlock(IChunk chunk, CompoundTag nbt) {
     super(chunk, nbt);
 
-    Server.getInstance().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, () -> {
-      if(!this.isValid()) return;
+    final TaskHandler[] taskPtr = new TaskHandler[1];
+    taskPtr[0] = Server.getInstance().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, () -> {
+      if(!this.isValid()){
+        taskPtr[0].cancel();
+        return;
+      }else if(!this.getLevel().isChunkLoaded(this.getChunkX(), this.getChunkZ())){ // i think this is not needed. because isValid is enough.
+        taskPtr[0].cancel();
+        return;
+      }
 
       sendBorderBlockToAll();
     }, 1, 20, false);
