@@ -23,9 +23,13 @@ public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be
     taskPtr[0] = Server.getInstance().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, () -> {
       if(!this.isValid()){
         taskPtr[0].cancel();
+
+        this.close();
         return;
       }else if(!this.getLevel().isChunkLoaded(this.getChunkX(), this.getChunkZ())){ // i think this is not needed. because isValid is enough.
         taskPtr[0].cancel();
+
+        this.close();
         return;
       }
 
