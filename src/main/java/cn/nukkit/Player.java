@@ -14,6 +14,8 @@ import cn.nukkit.block.BlockWool;
 import cn.nukkit.block.customblock.CustomBlock;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.blockentity.BlockEntity;
+import cn.nukkit.blockentity.BlockEntityBorderBlock;
+import cn.nukkit.blockentity.BlockEntityLoadListener;
 import cn.nukkit.blockentity.BlockEntitySign;
 import cn.nukkit.blockentity.BlockEntitySpawnable;
 import cn.nukkit.camera.data.CameraPreset;
@@ -4437,6 +4439,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                 this.dataPacket(revertAir);
 
                 blockEntitySpawnable.spawnTo(this);
+            }else if(b instanceof BlockEntityLoadListener blockEntityLoadListener){
+                blockEntityLoadListener.onLoad(this);
             }
         }
     }

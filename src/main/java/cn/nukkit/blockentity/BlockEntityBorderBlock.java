@@ -15,11 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 */
 
 @Slf4j
-public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be lag source
+public class BlockEntityBorderBlock extends BlockEntity implements BlockEntityLoadListener { // FLAG::MARKER can be lag source
   public BlockEntityBorderBlock(IChunk chunk, CompoundTag nbt) {
     super(chunk, nbt);
 
-    final TaskHandler[] taskPtr = new TaskHandler[1];
+    /*final TaskHandler[] taskPtr = new TaskHandler[1];
     taskPtr[0] = Server.getInstance().getScheduler().scheduleDelayedRepeatingTask(InternalPlugin.INSTANCE, () -> {
       if(!this.isValid()){
         taskPtr[0].cancel();
@@ -34,7 +34,7 @@ public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be
       }
 
       sendBorderBlockToAll();
-    }, 1, 20, false);
+    }, 1, 20, false);*/
   }
   
   @Override
@@ -53,5 +53,21 @@ public class BlockEntityBorderBlock extends BlockEntity { // FLAG::MARKER can be
     for(Player player : Server.getInstance().getDefaultLevel().getChunkPlayers(this.getChunkX(), this.getChunkZ()).values()){
       player.dataPacket(packet);
     }
+  }
+  
+  public void sendBorderBlockTo(Player player) {
+    UpdateBlockPacket packet = new UpdateBlockPacket();
+    packet.flags = UpdateBlockPacket.FLAG_NETWORK;
+    packet.blockRuntimeId = this.getLevelBlock().getRuntimeId();
+    packet.x = (int) this.x;
+    packet.y = (int) this.y;
+    packet.z = (int) this.z;
+    
+    player.dataPacket(packet);
+  }
+
+  @Override
+  public void onLoad(Player player) {
+    sendBorderBlockTo(player);
   }
 }
