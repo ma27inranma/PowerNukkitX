@@ -5155,6 +5155,8 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                             }
                             toRepair.setDamage(dmg);
                             inventory.setItem(itemToRepair, toRepair);
+
+                            exp = 0;
                         }
                     }
                 }
