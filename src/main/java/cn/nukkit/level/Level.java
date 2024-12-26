@@ -3838,6 +3838,18 @@ public class Level implements Metadatable {
         return (int) time;
     }
 
+    public int getDayTime() {
+        return this.getTime() % Level.TIME_FULL;
+    }
+
+    public boolean isDay() {
+        return (getDayTime() < 13184 || getDayTime() > 22800);
+    }
+
+    public boolean isNight() {
+        return (getDayTime() > 13184 && getDayTime() < 22800);
+    }
+
     /**
      * 设置这个地图经历的时间
      * <p>
