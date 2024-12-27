@@ -173,6 +173,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     protected Server server;
     protected boolean isPlayer = this instanceof Player;
     private int maxHealth = 20;
+    private int originalMaxHealth = 20;
     protected String name;
     private volatile boolean initialized;
     protected volatile boolean saveWithChunk = true;
@@ -1255,6 +1256,10 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
 
     public int getMaxHealth() {
         return maxHealth;
+    }
+
+    public int getOriginalMaxHealth(){
+        return originalMaxHealth;
     }
 
     public void setMaxHealth(int maxHealth) {
