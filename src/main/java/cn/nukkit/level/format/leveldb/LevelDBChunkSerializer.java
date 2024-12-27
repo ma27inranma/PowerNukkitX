@@ -26,6 +26,8 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
+import lombok.extern.slf4j.Slf4j;
+
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.WriteBatch;
 
@@ -43,6 +45,7 @@ import java.util.List;
  *
  * @author Cool_Loong
  */
+@Slf4j
 public class LevelDBChunkSerializer {
     public static final LevelDBChunkSerializer INSTANCE = new LevelDBChunkSerializer();
 
@@ -332,8 +335,10 @@ public class LevelDBChunkSerializer {
         ByteBuf tileBuffer = ByteBufAllocator.DEFAULT.ioBuffer();
         try (var bufStream = new ByteBufOutputStream(tileBuffer)) {
             byte[] key = LevelDBKeyUtil.BLOCK_ENTITIES.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData());
-            if (blockEntities.isEmpty()) writeBatch.delete(key);
-            else {
+            if (blockEntities.isEmpty()) {
+                // writeBatch.delete(key);
+                log.info("Deleting block entities at {}, {}", chunk.getX(), chunk.getZ());
+            } else {
                 for (BlockEntity blockEntity : blockEntities) {
                     blockEntity.saveNBT();
                     NBTIO.write(blockEntity.namedTag, bufStream, ByteOrder.LITTLE_ENDIAN);
