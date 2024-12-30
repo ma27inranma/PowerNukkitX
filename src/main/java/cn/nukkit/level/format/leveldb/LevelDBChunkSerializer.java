@@ -69,6 +69,8 @@ public class LevelDBChunkSerializer {
         //which is easy to call Level#getBlock, which can cause a deadlock,
         //so handle it without locking
         serializeTileAndEntity(writeBatch, chunk);
+        // maybe the block entity vanishing bug is because this unsynced operation?
+        // caller may save to the db before serialization is completed?
     }
 
     public void deserialize(DB db, IChunkBuilder builder) throws IOException {
@@ -340,7 +342,11 @@ public class LevelDBChunkSerializer {
                 log.info("Deleting block entities at {}, {}", chunk.getX(), chunk.getZ());
             } else {
                 for (BlockEntity blockEntity : blockEntities) {
-                    blockEntity.saveNBT();
+                    try{
+                        blockEntity.saveNBT();
+                    }catch(Exception e){
+                        log.error("Error occured while saving the block entity: " + e);
+                    }
                     NBTIO.write(blockEntity.namedTag, bufStream, ByteOrder.LITTLE_ENDIAN);
                 }
                 writeBatch.put(key, Utils.convertByteBuf2Array(tileBuffer));

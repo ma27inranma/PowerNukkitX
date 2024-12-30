@@ -1,5 +1,6 @@
 package cn.nukkit.level.format.leveldb;
 
+import cn.nukkit.Server;
 import cn.nukkit.level.format.Chunk;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.level.format.LevelProvider;
@@ -54,7 +55,10 @@ public final class LevelDBStorage {
             LevelDBChunkSerializer.INSTANCE.serialize(writeBatch, chunk);
             WriteOptions writeOptions = new WriteOptions();
             writeOptions.sync(true);
-            this.db.write(writeBatch, writeOptions);
+
+            Server.getInstance().getScheduler().scheduleDelayedTask(() -> { // [Note] Debugging
+                this.db.write(writeBatch, writeOptions);
+            }, 20*5);
         }
     }
 
