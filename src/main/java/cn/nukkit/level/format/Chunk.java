@@ -625,15 +625,21 @@ public class Chunk implements IChunk {
                 for (CompoundTag nbt : blockEntityNBT) {
                     if (nbt != null) {
                         if (!nbt.contains("id")) {
+                            log.info("BlockEntity is not including ID field.");
+
                             changed = true;
                             continue;
                         }
                         if ((nbt.getInt("x") >> 4) != this.getX() || ((nbt.getInt("z") >> 4) != this.getZ())) {
+                            log.info("BlockEntity Invalid Chunk.");
+
                             changed = true;
                             continue;
                         }
                         BlockEntity blockEntity = BlockEntity.createBlockEntity(nbt.getString("id"), this, nbt);
                         if (blockEntity == null) {
+                            log.info("BlockEntity created but somehow null.");
+
                             changed = true;
                         }
                     }

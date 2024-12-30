@@ -56,9 +56,7 @@ public final class LevelDBStorage {
             WriteOptions writeOptions = new WriteOptions();
             writeOptions.sync(true);
 
-            Server.getInstance().getScheduler().scheduleDelayedTask(() -> { // [Note] Debugging
-                this.db.write(writeBatch, writeOptions);
-            }, 20*5);
+            this.db.write(writeBatch, writeOptions);
         }
     }
 

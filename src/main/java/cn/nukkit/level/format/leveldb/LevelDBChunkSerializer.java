@@ -71,6 +71,7 @@ public class LevelDBChunkSerializer {
         serializeTileAndEntity(writeBatch, chunk);
         // maybe the block entity vanishing bug is because this unsynced operation?
         // caller may save to the db before serialization is completed?
+        // nop becaues this is synced operation
     }
 
     public void deserialize(DB db, IChunkBuilder builder) throws IOException {
@@ -309,6 +310,8 @@ public class LevelDBChunkSerializer {
                 throw new RuntimeException(e);
             }
             builder.blockEntities(blockEntityTags);
+        }else{
+            log.info("tileBytes was null at {} {} {}", builder.getChunkX(), builder.getChunkZ());
         }
 
         byte[] key = LevelDBKeyUtil.ENTITIES.getKey(builder.getChunkX(), builder.getChunkZ(), dimensionInfo);
