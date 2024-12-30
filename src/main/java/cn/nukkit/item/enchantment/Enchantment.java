@@ -434,9 +434,22 @@ public abstract class Enchantment implements Cloneable {
      * @return The objects can be modified without affecting the registry and the collection will not have null values.
      */
     public static Collection<Enchantment> getRegisteredEnchantments() {
-        return new ArrayList<>(namedEnchantments.values());
+        return getRegisteredEnchantments(false);
     }
 
+    public static Collection<Enchantment> getRegisteredEnchantments(boolean allowCustom) {
+        if(!allowCustom) {
+            Collection<Enchantment> enchantments = new LinkedHashSet<>();
+            namedEnchantments.forEach((i,v) -> {
+                if (i.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) {
+                    enchantments.add(v);
+                }
+            });
+
+            return enchantments;
+        }
+        return new ArrayList<>(namedEnchantments.values());
+    }
     public static Map<String, Integer> getEnchantmentName2IDMap() {
         return namedEnchantments.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().getId()));
     }
