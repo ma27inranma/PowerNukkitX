@@ -311,7 +311,7 @@ public class LevelDBChunkSerializer {
             }
             builder.blockEntities(blockEntityTags);
         }else{
-            log.info("tileBytes was null at {} {} {}", builder.getChunkX(), builder.getChunkZ());
+            log.info("tileBytes was null at {} {}", builder.getChunkX(), builder.getChunkZ());
         }
 
         byte[] key = LevelDBKeyUtil.ENTITIES.getKey(builder.getChunkX(), builder.getChunkZ(), dimensionInfo);
