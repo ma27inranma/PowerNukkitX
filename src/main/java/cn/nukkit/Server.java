@@ -465,6 +465,12 @@ public class Server {
             playerDataDB = Iq80DBFactory.factory.open(new File(dataPath, "players"), new Options()
                     .createIfMissing(true)
                     .compressionType(CompressionType.ZLIB_RAW));
+
+            // playerDataDB.forEach(entry -> {
+            //     System.out.println("key: " + new String(entry.getKey(), StandardCharsets.UTF_8) + "siz: " + entry.getValue().length);
+            // });
+
+            // playerDataDB.compactRange(null, null);
         } catch (IOException e) {
             log.error("", e);
             System.exit(1);
