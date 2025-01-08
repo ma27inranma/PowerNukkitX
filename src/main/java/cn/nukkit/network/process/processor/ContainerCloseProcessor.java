@@ -23,14 +23,11 @@ public class ContainerCloseProcessor extends DataPacketProcessor<ContainerCloseP
 
         Inventory inventory = player.getWindowById(pk.windowId);
 
-        if (playerHandle.getWindowIndex().containsKey(pk.windowId) || pk.windowId == SpecialWindowId.FAKE_ENDER_CHEST.getId()) { // Todo: figure out why windIndex doesnt contain the fake ender chest
+        if (playerHandle.getWindowIndex().containsKey(pk.windowId)) {
             if (pk.windowId == SpecialWindowId.PLAYER.getId()) {
                 playerHandle.setClosingWindowId(pk.windowId);
                 player.getInventory().close(player);
                 playerHandle.setInventoryOpen(false);
-            } else if (pk.windowId == SpecialWindowId.ENDER_CHEST.getId() || pk.windowId == SpecialWindowId.FAKE_ENDER_CHEST.getId()) {
-                playerHandle.setClosingWindowId(pk.windowId);
-                player.getEnderChestInventory().close(player);
             } else {
                 playerHandle.removeWindow(playerHandle.getWindowIndex().get(pk.windowId));
             }

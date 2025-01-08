@@ -22,16 +22,17 @@ import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.data.EntityFlag;
+import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemShears;
 import cn.nukkit.level.GameRule;
-import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.level.particle.DestroyBlockParticle;
 import cn.nukkit.level.vibration.VibrationEvent;
 import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.BlockFace;
+import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.DoubleTag;
 import cn.nukkit.nbt.tag.FloatTag;
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Set;
 
 
-public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable {
+public class EntitySnowGolem extends EntityGolem {
     @Override
     @NotNull public String getIdentifier() {
         return SNOW_GOLEM;
@@ -62,7 +63,10 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
                 Set.of(),
                 Set.of(
                         new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.ATTACK_TARGET, 0.4f, 16, true, 20, 0), all(new EntityCheckEvaluator(CoreMemoryTypes.ATTACK_TARGET), entity -> !(getMemoryStorage().get(CoreMemoryTypes.ATTACK_TARGET) instanceof EntitySnowGolem)), 3, 1),
-                        new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.NEAREST_SHARED_ENTITY, 0.4f, 10, true, 20, 0), new EntityCheckEvaluator(CoreMemoryTypes.NEAREST_SHARED_ENTITY), 2, 1),
+                        new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.NEAREST_SHARED_ENTITY, 0.4f, 10, true, 20, 0), all(
+                                new EntityCheckEvaluator(CoreMemoryTypes.NEAREST_SHARED_ENTITY),
+                                entity -> attackTarget(getMemoryStorage().get(CoreMemoryTypes.ATTACK_TARGET))
+                        ), 2, 1),
                         new Behavior(new FlatRandomRoamExecutor(0.3f, 12, 100, false, -1, true, 10), none(), 1, 1)
                 ),
                 Set.of(new NearestEntitySensor(EntityMob.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 16, 0)),
@@ -73,12 +77,12 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
     }
 
     @Override
-    public boolean onInteract(Player player, Item item) {
+    public boolean onInteract(Player player, Item item, Vector3 clickedPos) {
         if(item instanceof ItemShears) {
             if(!isSheared()) {
-                this.setSheared();
+                this.setSheared(true);
                 this.level.addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_SHEAR);
-                player.getInventory().getItemInHand().setDamage(item.getDamage() + 1);
+                if(player.getGamemode() != Player.CREATIVE) player.getInventory().getItemInHand().setDamage(item.getDamage() + 1);
                 this.level.dropItem(this.add(0, this.getEyeHeight(), 0), Item.get(Block.CARVED_PUMPKIN));
             }
         }
@@ -103,11 +107,12 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
     @Override
     protected void initEntity() {
         this.setMaxHealth(4);
+        setSheared(false);
         super.initEntity();
     }
 
-    public void setSheared() {
-        setDataFlag(EntityFlag.SHEARED);
+    public void setSheared(boolean sheared) {
+        setDataFlag(EntityFlag.SHEARED, sheared);
     }
 
     public boolean isSheared() {
@@ -120,7 +125,7 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
         if(this.level.getGameRules().getBoolean(GameRule.MOB_GRIEFING)) {
             if(this.getLevelBlock().isAir()) {
                 if(this.getLevelBlock().down().isFullBlock() && this.isOnGround()){
-                    this.getLevel().setBlock(this.round(), Block.get(Block.SNOW_LAYER));
+                    this.getLevel().setBlock(this.getLevelBlock(), Block.get(Block.SNOW_LAYER));
                 }
             }
         }
@@ -131,11 +136,6 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
             this.waterTicks = 0;
         }
         return super.onUpdate(currentTick);
-    }
-
-    @Override
-    public Integer getExperienceDrops() {
-        return 0;
     }
 
     public static void checkAndSpawnGolem(Block block) {
@@ -176,5 +176,4 @@ public class EntitySnowGolem extends EntityIntelligent implements EntityWalkable
             }
         }
     }
-
 }
