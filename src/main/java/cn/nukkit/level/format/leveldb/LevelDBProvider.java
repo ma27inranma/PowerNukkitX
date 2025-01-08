@@ -194,7 +194,8 @@ public class LevelDBProvider implements LevelProvider {
         chunk.setPosition(chunkX, chunkZ);
         long index = Level.chunkHash(chunkX, chunkZ);
         if (this.chunks.containsKey(index) && !Objects.equals(this.chunks.get(index), chunk)) {
-            this.unloadChunk(chunkX, chunkZ, false);
+            // this.unloadChunk(chunkX, chunkZ, false);
+            this.getLevel().unloadChunk(chunkX, chunkZ, false, true);
         }
         this.lastChunk.remove();//remove cache
         putChunk(index, chunk);
