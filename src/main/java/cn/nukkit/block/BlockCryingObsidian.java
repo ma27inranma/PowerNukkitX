@@ -26,7 +26,7 @@ public class BlockCryingObsidian extends BlockSolid {
 
     @Override
     public double getHardness() {
-        return 50;
+        return 30; //TODO Without testing, this is just a guess
     }
 
     @Override
