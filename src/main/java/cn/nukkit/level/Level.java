@@ -3231,6 +3231,8 @@ public class Level implements Metadatable {
                 log.info("Chunk and OldChunk are the same");
             }
 
+            log.info("Level#setChunk is running");
+
             long index = Level.chunkHash(chunkX, chunkZ);
             Map<Long, Entity> oldEntities = oldChunk != null ? oldChunk.getEntities() : Collections.emptyMap();
 

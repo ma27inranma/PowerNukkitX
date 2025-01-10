@@ -339,8 +339,8 @@ public class LevelDBChunkSerializer {
         try (var bufStream = new ByteBufOutputStream(tileBuffer)) {
             byte[] key = LevelDBKeyUtil.BLOCK_ENTITIES.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData());
             if (blockEntities.isEmpty()) {
-                // writeBatch.delete(key);
-                log.info("Deleting block entities at {}, {}", chunk.getX(), chunk.getZ());
+                writeBatch.delete(key);
+                // log.info("Deleting block entities at {}, {}", chunk.getX(), chunk.getZ());
             } else {
                 for (BlockEntity blockEntity : blockEntities) {
                     try{
