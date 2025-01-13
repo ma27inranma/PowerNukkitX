@@ -182,12 +182,9 @@ public class LoginPacket extends DataPacket {
 
         byte[] data = null;
         try{
-            data = Base64.getDecoder().decode(base[1]);
-
-            // log.info("succeed data: {}", base[1]);
+            data = Base64.getUrlDecoder().decode(base[1]);
         }catch(IllegalArgumentException e){
             log.info("failed data: {}", token);
-            // throw e;
 
             return null;
         }
