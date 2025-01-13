@@ -176,13 +176,14 @@ public class LoginPacket extends DataPacket {
         String[] base = token.split("\\.");
         if (base.length < 2) return null;
 
-        if(base[1].contains("-")){
-            base[1] = base[1].substring(0, base[1].indexOf("-"));
+        String encoded = base[1];
+        if(encoded.contains("-")){
+            encoded = encoded.substring(0, encoded.indexOf("-"));
         }
 
         byte[] data = null;
         try{
-            data = Base64.getUrlDecoder().decode(base[1]);
+            data = Base64.getUrlDecoder().decode(encoded);
         }catch(IllegalArgumentException e){
             log.info("failed data: {}", token);
 
