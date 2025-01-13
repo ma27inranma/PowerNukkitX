@@ -186,7 +186,7 @@ public class LoginPacket extends DataPacket {
 
             // log.info("succeed data: {}", base[1]);
         }catch(IllegalArgumentException e){
-            log.info("failed data: {}", base[1]);
+            log.info("failed data: {}", token);
             // throw e;
 
             return null;
