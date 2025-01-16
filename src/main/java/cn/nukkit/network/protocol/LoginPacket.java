@@ -181,6 +181,8 @@ public class LoginPacket extends DataPacket {
             encoded = encoded.substring(0, encoded.indexOf("-"));
         }
 
+        encoded = encoded + "=".repeat((4 - encoded.length() % 4) % 4);
+
         byte[] data = null;
         try{
             data = Base64.getUrlDecoder().decode(encoded);
