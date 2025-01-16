@@ -9,6 +9,7 @@ import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
 import org.iq80.leveldb.WriteBatch;
 import org.iq80.leveldb.WriteOptions;
+import org.iq80.leveldb.impl.Iq80DBFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,7 +39,7 @@ public final class LevelDBStorage {
 
         File dbFolder = path.resolve("db").toFile();
         if (!dbFolder.exists()) dbFolder.mkdirs();
-        db = net.daporkchop.ldbjni.LevelDB.PROVIDER.open(dbFolder, options);
+        db = new Iq80DBFactory().open(dbFolder, options);
     }
 
     public IChunk readChunk(int x, int z, LevelProvider levelProvider) throws IOException {
