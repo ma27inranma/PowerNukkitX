@@ -3511,10 +3511,14 @@ public class Level implements Metadatable {
     }
 
     public void subTick(GameLoop currentTick) {
-        processChunkRequest();
+        try {
+            processChunkRequest();
 
-        if (currentTick.getTick() % 100 == 0) {
-            doLevelGarbageCollection(false);
+            if (currentTick.getTick() % 100 == 0) {
+                doLevelGarbageCollection(false);
+            }
+        } catch (Exception e) {
+            getServer().getLogger().error("Subtick Thread for level " + getFolderName() + " failed.", e);
         }
     }
 
@@ -4022,7 +4026,7 @@ public class Level implements Metadatable {
      */
     public void doLevelGarbageCollection(boolean force) {
         //gcBlockInventoryMetaData
-        for (var entry : this.getBlockMetadata().getBlockMetadataMap().entrySet()) {
+        for (var entry : new HashMap<>(this.getBlockMetadata().getBlockMetadataMap()).entrySet()) {
             String key = entry.getKey();
             String[] split = key.split(":");
             Map<Plugin, MetadataValue> value = entry.getValue();
