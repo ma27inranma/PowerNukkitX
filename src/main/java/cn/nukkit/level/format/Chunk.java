@@ -896,4 +896,8 @@ public class Chunk implements IChunk {
             return new Chunk(chunkX, chunkZ, levelProvider);
         }
     }
+
+    public List<CompoundTag> getBlockEntityNBT() {
+        return blockEntityNBT;
+    }
 }

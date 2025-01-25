@@ -375,6 +375,10 @@ public class LevelDBProvider implements LevelProvider {
         this.levelDat.setGameRules(rules);
     }
 
+    public LevelDBStorage getStorage(){
+        return this.storage;
+    }
+
     @Override
     public void saveChunks() {
         for (IChunk chunk : this.chunks.values()) {

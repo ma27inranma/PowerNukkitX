@@ -34,6 +34,7 @@ import cn.nukkit.inventory.BlockInventoryHolder;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBucket;
 import cn.nukkit.item.enchantment.Enchantment;
+import cn.nukkit.level.format.BlockEntityDeletingBugAider;
 import cn.nukkit.level.format.ChunkSection;
 import cn.nukkit.level.format.ChunkState;
 import cn.nukkit.level.format.IChunk;
@@ -329,6 +330,8 @@ public class Level implements Metadatable {
     private boolean thundering = false;
     private int thunderTime = 0;
     private Object2IntOpenHashMap<String> playerWeatherShowMap = new Object2IntOpenHashMap<String>();
+    /// to aid block entity deleting bug
+    private final BlockEntityDeletingBugAider blockEntityDeletingBugAider = new BlockEntityDeletingBugAider(this);
     ///
 
     public Level(Server server, String name, String path, int dimSum, Class<? extends LevelProvider> provider, LevelConfig.GeneratorConfig generatorConfig) {
@@ -2731,29 +2734,35 @@ public class Level implements Metadatable {
         Block target = this.getBlock(vector);
         Block block = target.getSide(face);
 
-        log.info("clicked");
+        log.info("clicked " + target.getId());
 
-        if(block instanceof BlockEntityHolder blockEntityHolder){
-            BlockEntity blockEntity = blockEntityHolder.getBlockEntity();
-            if(blockEntity != null){
-                log.info("BLockEntity: " + blockEntity.namedTag.toSNBT());
-            }else{
-                // check from db
-                getProvider().loadChunk(block.getChunkX(), block.getChunkZ(), true);
-                IChunk chunk = getProvider().getLoadedChunks().get(Level.chunkHash(block.getChunkX(), block.getChunkZ()));
-                if(chunk != null){
-                    for(BlockEntity savedBlockEntity : chunk.getBlockEntities().values()){
-                        if(savedBlockEntity.getX() != block.x || savedBlockEntity.getY() != block.y || savedBlockEntity.getZ() != block.z) continue;
 
-                        this.addBlockEntity(savedBlockEntity);
-                        log.info("updated block entity");
-                        break;
-                    }
-                }else{
-                    log.info("Requested but chunk is null");
-                }
-            }
-        }
+
+        // if(target instanceof BlockEntityHolder blockEntityHolder){
+        //     BlockEntity blockEntity = blockEntityHolder.getBlockEntity();
+        //     if(blockEntity != null){
+        //         log.info("BLockEntity: " + blockEntity.namedTag.toSNBT());
+        //     }else{
+        //         this.unloadChunk(target.getChunkX(), target.getChunkZ(), false, false);
+
+        //         this.loadChunk(target.getChunkX(), target.getChunkZ(), true);
+
+        //         // // check from db
+        //         // getProvider().loadChunk(target.getChunkX(), target.getChunkZ(), true);
+        //         // IChunk chunk = getProvider().getLoadedChunks().get(Level.chunkHash(target.getChunkX(), target.getChunkZ()));
+        //         // if(chunk != null){
+        //         //     for(BlockEntity savedBlockEntity : chunk.getBlockEntities().values()){
+        //         //         if(savedBlockEntity.getX() != target.x || savedBlockEntity.getY() != target.y || savedBlockEntity.getZ() != target.z) continue;
+
+        //         //         this.addBlockEntity(savedBlockEntity);
+        //         //         log.info("updated block entity");
+        //         //         break;
+        //         //     }
+        //         // }else{
+        //         //     log.info("Requested but chunk is null");
+        //         // }
+        //     }
+        // }
 
         if (item.getBlock() instanceof BlockScaffolding && face == BlockFace.UP && block.getId().equals(BlockID.SCAFFOLDING)) {
             while (block instanceof BlockScaffolding) {
@@ -3162,12 +3171,20 @@ public class Level implements Metadatable {
 
     public BlockEntity getBlockEntity(BlockVector3 pos) {
         IChunk chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
+        if(chunk == null) return null;
 
-        if (chunk != null) {
-            return chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
+        BlockEntity blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
+
+        if(blockEntity == null){
+            if(pos.equals(new BlockVector3(190, -57, 52))) log.info("was null");
+            blockEntityDeletingBugAider.fix(pos);
+
+            chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
+            blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
+            if(blockEntity == null && pos.equals(new BlockVector3(190, -57, 52))) log.info("still null");
         }
 
-        return null;
+        return blockEntity;
     }
 
     public BlockEntity getBlockEntityIfLoaded(Vector3 pos) {
@@ -3585,6 +3602,8 @@ public class Level implements Metadatable {
             throw new LevelException("Invalid Block Entity level");
         }
         blockEntities.put(blockEntity.getId(), blockEntity);
+
+        blockEntityDeletingBugAider.resetBlockEntityCache(new BlockVector3(blockEntity.getFloorX(), blockEntity.getFloorY(), blockEntity.getFloorZ()));
     }
 
     public void scheduleBlockEntityUpdate(BlockEntity entity) {
