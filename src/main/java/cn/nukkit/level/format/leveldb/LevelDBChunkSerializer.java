@@ -340,7 +340,6 @@ public class LevelDBChunkSerializer {
             byte[] key = LevelDBKeyUtil.BLOCK_ENTITIES.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData());
             if (blockEntities.isEmpty()) {
                 writeBatch.delete(key);
-                // log.info("Deleting block entities at {}, {}", chunk.getX(), chunk.getZ());
             } else {
                 for (BlockEntity blockEntity : blockEntities) {
                     try{

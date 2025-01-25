@@ -143,9 +143,6 @@ public abstract class BlockEntity extends Position implements BlockEntityID {
         this.namedTag.putInt("y", (int) this.getY());
         this.namedTag.putInt("z", (int) this.getZ());
         this.namedTag.putBoolean("isMovable", this.movable);
-
-        if(!this.namedTag.containsInt("createdAt"))
-            this.namedTag.putInt("createdAt", (int) (System.currentTimeMillis() / 1000));
     }
 
     public final String getSaveId() {

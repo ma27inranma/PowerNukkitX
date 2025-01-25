@@ -3265,12 +3265,6 @@ public class Level implements Metadatable {
         IChunk oldChunk = this.getChunk(chunkX, chunkZ, false);
 
         if (oldChunk != chunk) {
-            if(Objects.equals(chunk, oldChunk)){
-                log.info("Chunk and OldChunk are the same");
-            }
-
-            log.info("Level#setChunk is running");
-
             long index = Level.chunkHash(chunkX, chunkZ);
             Map<Long, Entity> oldEntities = oldChunk != null ? oldChunk.getEntities() : Collections.emptyMap();
 
@@ -3284,7 +3278,7 @@ public class Level implements Metadatable {
                     Entity entity = entry.getValue();
                     chunk.addEntity(entity);
                     iter.remove();
-                    // oldChunk.removeEntity(entity);
+                    oldChunk.removeEntity(entity);
                     entity.chunk = chunk;
                 }
             }
@@ -3296,7 +3290,7 @@ public class Level implements Metadatable {
                     BlockEntity blockEntity = entry.getValue();
                     chunk.addBlockEntity(blockEntity);
                     iter.remove();
-                    // oldChunk.removeBlockEntity(blockEntity);
+                    oldChunk.removeBlockEntity(blockEntity);
                     blockEntity.chunk = chunk;
                 }
             }
