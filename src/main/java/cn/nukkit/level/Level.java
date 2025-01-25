@@ -2734,36 +2734,6 @@ public class Level implements Metadatable {
         Block target = this.getBlock(vector);
         Block block = target.getSide(face);
 
-        log.info("clicked " + target.getId());
-
-
-
-        // if(target instanceof BlockEntityHolder blockEntityHolder){
-        //     BlockEntity blockEntity = blockEntityHolder.getBlockEntity();
-        //     if(blockEntity != null){
-        //         log.info("BLockEntity: " + blockEntity.namedTag.toSNBT());
-        //     }else{
-        //         this.unloadChunk(target.getChunkX(), target.getChunkZ(), false, false);
-
-        //         this.loadChunk(target.getChunkX(), target.getChunkZ(), true);
-
-        //         // // check from db
-        //         // getProvider().loadChunk(target.getChunkX(), target.getChunkZ(), true);
-        //         // IChunk chunk = getProvider().getLoadedChunks().get(Level.chunkHash(target.getChunkX(), target.getChunkZ()));
-        //         // if(chunk != null){
-        //         //     for(BlockEntity savedBlockEntity : chunk.getBlockEntities().values()){
-        //         //         if(savedBlockEntity.getX() != target.x || savedBlockEntity.getY() != target.y || savedBlockEntity.getZ() != target.z) continue;
-
-        //         //         this.addBlockEntity(savedBlockEntity);
-        //         //         log.info("updated block entity");
-        //         //         break;
-        //         //     }
-        //         // }else{
-        //         //     log.info("Requested but chunk is null");
-        //         // }
-        //     }
-        // }
-
         if (item.getBlock() instanceof BlockScaffolding && face == BlockFace.UP && block.getId().equals(BlockID.SCAFFOLDING)) {
             while (block instanceof BlockScaffolding) {
                 block = block.up();
@@ -3176,12 +3146,10 @@ public class Level implements Metadatable {
         BlockEntity blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
 
         if(blockEntity == null){
-            if(pos.equals(new BlockVector3(190, -57, 52))) log.info("was null");
             blockEntityDeletingBugAider.fix(pos);
 
             chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
             blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
-            if(blockEntity == null && pos.equals(new BlockVector3(190, -57, 52))) log.info("still null");
         }
 
         return blockEntity;
