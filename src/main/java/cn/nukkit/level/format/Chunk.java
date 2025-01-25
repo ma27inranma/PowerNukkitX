@@ -642,6 +642,7 @@ public class Chunk implements IChunk {
 
                             changed = true;
                         }
+
                     }
                 }
                 this.blockEntityNBT = null;

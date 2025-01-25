@@ -2731,6 +2731,30 @@ public class Level implements Metadatable {
         Block target = this.getBlock(vector);
         Block block = target.getSide(face);
 
+        log.info("clicked");
+
+        if(block instanceof BlockEntityHolder blockEntityHolder){
+            BlockEntity blockEntity = blockEntityHolder.getBlockEntity();
+            if(blockEntity != null){
+                log.info("BLockEntity: " + blockEntity.namedTag.toSNBT());
+            }else{
+                // check from db
+                getProvider().loadChunk(block.getChunkX(), block.getChunkZ(), true);
+                IChunk chunk = getProvider().getLoadedChunks().get(Level.chunkHash(block.getChunkX(), block.getChunkZ()));
+                if(chunk != null){
+                    for(BlockEntity savedBlockEntity : chunk.getBlockEntities().values()){
+                        if(savedBlockEntity.getX() != block.x || savedBlockEntity.getY() != block.y || savedBlockEntity.getZ() != block.z) continue;
+
+                        this.addBlockEntity(savedBlockEntity);
+                        log.info("updated block entity");
+                        break;
+                    }
+                }else{
+                    log.info("Requested but chunk is null");
+                }
+            }
+        }
+
         if (item.getBlock() instanceof BlockScaffolding && face == BlockFace.UP && block.getId().equals(BlockID.SCAFFOLDING)) {
             while (block instanceof BlockScaffolding) {
                 block = block.up();
