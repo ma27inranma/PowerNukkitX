@@ -7,7 +7,9 @@ import cn.nukkit.level.Level;
 import cn.nukkit.level.format.leveldb.LevelDBProvider;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.nbt.tag.CompoundTag;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class BlockEntityDeletingBugAider {
   public BlockEntityDeletingBugAider(Level level){
     this.level = level;
@@ -27,6 +29,8 @@ public class BlockEntityDeletingBugAider {
 
     this.level.unloadChunk(block.getChunkX(), block.getChunkZ(), false, false);
     this.level.loadChunk(block.getChunkX(), block.getChunkZ(), true);
+
+    log.info("Reloaded chunk " + block.getChunkX() + ", " + block.getChunkZ() + " for block entity deleting bug");
   }
 
   public CompoundTag getBlockEntity(int x, int y, int z){
