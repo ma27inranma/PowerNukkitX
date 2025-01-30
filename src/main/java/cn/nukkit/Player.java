@@ -4410,17 +4410,9 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     }
 
     public void refreshChunkBlockEntity(int centerChunkX, int centerChunkZ, int chunkRadius) {
-        for (var b : this.level.getBlockEntities().values()) {
-            if (b instanceof BlockEntitySpawnable blockEntitySpawnable) {
-                IChunk chunk = blockEntitySpawnable.getChunk();
-
-                if(
-                    chunk.getX() < centerChunkX - chunkRadius || chunk.getX() > centerChunkX + chunkRadius || // FLAG::MARKER could be lag source
-                    chunk.getZ() < centerChunkZ - chunkRadius || chunk.getZ() > centerChunkZ + chunkRadius
-                ){
-                    continue;
-                }
-
+        IChunk chunk = this.level.getChunk(centerChunkX, centerChunkZ);
+        chunk.getBlockEntities().values().forEach(b -> {
+            if(b instanceof BlockEntitySpawnable blockEntitySpawnable){
                 UpdateBlockPacket setAir = new UpdateBlockPacket();
                 setAir.blockRuntimeId = BlockAir.STATE.blockStateHash();
                 setAir.flags = UpdateBlockPacket.FLAG_NETWORK;
@@ -4441,7 +4433,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             }else if(b instanceof BlockEntityLoadListener blockEntityLoadListener){
                 blockEntityLoadListener.onLoad(this);
             }
-        }
+        });
     }
 
     /**

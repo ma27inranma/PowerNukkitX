@@ -3145,12 +3145,12 @@ public class Level implements Metadatable {
 
         BlockEntity blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
 
-        if(blockEntity == null){
-            blockEntityDeletingBugAider.fix(pos);
+        // if(blockEntity == null){
+        //     blockEntityDeletingBugAider.fix(pos);
 
-            chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
-            blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
-        }
+        //     chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
+        //     blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
+        // }
 
         return blockEntity;
     }
