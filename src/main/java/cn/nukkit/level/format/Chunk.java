@@ -14,6 +14,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.NumberTag;
 import cn.nukkit.nbt.tag.Tag;
+import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.collection.nb.Long2ObjectNonBlockingMap;
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,8 @@ public class Chunk implements IChunk {
     protected List<CompoundTag> blockEntityNBT;
     protected List<CompoundTag> entityNBT;
 
+    protected boolean isUnloaded;
+
     private Chunk(
             final int chunkX,
             final int chunkZ,
@@ -79,6 +82,7 @@ public class Chunk implements IChunk {
         this.blockLock = new StampedLock();
         this.heightAndBiomeLock = new StampedLock();
         this.lightLock = new StampedLock();
+        this.isUnloaded = true;
     }
 
     private Chunk(
@@ -108,6 +112,7 @@ public class Chunk implements IChunk {
         this.blockLock = new StampedLock();
         this.heightAndBiomeLock = new StampedLock();
         this.lightLock = new StampedLock();
+        this.isUnloaded = true;
     }
 
     @Override
@@ -541,6 +546,10 @@ public class Chunk implements IChunk {
 
     @Override
     public BlockEntity getTile(int x, int y, int z) {
+        if(this.isUnloaded){
+            throw new ChunkException("Chunk is unloaded");
+        }
+
         return this.tileList.get(((long) z << 16) | ((long) x << 12) | (y + 64));
     }
 
@@ -585,6 +594,9 @@ public class Chunk implements IChunk {
                 }
             }
         }
+
+        this.isUnloaded = true;
+
         for (Entity entity : new ArrayList<>(this.getEntities().values())) {
             if (entity instanceof Player) {
                 continue;
@@ -600,6 +612,8 @@ public class Chunk implements IChunk {
 
     @Override
     public void initChunk() {
+        this.isUnloaded = false;
+
         if (this.getProvider() != null && !this.isInit) {
             boolean changed = false;
             if (this.entityNBT != null) {
