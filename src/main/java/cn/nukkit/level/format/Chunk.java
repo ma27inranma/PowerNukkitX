@@ -595,8 +595,6 @@ public class Chunk implements IChunk {
             }
         }
 
-        this.isUnloaded = true;
-
         for (Entity entity : new ArrayList<>(this.getEntities().values())) {
             if (entity instanceof Player) {
                 continue;
@@ -607,6 +605,8 @@ public class Chunk implements IChunk {
         for (BlockEntity blockEntity : new ArrayList<>(this.getBlockEntities().values())) {
             blockEntity.close();
         }
+
+        this.isUnloaded = true;
         return true;
     }
 
