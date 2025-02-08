@@ -192,7 +192,12 @@ public class LoginPacket extends DataPacket {
             return null;
         }
 
-        return new Gson().fromJson(new String(data, StandardCharsets.UTF_8), JsonObject.class);
+        try{
+            return new Gson().fromJson(new String(data, StandardCharsets.UTF_8), JsonObject.class);
+        }catch(Exception e){
+            log.info("failed JSON: {}", new String(data, StandardCharsets.UTF_8));
+            return null;
+        }
     }
 
     private static SkinAnimation getAnimation(JsonObject element) {
