@@ -287,4 +287,8 @@ public interface IChunk {
     default void setPopulated() {
         setChunkState(ChunkState.POPULATED);
     }
+
+    default boolean notInited() {
+        return false;
+    }
 }

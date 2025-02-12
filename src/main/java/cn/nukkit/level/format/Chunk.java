@@ -612,6 +612,10 @@ public class Chunk implements IChunk {
 
     @Override
     public void initChunk() {
+        if(!this.isUnloaded){
+            throw new ChunkException("Chunk is not unloaded. so cannot init chunk");
+        }
+
         this.isUnloaded = false;
 
         if (this.getProvider() != null && !this.isInit) {
@@ -913,5 +917,10 @@ public class Chunk implements IChunk {
 
     public List<CompoundTag> getBlockEntityNBT() {
         return blockEntityNBT;
+    }
+
+    @Override
+    public boolean notInited() {
+        return this.isUnloaded;
     }
 }

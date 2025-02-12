@@ -186,7 +186,7 @@ public class LevelDBProvider implements LevelProvider {
 
     @Override
     public boolean isChunkLoaded(long hash) {
-        return this.chunks.containsKey(hash);
+        return this.chunks.containsKey(hash) && !this.chunks.get(hash).notInited();
     }
 
     @Override
@@ -452,7 +452,11 @@ public class LevelDBProvider implements LevelProvider {
         IChunk chunk = this.chunks.get(index);
         if (chunk != null && chunk.unload(false, safe)) {
             lastChunk.remove();
-            this.chunks.remove(index, chunk);
+            this.chunks.remove(index);
+            return true;
+        }
+        if(chunk != null && chunk.notInited()){
+            this.chunks.remove(index);
             return true;
         }
         return false;

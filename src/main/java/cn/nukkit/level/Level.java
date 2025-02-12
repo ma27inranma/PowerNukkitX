@@ -3143,6 +3143,13 @@ public class Level implements Metadatable {
         IChunk chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
         if(chunk == null) return null;
 
+        if(chunk.notInited()){
+            this.unloadChunk(pos.x >> 4, pos.z >> 4, false);
+            chunk = this.forceLoadChunk(Level.chunkHash(pos.x >> 4, pos.z >> 4), pos.x >> 4, pos.z >> 4, false);
+        }
+
+        if(chunk == null) return null;
+
         BlockEntity blockEntity = chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
 
         // if(blockEntity == null){
@@ -3668,7 +3675,7 @@ public class Level implements Metadatable {
         return forceLoadChunk(index, x, z, generate) != null;
     }
 
-    private IChunk forceLoadChunk(long index, int x, int z, boolean generate) {
+    private IChunk forceLoadChunk(long index, int x, int z, boolean generate) { // NOTE: Chunk reverting can happen here?
         IChunk chunk = this.requireProvider().getChunk(x, z, generate);
         if (chunk == null) {
             if (generate) {
@@ -3681,10 +3688,11 @@ public class Level implements Metadatable {
             this.server.getPluginManager().callEvent(new ChunkLoadEvent(chunk, !chunk.isGenerated()));
         } else {
             this.unloadChunk(x, z, false);
-            return chunk;
+            chunk = this.requireProvider().getChunk(x, z, generate); // NOTE: changed. Chunk unloaded exception could happen here before.
         }
 
-        chunk.initChunk();
+        if(chunk.notInited())
+            chunk.initChunk(); // NOTE: changed. chunk double init could happen here before.
 
         if (this.isChunkInUse(index)) {
             this.unloadQueue.remove(index);
