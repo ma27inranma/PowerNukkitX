@@ -1148,6 +1148,7 @@ public class Level implements Metadatable {
         } catch (Exception e) {
             log.error(getServer().getLanguage().tr("nukkit.level.tickError",
                     this.getFolderPath(), Utils.getExceptionMessage(e)), e);
+            e.printStackTrace();
         } finally {
             getPlayers().values().forEach(Player::checkNetwork);
             releaseTickCachedBlocks();

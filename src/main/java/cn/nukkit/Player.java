@@ -862,6 +862,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
 
     protected void checkNearEntities() {
         for (Entity entity : this.level.getNearbyEntities(this.boundingBox.grow(1, 0.5, 1), this)) {
+            if(entity == null) continue;
             entity.scheduleUpdate();
 
             if (!entity.isAlive() || !this.isAlive()) {
@@ -4387,6 +4388,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     public void refreshBlockEntity(int delay) {
         getLevel().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> {
             for (var b : this.level.getBlockEntities().values()) {
+                if(b == null) continue;
                 if (b instanceof BlockEntitySpawnable blockEntitySpawnable) {
                     UpdateBlockPacket setAir = new UpdateBlockPacket();
                     setAir.blockRuntimeId = BlockAir.STATE.blockStateHash();
@@ -5126,11 +5128,11 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                 //Mending
                 ArrayList<Integer> itemsWithMending = new ArrayList<>();
                 for (int i = 0; i < 4; i++) {
-                    if (inventory.getArmorItem(i).getEnchantment((short) Enchantment.ID_MENDING) != null) {
+                    if (inventory.getArmorItem(i).hasEnchantment(Enchantment.ID_MENDING)) {
                         itemsWithMending.add(inventory.getSize() + i);
                     }
                 }
-                if (inventory.getItemInHand().getEnchantment((short) Enchantment.ID_MENDING) != null) {
+                if (inventory.getItemInHand().hasEnchantment(Enchantment.ID_MENDING)) {
                     itemsWithMending.add(inventory.getHeldItemIndex());
                 }
                 if (itemsWithMending.size() > 0) {

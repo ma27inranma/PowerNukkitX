@@ -2,18 +2,22 @@ package cn.nukkit.network.process.handler;
 
 import cn.nukkit.Player;
 import cn.nukkit.entity.data.property.EntityProperty;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.connection.BedrockSession;
 import cn.nukkit.network.protocol.AvailableEntityIdentifiersPacket;
 import cn.nukkit.network.protocol.BiomeDefinitionListPacket;
-import cn.nukkit.network.protocol.ItemComponentPacket;
+import cn.nukkit.network.protocol.ItemRegistryPacket;
 import cn.nukkit.network.protocol.RequestChunkRadiusPacket;
 import cn.nukkit.network.protocol.SetLocalPlayerAsInitializedPacket;
 import cn.nukkit.network.protocol.StartGamePacket;
 import cn.nukkit.network.protocol.SyncEntityPropertyPacket;
 import cn.nukkit.network.protocol.TrimDataPacket;
 import cn.nukkit.network.protocol.types.TrimData;
+import cn.nukkit.registry.ItemRegistry;
+import cn.nukkit.registry.ItemRuntimeIdRegistry;
 import cn.nukkit.registry.Registries;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -26,24 +30,18 @@ public class SpawnResponseHandler extends BedrockSessionPacketHandler {
 
         this.startGame();
 
-        // 写入自定义物品数据
-        // Write custom item data
         log.debug("Sending component items");
-        var itemComponentPacket = new ItemComponentPacket();
-        if (!Registries.ITEM.getCustomItemDefinition().isEmpty()) {
-            var entries = new Int2ObjectOpenHashMap<ItemComponentPacket.Entry>();
-            var i = 0;
-            for (var entry : Registries.ITEM.getCustomItemDefinition().entrySet()) {
-                try {
-                    entries.put(i, new ItemComponentPacket.Entry(entry.getKey(), entry.getValue().nbt()));
-                    i++;
-                } catch (Exception e) {
-                    log.error("ItemComponentPacket encoding error", e);
-                }
-            }
-            itemComponentPacket.setEntries(entries.values().toArray(ItemComponentPacket.Entry.EMPTY_ARRAY));
+
+        ItemRegistryPacket itemRegistryPacket = new ItemRegistryPacket();
+        var entries = new ObjectOpenHashSet<ItemRegistryPacket.Entry>();
+
+        for(ItemRuntimeIdRegistry.ItemData data : Registries.ITEM_RUNTIMEID.getITEMDATA()) {
+            CompoundTag tag = Registries.ITEM.getItemComponents().containsCompound(data.identifier()) ?  new CompoundTag().put("components", Registries.ITEM.getItemComponents().getCompound(data.identifier()).getCompound("components")) : Registries.ITEM.getCustomItemDefinition().containsKey(data.identifier()) ? Registries.ITEM.getCustomItemDefinition().get(data.identifier()).nbt() : new CompoundTag();
+            entries.add(new ItemRegistryPacket.Entry(data.identifier(), data.runtimeId(), data.version(), data.componentBased(), tag));
         }
-        player.dataPacket(itemComponentPacket);
+
+        itemRegistryPacket.setEntries(entries.toArray(ItemRegistryPacket.Entry.EMPTY_ARRAY));
+        player.dataPacket(itemRegistryPacket);
 
         log.debug("Sending actor identifiers");
         player.dataPacket(new AvailableEntityIdentifiersPacket());

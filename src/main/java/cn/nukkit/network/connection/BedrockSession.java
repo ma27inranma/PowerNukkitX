@@ -9,6 +9,7 @@ import cn.nukkit.event.player.PlayerCreationEvent;
 import cn.nukkit.event.server.DataPacketDecodeEvent;
 import cn.nukkit.event.server.DataPacketReceiveEvent;
 import cn.nukkit.event.server.DataPacketSendEvent;
+import cn.nukkit.item.Item;
 import cn.nukkit.network.connection.netty.BedrockBatchWrapper;
 import cn.nukkit.network.connection.netty.BedrockPacketWrapper;
 import cn.nukkit.network.connection.netty.codec.packet.BedrockPacketCodec;
@@ -516,12 +517,12 @@ public class BedrockSession {
 
     public void syncCreativeContent() {
         var pk = new CreativeContentPacket();
-        pk.entries = Registries.CREATIVE.getCreativeItems();
+
         this.sendPacket(pk);
     }
 
     public void syncInventory() {
-        var player = getPlayer();
+        Player player = getPlayer();
         if (player != null) {
             player.getInventory().sendHeldItem(player);
             player.getInventory().sendContents(player);

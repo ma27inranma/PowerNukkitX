@@ -11,18 +11,20 @@ public class PlayerStaringSensor implements ISensor {
 
     protected double range;
     protected double triggerDiff;
+    protected boolean ignoreRotation;
 
-    public PlayerStaringSensor(double range, double triggerDiff) {
+    public PlayerStaringSensor(double range, double triggerDiff, boolean ignoreRotation) {
         this.range = range;
         this.triggerDiff = triggerDiff;
+        this.ignoreRotation = ignoreRotation;
     }
 
     @Override
     public void sense(EntityIntelligent entity) {
         for(Player player : entity.getViewers().values()) {
             if(player.distance(entity) <= range) {
-                if(Math.abs(Math.abs(player.headYaw-entity.headYaw)-180) <= this.triggerDiff) { //checks if enderman and player look at each other.
-                    if(player.isLookingAt(entity.add(entity.getEyeHeight()), triggerDiff)) {
+                if(ignoreRotation || Math.abs(Math.abs(player.headYaw-entity.headYaw)-180) <= this.triggerDiff) {
+                    if(player.isLookingAt(entity.add(0, entity.getEyeHeight(), 0), triggerDiff, true)) {
                         entity.getMemoryStorage().put(CoreMemoryTypes.STARING_PLAYER, player);
                         return;
                     }
