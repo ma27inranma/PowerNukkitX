@@ -456,6 +456,7 @@ public class LevelDBProvider implements LevelProvider {
             return true;
         }
         if(chunk != null && chunk.notInited()){
+            lastChunk.remove();
             this.chunks.remove(index);
             return true;
         }
