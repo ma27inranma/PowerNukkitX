@@ -9,11 +9,14 @@ import cn.nukkit.entity.ai.memory.codec.NumberMemoryCodec;
 import cn.nukkit.entity.ai.memory.codec.StringMemoryCodec;
 import cn.nukkit.entity.data.EntityDataTypes;
 import cn.nukkit.entity.data.EntityFlag;
+import cn.nukkit.entity.item.EntityEnderCrystal;
 import cn.nukkit.entity.item.EntityItem;
 import cn.nukkit.entity.mob.EntityEvocationIllager;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3;
+import it.unimi.dsi.fastutil.Pair;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +42,11 @@ public interface CoreMemoryTypes {
      * Entity moving target memory
      */
     MemoryType<Vector3> MOVE_TARGET = new MemoryType<>("minecraft:move_target");
+
+    MemoryType<Boolean> FORCE_PERCHING = new MemoryType<>("minecraft:force_perching", false);
+
+    MemoryType<Vector3> STAY_NEARBY = new MemoryType<>("minecraft:stay_nearby");
+
     /**
      * 实体移动起点记忆
      * <p>
@@ -87,6 +95,8 @@ public interface CoreMemoryTypes {
 
     MemoryType<Integer> LAST_ATTACK_TIME = new MemoryType<>("minecraft:last_attack_time", 0);
 
+    MemoryType<Entity> LAST_ATTACK_ENTITY = new MemoryType<>("minecraft:last_attack_entity");
+
     MemoryType<Integer> LAST_HOGLIN_ATTACK_TIME = new MemoryType<>("minecraft:last_hoglin_attack_time", 0);
 
 
@@ -121,6 +131,9 @@ public interface CoreMemoryTypes {
      * 上一次繁殖的时间tick
      */
     MemoryType<Integer> LAST_IN_LOVE_TIME = new MemoryType<>("minecraft:last_in_love_time", -65536);
+
+    MemoryType<Entity> PARENT = new MemoryType<>("minecraft:parent");
+
     /**
      * 上一次下蛋的时间
      * <p>
@@ -159,6 +172,9 @@ public interface CoreMemoryTypes {
      * 上一次喂养的玩家
      */
     MemoryType<Player> LAST_FEED_PLAYER = new MemoryType<>("minecraft:last_feeding_player");
+
+    MemoryType<BlockVector3> LAST_ENDER_CRYSTAL_DESTROY = new MemoryType<>("minecraft:last_ender_crystal_destroy");
+
     /**
      * 目前仅在warden中使用
      */
@@ -194,7 +210,13 @@ public interface CoreMemoryTypes {
 
     MemoryType<Integer> LAST_ATTACK_SUMMON = new MemoryType<>("minecraft:last_attack_summon", 0);
 
+    MemoryType<Integer> LAST_ATTACK_DASH = new MemoryType<>("minecraft:last_attack_dash", 0);
+
+
     MemoryType<Integer> LAST_CONVERSION = new MemoryType<>("minecraft:last_conversion", 0);
+
+    MemoryType<Integer> INVULNERABLE_TICKS = new MemoryType<>("minecraft:invulnerable_ticks", 0);
+
 
     /**
      * 实体的主人

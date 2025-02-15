@@ -11,6 +11,7 @@ import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityAsyncPrepare;
 import cn.nukkit.entity.EntityID;
 import cn.nukkit.entity.EntityIntelligent;
+import cn.nukkit.entity.item.EntityAreaEffectCloud;
 import cn.nukkit.entity.item.EntityFireworksRocket;
 import cn.nukkit.entity.item.EntityItem;
 import cn.nukkit.entity.item.EntityPainting;
@@ -2376,6 +2377,14 @@ public class Level implements Metadatable {
         return true;
     }
 
+    public void breakBlock(Block block) {
+        if(block.isValid() && block.level == this) {
+            this.setBlock(block, Block.get(Block.AIR));
+            Position position = block.add(0.5, 0.5, 0.5);
+            this.addParticle(new DestroyBlockParticle(position, block));
+            this.getVibrationManager().callVibrationEvent(new VibrationEvent(null, position, VibrationType.BLOCK_DESTROY));
+        }
+    }
 
     private void addBlockChange(int x, int y, int z) {
         long index = Level.chunkHash(x >> 4, z >> 4);
@@ -2832,7 +2841,7 @@ public class Level implements Metadatable {
             int realCount = 0;
             Entity[] entities = this.getCollidingEntities(hand.getBoundingBox());
             for (Entity e : entities) {
-                if (e instanceof EntityProjectile || e instanceof EntityItem || e instanceof EntityXpOrb ||
+                if (e instanceof EntityProjectile || e instanceof EntityItem || e instanceof EntityXpOrb || e instanceof EntityAreaEffectCloud ||
                         e instanceof EntityFireworksRocket || e instanceof EntityPainting || e == player ||
                         (e instanceof Player p && p.isSpectator())) {
                     continue;
@@ -3314,6 +3323,10 @@ public class Level implements Metadatable {
                 }
             }
         }
+    }
+
+    public int getHighestBlockAt(Vector2 vector) {
+        return getHighestBlockAt(vector.getFloorX(), vector.getFloorY());
     }
 
     public int getHighestBlockAt(int x, int z) {
