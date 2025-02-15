@@ -57,7 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class LevelDBProvider implements LevelProvider {
     static final HashMap<String, LevelDBStorage> CACHE = new HashMap<>();
     private static final byte[] levelDatMagic = new byte[]{10, 0, 0, 0, 68, 11, 0, 0};
-    private final ThreadLocal<WeakReference<IChunk>> lastChunk = new ThreadLocal<>();
+    private ThreadLocal<WeakReference<IChunk>> lastChunk = new ThreadLocal<>();
     protected final Long2ObjectNonBlockingMap<IChunk> chunks = new Long2ObjectNonBlockingMap<>();
     protected final LevelDat levelDat;
     protected final LevelDBStorage storage;
@@ -451,12 +451,12 @@ public class LevelDBProvider implements LevelProvider {
         long index = Level.chunkHash(X, Z);
         IChunk chunk = this.chunks.get(index);
         if (chunk != null && chunk.unload(false, safe)) {
-            lastChunk.remove();
+            lastChunk = new ThreadLocal<WeakReference<IChunk>>();
             this.chunks.remove(index);
             return true;
         }
         if(chunk != null && chunk.notInited()){
-            lastChunk.remove();
+            lastChunk = new ThreadLocal<WeakReference<IChunk>>();
             this.chunks.remove(index);
             return true;
         }
