@@ -836,7 +836,7 @@ public class Server {
         int baseTickRate = getSettings().levelSettings().baseTickRate();
         //Do level ticks if level threading is disabled
         if(!this.getSettings().levelSettings().levelThread()) {
-            for (Level level : this.getLevels().values()) {
+            for (Level level : new ArrayList<>(this.getLevels().values())) {
                 if (level.getTickRate() > baseTickRate && --level.tickRateCounter > 0) {
                     continue;
                 }
