@@ -505,11 +505,12 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             return;
         }
 
-        if (!block.isBlockChangeAllowed(this)) {
+        boolean canChangeBlock = target.isBlockChangeAllowed(this);
+        if (!canChangeBlock) {
             return;
         }
 
-        if (this.isSurvival() || this.isAdventure()) {
+        if (this.isSurvival() || (this.isAdventure() && canChangeBlock)) {
             this.breakingBlockTime = currentBreak;
             double miningTimeRequired;
             if (target instanceof CustomBlock customBlock) {
@@ -2738,7 +2739,12 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
 
                         if (!this.hasEffect(EffectType.JUMP_BOOST) && diff > 0.6 && expectedVelocity < this.speed.y && !ignore) {
                             if (this.inAirTicks < 150) {
-                                this.setMotion(new Vector3(0, expectedVelocity, 0));
+                                PlayerInvalidMoveEvent ev = new PlayerInvalidMoveEvent(this, true);
+                                this.getServer().getPluginManager().callEvent(ev);
+
+                                if(!ev.isCancelled()) {
+                                    this.setMotion(new Vector3(0, expectedVelocity, 0));
+                                }
                             } else if (this.kick(PlayerKickEvent.Reason.FLYING_DISABLED, "Flying is not enabled on this server")) {
                                 return false;
                             }
@@ -4497,7 +4503,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         String actionJson = dialog.getButtonJSONData();
 
         if (book && dialogWindows.getIfPresent(dialog.getSceneName()) != null) dialog.updateSceneName();
-        dialog.getBindEntity().setDataProperty(HAS_NPC, 1);
+        dialog.getBindEntity().setDataProperty(HAS_NPC, true);
         dialog.getBindEntity().setDataProperty(NPC_DATA, dialog.getSkinData());
         dialog.getBindEntity().setDataProperty(ACTIONS, actionJson);
         dialog.getBindEntity().setDataProperty(INTERACT_TEXT, dialog.getContent());
