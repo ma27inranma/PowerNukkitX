@@ -2009,7 +2009,6 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         this.dataPacket(new ClientboundCloseFormPacket());
     }
 
-
     /**
      * 得到原始套接字地址
      *

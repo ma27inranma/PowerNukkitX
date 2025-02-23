@@ -16,6 +16,7 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import lombok.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -28,13 +29,13 @@ import java.util.UUID;
 /**
  * @since on 15-10-13
  */
+@Getter
+@Setter
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor
 @Slf4j
 public class LoginPacket extends DataPacket {
-    public static final int NETWORK_ID = ProtocolInfo.LOGIN_PACKET;
-
     public String username;
     public String titleId;
     public int protocol;
@@ -44,11 +45,6 @@ public class LoginPacket extends DataPacket {
     public long issueUnixTime = -1;
 
     private BinaryStream buffer;
-
-    @Override
-    public int pid() {
-        return NETWORK_ID;
-    }
 
     @Override
     public void decode(HandleByteBuf byteBuf) {
@@ -64,6 +60,7 @@ public class LoginPacket extends DataPacket {
 
     @Override
     public void encode(HandleByteBuf byteBuf) {
+
     }
 
     public int getProtocol() {
@@ -107,9 +104,10 @@ public class LoginPacket extends DataPacket {
         }
 
         if (skinToken.has("SkinId")) {
-            //这边获取到的"SkinId"是FullId
+            //The "SkinId" obtained here is FullId
             //FullId = SkinId + CapeId
-            //而Skin对象中的skinId不是FullId,我们需要减掉CapeId
+            //The skinId in the Skin object is not FullId, we need to subtract the CapeId
+
             var fullSkinId = skinToken.get("SkinId").getAsString();
             skin.setFullSkinId(fullSkinId);
             if (skin.getCapeId() != null)
@@ -244,6 +242,11 @@ public class LoginPacket extends DataPacket {
 
     public BinaryStream getBuffer() {
         return buffer;
+    }
+
+    @Override
+    public int pid() {
+        return ProtocolInfo.LOGIN_PACKET;
     }
 
     public void handle(PacketHandler handler) {

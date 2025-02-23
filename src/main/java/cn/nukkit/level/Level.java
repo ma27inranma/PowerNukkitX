@@ -1183,6 +1183,11 @@ public class Level implements Metadatable {
             }
             // Tick Weather
             if (this.getDimension() != DIMENSION_NETHER && this.getDimension() != DIMENSION_THE_END) {
+                if(getDayTime() == tickRate) {
+                    setRaining(false);
+                    setThundering(false);
+                }
+
                 this.rainTime--;
                 if (this.rainTime <= 0) {
                     if (!this.setRaining(!this.raining)) {//if raining,set false
@@ -3924,6 +3929,13 @@ public class Level implements Metadatable {
      * Set the elapsed time for this level
      */
     public void setTime(int time) {
+        if(isRaining()) {
+            if(getTime()%TIME_FULL != time%TIME_FULL) {
+                //Day changed
+                setRaining(false);
+                setThundering(false);
+            }
+        }
         this.time = time;
         this.sendTime();
     }
@@ -4167,15 +4179,6 @@ public class Level implements Metadatable {
     }
 
     public void addEntityMovement(Entity entity, double x, double y, double z, double yaw, double pitch, double headYaw) {
-//        MoveEntityAbsolutePacket pk = new MoveEntityAbsolutePacket();
-//        pk.eid = entity.getId();
-//        pk.x = (float) x;
-//        pk.y = (float) y;
-//        pk.z = (float) z;
-//        pk.yaw = (float) yaw;
-//        pk.headYaw = (float) headYaw;
-//        pk.pitch = (float) pitch;
-//        pk.onGround = entity.onGround;
         MoveEntityDeltaPacket pk = new MoveEntityDeltaPacket();
         pk.runtimeEntityId = entity.getId();
         if (entity.lastX != x) {
