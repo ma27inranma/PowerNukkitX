@@ -79,8 +79,8 @@ import cn.nukkit.utils.PortalHelper;
 import cn.nukkit.utils.TextFormat;
 import com.google.common.collect.Iterables;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.awt.*;
 import java.util.List;
 import java.util.*;
@@ -196,12 +196,10 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public Entity(IChunk chunk, CompoundTag nbt) {
-        if (this instanceof Player) {
-            initEntityProperties("minecraft:player");
-            return;
+        initEntityProperties(this.getIdentifier());
+        if (!(this instanceof Player)) {
+            this.init(chunk, nbt);
         }
-        initEntityProperties();
-        this.init(chunk, nbt);
     }
 
     /**
@@ -1859,7 +1857,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return this.boundingBox;
     }
 
-    public void fall(float fallDistance) {//todo: check why @param fallDistance always less than the real distance
+    public void fall(float fallDistance) { //todo: check why @param fallDistance always less than the real distance
         if (this.hasEffect(EffectType.SLOW_FALLING)) {
             return;
         }
@@ -1891,7 +1889,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
 
         down.onEntityFallOn(this, fallDistance);
 
-        if (fallDistance > 0.75) {//todo: moving these into their own classes (method "onEntityFallOn()")
+        if (fallDistance > 0.75) { //todo: moving these into their own classes (method "onEntityFallOn()")
             if (Block.FARMLAND.equals(down.getId())) {
                 if (onPhysicalInteraction(down, false)) {
                     return;
@@ -2251,7 +2249,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             this.motionZ = 0;
         }
 
-        //TODO: vehicle collision events (first we need to spawn them!)
+        // TODO: vehicle collision events (first we need to spawn them!)
         return true;
     }
 
@@ -3108,10 +3106,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public boolean isLookingAt(Vector3 location, double tolerance, boolean checkRaycast) {
-        if(getLookingAngleAt(location) <= tolerance && getLookingAngleAtPitch(location) <= tolerance && (!checkRaycast || getLevel().raycastBlocks(location, this.add(0, getEyeHeight(), 0)).isEmpty())) {
-            return true;
-        }
-        return false;
+        return getLookingAngleAt(location) <= tolerance && getLookingAngleAtPitch(location) <= tolerance && (!checkRaycast || getLevel().raycastBlocks(location, this.add(0, getEyeHeight(), 0)).isEmpty());
     }
 
     private boolean validateAndSetIntProperty(String identifier, int value) {
@@ -3129,17 +3124,15 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return validateAndSetIntProperty(identifier, value ? 1 : 0);
     }
 
-
     public final boolean setFloatEntityProperty(String identifier, float value) {
         if (!floatProperties.containsKey(identifier)) return false;
         floatProperties.put(identifier, value);
         return true;
     }
 
-
     public final boolean setEnumEntityProperty(String identifier, String value) {
         if (!intProperties.containsKey(identifier)) return false;
-        List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier().toString());
+        List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier());
 
         for (EntityProperty property : entityPropertyList) {
             if (!identifier.equals(property.getIdentifier()) ||
@@ -3157,13 +3150,30 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return false;
     }
 
-
-    private void initEntityProperties() {
-        if (this.getIdentifier() != null) {
-            initEntityProperties(this.getIdentifier().toString());
-        }
+    public final int getIntEntityProperty(String identifier) {
+        return intProperties.get(identifier);
     }
 
+    public final boolean getBooleanEntityProperty(String identifier) {
+        return intProperties.get(identifier) == 1;
+    }
+
+    public final float getFloatEntityProperty(String identifier) {
+        return floatProperties.get(identifier);
+    }
+
+    public final String getEnumEntityProperty(String identifier) {
+        List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(this.getIdentifier());
+
+        for (EntityProperty property : entityPropertyList) {
+            if (!identifier.equals(property.getIdentifier()) ||
+                    !(property instanceof EnumEntityProperty enumProperty)) {
+                continue;
+            }
+            return enumProperty.getEnums()[intProperties.get(identifier)];
+        }
+        return null;
+    }
 
     private void initEntityProperties(String entityIdentifier) {
         List<EntityProperty> entityPropertyList = EntityProperty.getEntityProperty(entityIdentifier);
@@ -3172,14 +3182,16 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         for (EntityProperty property : entityPropertyList) {
             final String identifier = property.getIdentifier();
 
-            if (property instanceof FloatEntityProperty floatProperty) {
-                floatProperties.put(identifier, floatProperty.getDefaultValue());
-            } else if (property instanceof IntEntityProperty intProperty) {
-                intProperties.put(identifier, intProperty.getDefaultValue());
-            } else if (property instanceof BooleanEntityProperty booleanProperty) {
-                intProperties.put(identifier, booleanProperty.getDefaultValue() ? 1 : 0);
-            } else if (property instanceof EnumEntityProperty enumProperty) {
-                intProperties.put(identifier, enumProperty.findIndex(enumProperty.getDefaultValue()));
+            switch (property) {
+                case FloatEntityProperty floatProperty ->
+                        floatProperties.put(identifier, floatProperty.getDefaultValue());
+                case IntEntityProperty intProperty ->
+                        intProperties.put(identifier, intProperty.getDefaultValue());
+                case BooleanEntityProperty booleanProperty ->
+                        intProperties.put(identifier, booleanProperty.getDefaultValue() ? 1 : 0);
+                case EnumEntityProperty enumProperty ->
+                        intProperties.put(identifier, enumProperty.findIndex(enumProperty.getDefaultValue()));
+                default -> {}
             }
         }
     }
