@@ -554,12 +554,6 @@ public class BlockEntityCommandBlock extends BlockEntitySpawnable implements ICo
         return false;
     }
 
-    @Override
-    @NotNull
-    public Position getPosition() {
-        return this;
-    }
-
     @NotNull
     @Override
     public Location getLocation() {
