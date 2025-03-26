@@ -199,6 +199,7 @@ buildNumber.properties
 **/nbproject/Makefile-*.mk
 **/nbproject/Package-*.bash
 build/
+build_/
 nbbuild/
 dist/
 nbdist/
