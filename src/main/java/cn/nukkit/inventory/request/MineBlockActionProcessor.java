@@ -2,7 +2,6 @@ package cn.nukkit.inventory.request;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.config.ServerPropertiesKeys;
 import cn.nukkit.inventory.HumanInventory;
 import cn.nukkit.inventory.SpecialWindowId;
 import cn.nukkit.item.Item;
@@ -13,11 +12,14 @@ import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackReques
 import cn.nukkit.network.protocol.types.itemstack.request.action.MineBlockAction;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseContainer;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseSlot;
+import eu.okaeri.configs.schema.GenericsDeclaration;
+
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 public class MineBlockActionProcessor implements ItemStackRequestActionProcessor<MineBlockAction> {
@@ -47,7 +49,10 @@ public class MineBlockActionProcessor implements ItemStackRequestActionProcessor
 
         if(allowClientDurabilityPrediction == null){
             // allowClientDurabilityPrediction = Server.getInstance().getProperties().getBoolean("allow_client_item_durability_prediction", true);
-            allowClientDurabilityPrediction = Server.getInstance().getProperties().get(ServerPropertiesKeys.ALLOW_CLIENT_ITEM_DURABILITY_PREDICTION, true);
+            // allowClientDurabilityPrediction = Server.getInstance().getProperties().get(ServerPropertiesKeys.ALLOW_CLIENT_ITEM_DURABILITY_PREDICTION, true);
+            allowClientDurabilityPrediction = Optional.ofNullable(Server.getInstance().getSettings().gameplaySettings().get("allowClientItemDurabilityPrediction", Boolean.class)).orElse(false);
+            Server.getInstance().getSettings().gameplaySettings().set("allowClientItemDurabilityPrediction", allowClientDurabilityPrediction);
+            // allowClientDurabilityPrediction = true;
         }
         
         if(allowClientDurabilityPrediction){
