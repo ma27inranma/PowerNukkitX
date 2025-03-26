@@ -2,3 +2,4 @@
 
 .
 ALLOW_CLIENT_ITEM_DURABILITY_PREDICTION at MineBlockActionProcessor
+player.refreshChunkBlockEntity at processChunkRequest
