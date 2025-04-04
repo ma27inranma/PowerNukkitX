@@ -21,6 +21,7 @@ import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.NumberTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.registry.Registries;
+import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.collection.nb.Long2ObjectNonBlockingMap;
 import com.google.common.base.Preconditions;
@@ -601,6 +602,10 @@ public class Chunk implements IChunk {
 
     @Override
     public BlockEntity getTile(int x, int y, int z) {
+        if(!this.isInit){
+            throw new ChunkException("Chunk [" + this.x + " " + this.z + "] is Unloaded");
+        }
+
         return this.tileList.get(((long) z << 16) | ((long) x << 12) | (y + 64));
     }
 
@@ -645,6 +650,9 @@ public class Chunk implements IChunk {
                 }
             }
         }
+
+        this.isInit = false;
+
         for (Entity entity : new ArrayList<>(this.getEntities().values())) {
             if (entity instanceof Player) {
                 continue;
@@ -655,6 +663,7 @@ public class Chunk implements IChunk {
         for (BlockEntity blockEntity : new ArrayList<>(this.getBlockEntities().values())) {
             blockEntity.close();
         }
+
         return true;
     }
 
