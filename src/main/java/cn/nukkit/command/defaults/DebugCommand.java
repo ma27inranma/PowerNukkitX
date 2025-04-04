@@ -46,7 +46,7 @@ public class DebugCommand extends TestCommand implements CoreCommand {
         });
         this.commandParameters.put("chunk", new CommandParameter[]{
                 CommandParameter.newEnum("chunk", new String[]{"chunk"}),
-                CommandParameter.newEnum("options", new String[]{"info", "regenerate", "resend", "unload", "load"})
+                CommandParameter.newEnum("options", new String[]{"info", "regenerate", "resend", "unload", "load", "checkunloaded"})
         });
         this.enableParamTree();
     }
@@ -138,6 +138,18 @@ public class DebugCommand extends TestCommand implements CoreCommand {
                     case "load" -> {
                         try {
                             chunk.load(true);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        return 0;
+                    }
+                    case "checkunloaded" -> {
+                        try {
+                            player.getLevel().getChunks().values().forEach(chunk_ -> {
+                                if(!chunk_.isLoaded()){
+                                    player.sendMessage("Oh no! unloaded chunk is remaining in the list! [" + chunk.getX() + " " + chunk.getZ() + "]");
+                                }
+                            });
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }

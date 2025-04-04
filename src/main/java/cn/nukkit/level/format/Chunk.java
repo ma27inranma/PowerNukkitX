@@ -611,7 +611,7 @@ public class Chunk implements IChunk {
 
     @Override
     public boolean isLoaded() {
-        return this.getProvider() != null && this.getProvider().isChunkLoaded(this.getX(), this.getZ());
+        return this.getProvider() != null && this.getProvider().isChunkLoaded(this.getX(), this.getZ()) && this.isInit;
     }
 
     @Override

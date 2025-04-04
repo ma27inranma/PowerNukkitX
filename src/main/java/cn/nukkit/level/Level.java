@@ -3152,12 +3152,12 @@ public class Level implements Metadatable {
 
     public BlockEntity getBlockEntity(BlockVector3 pos) {
         IChunk chunk = this.getChunk(pos.x >> 4, pos.z >> 4, false);
-
-        if (chunk != null) {
-            return chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
+        if(chunk == null){
+            log.error("Couldn't get chunk at " + pos.getChunkX() + " " + pos.getChunkZ());
+            return null;
         }
 
-        return null;
+        return chunk.getTile(pos.x & 0x0f, ensureY(pos.y), pos.z & 0x0f);
     }
 
     public BlockEntity getBlockEntityIfLoaded(Vector3 pos) {
@@ -3688,7 +3688,7 @@ public class Level implements Metadatable {
             this.server.getPluginManager().callEvent(new ChunkLoadEvent(chunk, !chunk.isGenerated()));
         } else {
             this.unloadChunk(x, z, false);
-            return chunk;
+            chunk = requireProvider().getChunk(x, z, generate);
         }
 
         chunk.initChunk();
