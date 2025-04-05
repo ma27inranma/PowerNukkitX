@@ -196,7 +196,7 @@ public class LevelDBProvider implements LevelProvider {
         if (this.chunks.containsKey(index) && !Objects.equals(this.chunks.get(index), chunk)) {
             this.unloadChunk(chunkX, chunkZ, false);
         }
-        this.lastChunk.remove();//remove cache
+        this.lastChunk = new ThreadLocal<WeakReference<IChunk>>();
         putChunk(index, chunk);
     }
 
