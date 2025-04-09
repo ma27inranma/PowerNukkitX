@@ -183,7 +183,6 @@ public class Server {
     private Network network;
     private int serverAuthoritativeMovementMode = 0;
     private Boolean getAllowFlight = null;
-    private int difficulty = Integer.MAX_VALUE;
     private int defaultGamemode = Integer.MAX_VALUE;
     private int autoSaveTicker = 0;
     private int autoSaveTicks = 6000;
@@ -2494,7 +2493,7 @@ public class Server {
      * @return 游戏难度id<br>game difficulty id
      */
     public int getDifficulty() {
-        return this.difficulty;
+        return this.settings.gameplaySettings().difficulty();
     }
 
     /**
@@ -2508,7 +2507,6 @@ public class Server {
         int value = difficulty;
         if (value < 0) value = 0;
         if (value > 3) value = 3;
-        this.difficulty = value;
         this.settings.gameplaySettings().difficulty(value);
     }
 
@@ -2524,16 +2522,6 @@ public class Server {
      */
     public int getSpawnRadius() {
         return this.settings.playerSettings().spawnRadius();
-    }
-
-    /**
-     * @return 服务器是否允许飞行<br>Whether the server allows flying
-     */
-    public boolean getAllowFlight() {
-        if (getAllowFlight == null) {
-            getAllowFlight = this.settings.gameplaySettings().allowFlight();
-        }
-        return getAllowFlight;
     }
 
     /**

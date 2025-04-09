@@ -8,7 +8,6 @@ import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.network.protocol.LevelChunkPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
-import cn.nukkit.network.protocol.UpdateBlockPacket;
 import cn.nukkit.network.protocol.UpdateSubChunkBlocksPacket;
 import cn.nukkit.network.protocol.types.BlockChangeEntry;
 import it.unimi.dsi.fastutil.Pair;

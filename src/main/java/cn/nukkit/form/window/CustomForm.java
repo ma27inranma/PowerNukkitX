@@ -3,10 +3,10 @@ package cn.nukkit.form.window;
 import cn.nukkit.Player;
 import cn.nukkit.form.element.ElementDivider;
 import cn.nukkit.form.element.ElementHeader;
+import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.custom.ElementCustom;
 import cn.nukkit.form.element.custom.ElementDropdown;
 import cn.nukkit.form.element.custom.ElementInput;
-import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.custom.ElementSlider;
 import cn.nukkit.form.element.custom.ElementStepSlider;
 import cn.nukkit.form.element.custom.ElementToggle;
@@ -99,15 +99,11 @@ public class CustomForm extends Form<CustomResponse> {
 
         List<String> elementResponses = JSONUtils.from(formData, LIST_STRING_TYPE);
 
-        for (int i = 0, responseSize = elementResponses.size(); i < responseSize; i++) {
-            if (i >= this.elements.size()) {
-                break;
-            }
-
-            String responseData = elementResponses.get(i);
+        for (int i = 0, j = 0; i < this.elements.size(); i++) {
             ElementCustom element = this.elements.get(i);
 
             Object elementResponse = null;
+            String responseData = element.hasResponse() ? elementResponses.get(j++) : "";
 
             switch (element) {
                 case ElementDropdown dropdown -> {
