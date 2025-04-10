@@ -1341,6 +1341,13 @@ public abstract class Item implements Cloneable, ItemID {
         return true;
     }
 
+    public Item withCount(int count){
+        Item item = this.clone();
+        item.setCount(count);
+
+        return item;
+    }
+
     @Override
     public Item clone() {
         try {

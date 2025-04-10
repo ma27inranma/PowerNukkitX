@@ -219,7 +219,9 @@ public class AdventureSettings implements Cloneable {
         CompoundTag abilityTag = nbt.getCompound(KEY_ABILITIES);
         for (Map.Entry<String, Tag> e : abilityTag.getTags().entrySet()) {
             if (e.getValue() instanceof IntTag) {
-                set(Type.valueOf(e.getKey()), ((IntTag) e.getValue()).getData() == 1);
+                String key = e.getKey().equals("DOORS_AND_SWITCHES") ? "DOORS_AND_SWITCHED" : e.getKey();
+
+                set(Type.valueOf(key), ((IntTag) e.getValue()).getData() == 1);
             }
         }
         playerPermission = PlayerPermission.valueOf(nbt.getString(KEY_PLAYER_PERMISSION));
