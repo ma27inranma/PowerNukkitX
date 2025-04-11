@@ -1,9 +1,11 @@
 package cn.nukkit.blockentity;
 
 import cn.nukkit.Player;
+import cn.nukkit.block.BlockAir;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.BlockEntityDataPacket;
+import cn.nukkit.network.protocol.UpdateBlockPacket;
 
 /**
  * @author MagicDroidX (Nukkit Project)
@@ -33,6 +35,22 @@ public abstract class BlockEntitySpawnable extends BlockEntity {
             return;
         }
 
+        UpdateBlockPacket refreshPacket = new UpdateBlockPacket();
+        refreshPacket.blockRuntimeId = BlockAir.STATE.blockStateHash();
+        refreshPacket.flags = UpdateBlockPacket.FLAG_NETWORK;
+        refreshPacket.x = this.getFloorX();
+        refreshPacket.y = this.getFloorY();
+        refreshPacket.z = this.getFloorZ();
+
+        UpdateBlockPacket setBlockPacket = new UpdateBlockPacket();
+        setBlockPacket.blockRuntimeId = this.getBlock().getRuntimeId();
+        setBlockPacket.flags = UpdateBlockPacket.FLAG_NETWORK;
+        setBlockPacket.x = this.getFloorX();
+        setBlockPacket.y = this.getFloorY();
+        setBlockPacket.z = this.getFloorZ();
+
+        player.dataPacket(refreshPacket);
+        player.dataPacket(setBlockPacket);
         player.dataPacket(getSpawnPacket());
     }
 
