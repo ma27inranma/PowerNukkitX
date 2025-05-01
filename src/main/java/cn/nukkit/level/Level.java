@@ -334,7 +334,9 @@ public class Level implements Metadatable {
     private boolean thundering = false;
     private int thunderTime = 0;
     private Object2IntOpenHashMap<String> playerWeatherShowMap = new Object2IntOpenHashMap<String>();
-    ///
+    ///structure
+    // private 
+    /// 
 
     public Level(Server server, String name, String path, int dimSum, Class<? extends LevelProvider> provider, LevelConfig.GeneratorConfig generatorConfig) {
         this.levelId = levelIdCounter++;
