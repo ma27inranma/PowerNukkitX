@@ -270235,838 +270235,6 @@
       "open_bit": false
     }
   },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 3,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 1,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 56,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 2,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": true,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=left,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=left,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 57,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=left,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=left,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": false,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=right,open=true,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=right,open=true,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 55,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": true
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=right,open=false,powered=true]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
-  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=right,open=false,powered=false]": {
-    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
-    "block_hardness": 3.0,
-    "collision_index": 54,
-    "piston_behavior": "destroy",
-    "can_break_with_hand": false,
-    "bedrock_states": {
-      "direction": 0,
-      "upper_block_bit": false,
-      "door_hinge_bit": true,
-      "open_bit": false
-    }
-  },
   "minecraft:waxed_weathered_copper_door[facing=north,half=upper,hinge=left,open=true,powered=true]": {
     "bedrock_identifier": "minecraft:waxed_weathered_copper_door",
     "block_hardness": 3.0,
@@ -301138,46 +300306,319 @@
       "triggered_bit": false
     }
   },
-  "minecraft:trial_spawner[trial_spawner_state=inactive]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:trial_spawner[ominous=false,trial_spawner_state=waiting_for_players]": {
+    "bedrock_identifier": "minecraft:trial_spawner",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": false,
+      "trial_spawner_state": 0
+    }
   },
-  "minecraft:trial_spawner[trial_spawner_state=waiting_for_players]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:vault[facing=north,ominous=false,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": false,
+      "minecraft:cardinal_direction": "north",
+      "vault_state": "inactive"
+    }
   },
-  "minecraft:trial_spawner[trial_spawner_state=active]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:vault[facing=east,ominous=false,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": false,
+      "minecraft:cardinal_direction": "east",
+      "vault_state": "inactive"
+    }
   },
-  "minecraft:trial_spawner[trial_spawner_state=waiting_for_reward_ejection]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:vault[facing=south,ominous=false,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": false,
+      "minecraft:cardinal_direction": "south",
+      "vault_state": "inactive"
+    }
   },
-  "minecraft:trial_spawner[trial_spawner_state=ejecting_reward]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:vault[facing=west,ominous=false,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": false,
+      "minecraft:cardinal_direction": "west",
+      "vault_state": "inactive"
+    }
   },
-  "minecraft:trial_spawner[trial_spawner_state=cooldown]": {
-    "bedrock_identifier": "minecraft:mob_spawner",
+  "minecraft:vault[facing=north,ominous=true,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
     "block_hardness": 50.0,
     "collision_index": 1,
     "has_block_entity": true,
-    "can_break_with_hand": false
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": true,
+      "minecraft:cardinal_direction": "north",
+      "vault_state": "inactive"
+    }
+  },
+  "minecraft:vault[facing=east,ominous=true,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
+    "block_hardness": 50.0,
+    "collision_index": 1,
+    "has_block_entity": true,
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": true,
+      "minecraft:cardinal_direction": "east",
+      "vault_state": "inactive"
+    }
+  },
+  "minecraft:vault[facing=south,ominous=true,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
+    "block_hardness": 50.0,
+    "collision_index": 1,
+    "has_block_entity": true,
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": true,
+      "minecraft:cardinal_direction": "south",
+      "vault_state": "inactive"
+    }
+  },
+  "minecraft:vault[facing=west,ominous=true,vault_state=inactive]": {
+    "bedrock_identifier": "minecraft:vault",
+    "block_hardness": 50.0,
+    "collision_index": 1,
+    "has_block_entity": true,
+    "can_break_with_hand": false,
+    "bedrock_states": {
+      "ominous": true,
+      "minecraft:cardinal_direction": "west",
+      "vault_state": "inactive"
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "north",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "east",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "south",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "west",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "north",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "east",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "south",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=right,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "west",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": false
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "north",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=east,half=lower,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "east",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "south",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=west,half=lower,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "west",
+      "open_bit": false,
+      "upper_block_bit": false,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "north",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=east,half=upper,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "east",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "south",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": true
+    }
+  },
+  "minecraft:waxed_oxidized_copper_door[facing=west,half=upper,hinge=left,open=false,powered=false]": {
+    "bedrock_identifier": "minecraft:waxed_oxidized_copper_door",
+    "block_hardness": 3,
+    "collision_index": 1,
+    "has_block_entity": false,
+    "can_break_with_hand": true,
+    "bedrock_states": {
+      "minecraft:cardinal_direction": "west",
+      "open_bit": false,
+      "upper_block_bit": true,
+      "door_hinge_bit": true
+    }
   }
 }

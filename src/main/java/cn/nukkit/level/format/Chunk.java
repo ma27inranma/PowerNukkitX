@@ -4,6 +4,7 @@ import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockAir;
+import cn.nukkit.block.BlockLiquid;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.entity.Entity;
@@ -20,6 +21,7 @@ import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.NumberTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.registry.Registries;
+import cn.nukkit.utils.RedstoneComponent;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.collection.nb.Long2ObjectNonBlockingMap;
 import com.google.common.base.Preconditions;
@@ -32,6 +34,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.StampedLock;
@@ -663,7 +667,6 @@ public class Chunk implements IChunk {
                 }
                 this.blockEntityNBT = null;
             }
-
             if (changed) {
                 this.setChanged();
             }
@@ -849,6 +852,11 @@ public class Chunk implements IChunk {
         public Builder levelProvider(LevelProvider levelProvider) {
             this.levelProvider = levelProvider;
             return this;
+        }
+
+        @Override
+        public LevelProvider getLevelProvider() {
+            return levelProvider;
         }
 
         @Override
