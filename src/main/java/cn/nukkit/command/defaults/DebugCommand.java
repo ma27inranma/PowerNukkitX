@@ -15,11 +15,14 @@ import cn.nukkit.item.ItemFilledMap;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.level.format.IChunk;
+import cn.nukkit.level.structure.Structure;
 import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.registry.Registries;
 import cn.nukkit.scheduler.AsyncTask;
 
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
@@ -53,6 +56,9 @@ public class DebugCommand extends TestCommand implements CoreCommand {
         this.commandParameters.put("item", new CommandParameter[]{
                 CommandParameter.newEnum("item", new String[]{"item"}),
                 CommandParameter.newEnum("values", new String[]{"nbt", "bundle"})
+        });
+        this.commandParameters.put("structure", new CommandParameter[]{
+                CommandParameter.newEnum("place", new String[]{"place"})
         });
         this.enableParamTree();
     }
@@ -170,6 +176,22 @@ public class DebugCommand extends TestCommand implements CoreCommand {
                         return 0;
                     }
                 }
+                return 0;
+            }
+            case "structure" -> {
+                if (!sender.isPlayer())
+                    return 0;
+
+                Player player = sender.asPlayer();
+
+                try{
+                    byte[] bytes = Files.readAllBytes(Path.of("structure.mcstructure"));
+                    Structure structure = new Structure(bytes);
+                    structure.place(player.getLocation(), true, true, true);
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+
                 return 0;
             }
             default -> {
