@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockStateImpl;
@@ -12,6 +14,7 @@ import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.type.BaseBlockPropertyType;
 import cn.nukkit.block.property.type.BlockPropertyType;
 import cn.nukkit.blockentity.BlockEntity;
+import cn.nukkit.blockentity.BlockEntityChest;
 import cn.nukkit.blockentity.BlockEntitySpawnable;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
@@ -89,8 +92,6 @@ public class Structure implements IStructure {
                             CompoundTag blockEntityData = blockPositionData.getCompound("block_entity_data");
 
                             this.blockEntityNbts.put(getBlockIndex(x, y, z), blockEntityData);
-
-                            System.out.println("true");
                         }
 
                         int secondaryBlockIndex = secondaryBlockIndices.get(i).getData();
@@ -122,8 +123,6 @@ public class Structure implements IStructure {
                 stateValue = stringTag.data;
             }
 
-            System.out.println(stateTypeId + " " + stateValue);
-
             BaseBlockPropertyType<?> blockPropertyType = (BaseBlockPropertyType<?>) CommonBlockProperties.values().stream()
                 .filter(property -> property.getName().equals(stateTypeId))
                 .findFirst()
@@ -151,7 +150,7 @@ public class Structure implements IStructure {
     @Override
     public void place(Location location, boolean includeBlocks, boolean includeBlockEntities, boolean includeEntities) {
         Level level = location.getLevel();
-        
+
         for(int x = 0; x < this.sizeX; x++){
             for(int y = 0; y < this.sizeY; y++){
                 for(int z = 0; z < this.sizeZ; z++){
@@ -164,24 +163,22 @@ public class Structure implements IStructure {
 
                     CompoundTag blockEntityData = this.blockEntityNbts.get(getBlockIndex(x, y, z));
                     if(blockEntityData != null && includeBlockEntities) {
-                        BlockEntity blockEntity = BlockEntity.createBlockEntity(blockEntityData.getString("id"), location.add(x, y, z), blockEntityData);
+                        blockEntityData.putInt("x", location.getFloorX() + x);
+                        blockEntityData.putInt("y", location.getFloorY() + y);
+                        blockEntityData.putInt("z", location.getFloorZ() + z);
 
-                        IChunk chunk = location.add(x, y, z).getChunk();
-                        chunk.addBlockEntity(blockEntity);
-                        level.addBlockEntity(blockEntity);
+                        BlockEntity blockEntity = BlockEntity.createBlockEntity(blockEntityData.getString("id"), location.add(x, y, z), blockEntityData);
 
                         if(blockEntity instanceof BlockEntitySpawnable spawnable){
                             spawnable.spawnToAll();
                         }
-
-                        System.out.println("spawned " + blockEntityData.getString("id") + " " + location.add(x, y, z).getLevelBlockEntity().namedTag.toSNBT(2));
                     }
 
                     Block secondaryBlock = this.secondaryBlocks.get(getBlockIndex(x, y, z));
                     if(secondaryBlock == null) continue;
 
                     if(includeBlocks) {
-                        level.setBlock(location.add(x, y, z), 1, secondaryBlock);   
+                        level.setBlock(location.add(x, y, z), 1, secondaryBlock);
                     }
                 }
             }
