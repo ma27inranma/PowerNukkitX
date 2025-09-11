@@ -112,6 +112,8 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     public IChunk chunk;
     public List<Block> blocksAround = new ArrayList<>();
     public List<Block> collisionBlocks = new ArrayList<>();
+    public List<Block> stepOnBlocks = new ArrayList<>();
+    protected Set<Vector3> lastStepOnBlocks = new HashSet<>();
     public double lastX;
     public double lastY;
     public double lastZ;
@@ -638,6 +640,25 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         this.setDataProperty(NAMETAG_ALWAYS_SHOW, value ? 1 : 0);
     }
 
+    public Set<String> typeFamily() {
+        return Set.of();
+    }
+
+    public final boolean isFamily(String family) {
+        return family != null && !family.isEmpty() && typeFamily().contains(family);
+    }
+
+    public final boolean isAnyFamily(Collection<String> families) {
+        if (families == null || families.isEmpty()) return false;
+        Set<String> mine = typeFamily();
+        for (String f : families) if (mine.contains(f)) return true;
+        return false;
+    }
+
+    public final boolean isAllFamilies(Collection<String> families) {
+        return families == null || families.isEmpty() || typeFamily().containsAll(families);
+    }
+
     public String getScoreTag() {
         return this.getDataProperty(SCORE, "");
     }
@@ -651,7 +672,26 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public void setSneaking(boolean value) {
-        this.setDataFlag(EntityFlag.SNEAKING, value);
+        EnumSet<EntityFlag> primary = this.getEntityDataMap().getOrCreateFlags();
+        boolean flagsChanged = false;
+
+        if (value ? primary.add(EntityFlag.SNEAKING) : primary.remove(EntityFlag.SNEAKING)) {
+            flagsChanged = true;
+        }
+
+        recalculateBoundingBox(false);
+        float newHeight = this.getEntityDataMap().getOrDefault(EntityDataTypes.HEIGHT, getCurrentHeight());
+
+        if (flagsChanged) {
+            EntityDataMap delta = new EntityDataMap();
+            delta.put(EntityDataTypes.FLAGS, primary);
+            delta.putType(EntityDataTypes.HEIGHT, newHeight);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
+        } else {
+            EntityDataMap delta = new EntityDataMap();
+            delta.putType(EntityDataTypes.HEIGHT, newHeight);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
+        }
     }
 
     public boolean isSwimming() {
@@ -1083,6 +1123,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         for (int i = 0; i < addEntity.links.length; i++) {
             addEntity.links[i] = new EntityLink(this.getId(), this.passengers.get(i).getId(), i == 0 ? EntityLink.Type.RIDER : EntityLink.Type.PASSENGER, false, false);
         }
+        addEntity.syncedProperties = this.getClientSyncProperties();
 
         return addEntity;
     }
@@ -1478,6 +1519,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             this.collisionBlocks = null;
         }
         this.justCreated = false;
+        this.stepOnBlocks = null;
 
         if (riding != null && !riding.isAlive() && riding instanceof EntityRideable entityRideable) {
             entityRideable.dismountEntity(this);
@@ -1500,6 +1542,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         boolean hasUpdate = false;
 
         this.checkBlockCollision();
+        this.checkBlockStepOn();
 
         if (this.y < (level.getMinHeight() - 18) && this.isAlive()) {
             if (this instanceof Player player) {
@@ -2406,6 +2449,60 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return this.collisionBlocks;
     }
 
+    protected List<Block> getBlocksUnderEntity() {
+        List<Block> blocks = new ArrayList<>();
+        if (!this.isOnGround()) {
+            return blocks;
+        }
+
+        double x = this.getX();
+        double y = this.getY();
+        double z = this.getZ();
+        double epsilon = 0.01;
+        int blockX = NukkitMath.floorDouble(x);
+        int blockY = NukkitMath.floorDouble(y - epsilon);
+        int blockZ = NukkitMath.floorDouble(z);
+
+        Block blockBelow = this.level.getBlock(blockX, blockY, blockZ);
+
+        if (blockBelow.hasEntityStepSensor()) {
+            blocks.add(blockBelow);
+        }
+
+        return blocks;
+    }
+
+    public List<Block> getTickCachedStepOnBlocks() {
+        if (this.stepOnBlocks == null) {
+            this.stepOnBlocks = this.getBlocksUnderEntity();
+        }
+        return this.stepOnBlocks;
+    }
+
+    protected void checkBlockStepOn() {
+        List<Block> currentStepOnBlocks = this.getTickCachedStepOnBlocks();
+        Set<Vector3> currentPositions = new HashSet<>();
+
+        // On Step ON
+        for (Block block : currentStepOnBlocks) {
+            Vector3 pos = new Vector3(block.getX(), block.getY(), block.getZ());
+            currentPositions.add(pos);
+
+            if (!lastStepOnBlocks.contains(pos)) {
+                block.onEntityStepOn(this);
+            }
+        }
+        // On Step OFF
+        for (Vector3 oldPos : lastStepOnBlocks) {
+            if (!currentPositions.contains(oldPos)) {
+                Block oldBlock = this.level.getBlock(oldPos.getFloorX(), oldPos.getFloorY(), oldPos.getFloorZ());
+                oldBlock.onEntityStepOff(this);
+            }
+        }
+
+        lastStepOnBlocks = currentPositions;
+    }
+
     /**
      * Returns whether this entity can be moved by currents in liquids.
      *
@@ -2882,41 +2979,57 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public void setDataFlag(EntityFlag entityFlag, boolean value) {
-        if (this.getEntityDataMap().existFlag(entityFlag) ^ value) {
+        if (entityFlag.getValue() >= 64) {
+            this.setDataFlagExtend(entityFlag, value);
+            return;
+        }
+
+        if ((this.getEntityDataMap().existFlag(entityFlag)) ^ value) {
             this.getEntityDataMap().setFlag(entityFlag, value);
-            EntityDataMap entityDataMap = new EntityDataMap();
-            entityDataMap.put(EntityDataTypes.FLAGS, this.getEntityDataMap().getFlags());
-            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
+
+            EntityDataMap delta = new EntityDataMap();
+            delta.put(EntityDataTypes.FLAGS, this.getEntityDataMap().getFlags());
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
         }
     }
 
     public void setDataFlags(EnumSet<EntityFlag> entityFlags) {
-        this.getEntityDataMap().put(FLAGS, entityFlags);
-        sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
+        this.getEntityDataMap().put(EntityDataTypes.FLAGS, entityFlags);
+
+        EntityDataMap delta = new EntityDataMap();
+        delta.put(EntityDataTypes.FLAGS, entityFlags);
+        sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
     }
 
     public void setDataFlagExtend(EntityFlag entityFlag) {
-        this.setDataFlag(entityFlag, true);
+        this.setDataFlagExtend(entityFlag, true);
     }
 
     public void setDataFlagExtend(EntityFlag entityFlag, boolean value) {
-        if (this.getEntityDataMap().existFlag(entityFlag) ^ value) {
-            EnumSet<EntityFlag> entityFlags = this.getEntityDataMap().getOrDefault(EntityDataTypes.FLAGS_2, EnumSet.noneOf(EntityFlag.class));
+        EnumSet<EntityFlag> entityFlags = this.getEntityDataMap()
+                .getOrDefault(EntityDataTypes.FLAGS_2, EnumSet.noneOf(EntityFlag.class));
+
+        boolean currently = entityFlags.contains(entityFlag);
+        if (currently ^ value) {
             if (value) {
                 entityFlags.add(entityFlag);
             } else {
                 entityFlags.remove(entityFlag);
             }
             this.getEntityDataMap().put(EntityDataTypes.FLAGS_2, entityFlags);
-            EntityDataMap entityDataMap = new EntityDataMap();
-            entityDataMap.put(EntityDataTypes.FLAGS_2, entityFlags);
-            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
+
+            EntityDataMap delta = new EntityDataMap();
+            delta.put(EntityDataTypes.FLAGS_2, entityFlags);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
         }
     }
 
     public void setDataFlagsExtend(EnumSet<EntityFlag> entityFlags) {
-        this.getEntityDataMap().put(FLAGS_2, entityFlags);
-        sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
+        this.getEntityDataMap().put(EntityDataTypes.FLAGS_2, entityFlags);
+
+        EntityDataMap delta = new EntityDataMap();
+        delta.put(EntityDataTypes.FLAGS_2, entityFlags);
+        sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
     }
 
     public boolean getDataFlag(EntityFlag id) {
@@ -2963,16 +3076,13 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return server;
     }
 
-
     public boolean isUndead() {
         return false;
     }
 
-
     public boolean isInEndPortal() {
         return inEndPortal;
     }
-
 
     public boolean isPreventingSleep(Player player) {
         return false;
@@ -2997,26 +3107,21 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return hash;
     }
 
-
     public boolean isSpinAttacking() {
         return this.getDataFlag(EntityFlag.DAMAGE_NEARBY_MOBS);
     }
-
 
     public void setSpinAttacking(boolean value) {
         this.setDataFlag(EntityFlag.DAMAGE_NEARBY_MOBS, value);
     }
 
-
     public void setSpinAttacking() {
         this.setSpinAttacking(true);
     }
 
-
     public boolean isNoClip() {
         return noClip;
     }
-
 
     public void setNoClip(boolean noClip) {
         this.noClip = noClip;
@@ -3027,32 +3132,47 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         return this instanceof EntityBoss;
     }
 
+    /**
+     * Add a tag to the entity
+     */
     public void addTag(String tag) {
         this.namedTag.putList("Tags", this.namedTag.getList("Tags", StringTag.class).add(new StringTag(tag)));
     }
 
-
+    /**
+     * Remove tag from entity if exist
+     */
     public void removeTag(String tag) {
         ListTag<StringTag> tags = this.namedTag.getList("Tags", StringTag.class);
         tags.remove(new StringTag(tag));
         this.namedTag.putList("Tags", tags);
     }
 
-
+    /**
+     * @deprecated Use {@link #hasTag(String)} instead.
+     */
+    @Deprecated
     public boolean containTag(String tag) {
+        return hasTag(tag);
+    }
+
+    /**
+     * @return true if entity has a string tag
+     */
+    public boolean hasTag(String tag) {
         return this.namedTag.getList("Tags", StringTag.class).getAll().stream().anyMatch(t -> t.data.equals(tag));
     }
 
-
+    /**
+     * @return List of tags for the entity
+     */
     public List<StringTag> getAllTags() {
         return this.namedTag.getList("Tags", StringTag.class).getAll();
     }
 
-
     public float getFreezingEffectStrength() {
         return this.getDataProperty(FREEZING_EFFECT_STRENGTH);
     }
-
 
     public void setFreezingEffectStrength(float strength) {
         if (strength < 0 || strength > 1)
@@ -3060,17 +3180,14 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         this.setDataProperty(FREEZING_EFFECT_STRENGTH, strength);
     }
 
-
     public int getFreezingTicks() {
         return this.freezingTicks;
     }
-
 
     public void setFreezingTicks(int ticks) {
         this.freezingTicks = Math.max(0, Math.min(ticks, 140));
         setFreezingEffectStrength(ticks / 140f);
     }
-
 
     public void addFreezingTicks(int increments) {
         if (freezingTicks + increments < 0) this.freezingTicks = 0;
@@ -3079,26 +3196,21 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         setFreezingEffectStrength(this.freezingTicks / 140f);
     }
 
-
     public void setAmbientSoundInterval(float interval) {
         this.setDataProperty(AMBIENT_SOUND_INTERVAL, interval);
     }
-
 
     public void setAmbientSoundIntervalRange(float range) {
         this.setDataProperty(AMBIENT_SOUND_INTERVAL, range);
     }
 
-
     public void setAmbientSoundEvent(Sound sound) {
         this.setAmbientSoundEventName(sound.getSound());
     }
 
-
     public void setAmbientSoundEventName(String eventName) {
         this.setDataProperty(AMBIENT_SOUND_EVENT_NAME, eventName);
     }
-
 
     public void playAnimation(AnimateEntityPacket.Animation animation) {
         var viewers = new HashSet<>(this.getViewers().values());
@@ -3120,7 +3232,6 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
         pk.entityRuntimeIds.add(this.getId());
         Server.broadcastPacket(players, pk);
     }
-
 
     public void playActionAnimation(AnimatePacket.Action action, float rowingTime) {
         var viewers = new HashSet<>(this.getViewers().values());
@@ -3252,6 +3363,52 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             return false;
         }
         return false;
+    }
+
+    public PropertySyncData getClientSyncProperties() {
+        List<EntityProperty> propertyDefs = EntityProperty.getEntityProperty(this.getIdentifier());
+
+        int[] intArray = propertyDefs.stream()
+            .filter(this::shouldSyncIntProperty)
+            .map(this::getIntPropertyValue)
+            .filter(Objects::nonNull)
+            .mapToInt(Integer::intValue)
+            .toArray();
+
+        double[] doubleArray = propertyDefs.stream()
+            .filter(this::shouldSyncFloatProperty)
+            .map(this::getFloatPropertyValue)
+            .filter(Objects::nonNull)
+            .mapToDouble(Float::doubleValue)
+            .toArray();
+
+        float[] floatArray = new float[doubleArray.length];
+        for (int i = 0; i < doubleArray.length; i++) {
+            floatArray[i] = (float) doubleArray[i];
+        }
+
+        return new PropertySyncData(intArray, floatArray);
+    }
+
+    private boolean shouldSyncIntProperty(EntityProperty prop) {
+        if (!prop.isClientSync()) return false;
+        return (prop instanceof IntEntityProperty)
+            || (prop instanceof BooleanEntityProperty)
+            || (prop instanceof EnumEntityProperty);
+    }
+
+    private Integer getIntPropertyValue(EntityProperty prop) {
+        Integer val = this.intProperties.get(prop.getIdentifier());
+        if (prop instanceof BooleanEntityProperty && val == null) return 0;
+        return val;
+    }
+
+    private boolean shouldSyncFloatProperty(EntityProperty prop) {
+        return prop.isClientSync() && (prop instanceof FloatEntityProperty);
+    }
+
+    private Float getFloatPropertyValue(EntityProperty prop) {
+        return this.floatProperties.get(prop.getIdentifier());
     }
 
     @SuppressWarnings("unchecked")

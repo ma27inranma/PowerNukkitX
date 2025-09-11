@@ -14,6 +14,7 @@ import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityAsyncPrepare;
 import cn.nukkit.entity.EntityID;
 import cn.nukkit.entity.EntityIntelligent;
+import cn.nukkit.entity.EntityQueryOptions;
 import cn.nukkit.entity.item.EntityAreaEffectCloud;
 import cn.nukkit.entity.item.EntityFireworksRocket;
 import cn.nukkit.entity.item.EntityItem;
@@ -37,7 +38,6 @@ import cn.nukkit.event.weather.LightningStrikeEvent;
 import cn.nukkit.inventory.BlockInventoryHolder;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBucket;
-import cn.nukkit.item.customitem.ItemCustom;
 import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.format.ChunkSection;
 import cn.nukkit.level.format.ChunkState;
@@ -48,6 +48,7 @@ import cn.nukkit.level.generator.Generator;
 import cn.nukkit.level.particle.DestroyBlockParticle;
 import cn.nukkit.level.particle.Particle;
 import cn.nukkit.level.tickingarea.TickingArea;
+import cn.nukkit.level.util.EntityQueryUtils;
 import cn.nukkit.level.util.SimpleTickCachedBlockStore;
 import cn.nukkit.level.util.TickCachedBlockStore;
 import cn.nukkit.level.vibration.SimpleVibrationManager;
@@ -82,6 +83,7 @@ import cn.nukkit.utils.BlockUpdateEntry;
 import cn.nukkit.utils.GameLoop;
 import cn.nukkit.utils.Hash;
 import cn.nukkit.utils.LevelException;
+import cn.nukkit.utils.MolangVariableMap;
 import cn.nukkit.utils.TextFormat;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.collection.nb.Int2ObjectNonBlockingMap;
@@ -161,6 +163,7 @@ public class Level implements Metadatable {
     public static int COMPRESSION_LEVEL = 8;
     private static int levelIdCounter = 1;
     private static int chunkLoaderCounter = 1;
+    private static final double INV_CHUNK_SIZE = 1.0 / 16.0;
     // endregion finals - number finals
 
     private static final Set<String> randomTickBlocks = new HashSet<>(64);  // The blocks that can randomly tick
@@ -634,23 +637,39 @@ public class Level implements Metadatable {
     }
 
     public void addSound(Vector3 pos, Sound sound) {
-        this.addSound(pos, sound, 1, 1, (Player[]) null);
+        this.addSound(pos, sound.getSound(), 1, 1, (Player[]) null);
     }
 
     public void addSound(Vector3 pos, Sound sound, float volume, float pitch) {
-        this.addSound(pos, sound, volume, pitch, (Player[]) null);
+        this.addSound(pos, sound.getSound(), volume, pitch, (Player[]) null);
     }
 
     public void addSound(Vector3 pos, Sound sound, float volume, float pitch, Collection<Player> players) {
-        this.addSound(pos, sound, volume, pitch, players.toArray(Player.EMPTY_ARRAY));
+        this.addSound(pos, sound.getSound(), volume, pitch, players != null ? players.toArray(Player.EMPTY_ARRAY) : null);
     }
 
     public void addSound(Vector3 pos, Sound sound, float volume, float pitch, Player... players) {
+        this.addSound(pos, sound.getSound(), volume, pitch, players);
+    }
+
+    public void addSound(Vector3 pos, String soundName) {
+        this.addSound(pos, soundName, 1, 1, (Player[]) null);
+    }
+
+    public void addSound(Vector3 pos, String soundName, float volume, float pitch) {
+        this.addSound(pos, soundName, volume, pitch, (Player[]) null);
+    }
+
+    public void addSound(Vector3 pos, String soundName, float volume, float pitch, Collection<Player> players) {
+        this.addSound(pos, soundName, volume, pitch, players != null ? players.toArray(Player.EMPTY_ARRAY) : null);
+    }
+
+    public void addSound(Vector3 pos, String soundName, float volume, float pitch, Player... players) {
         Preconditions.checkArgument(volume >= 0 && volume <= 1, "Sound volume must be between 0 and 1");
-        Preconditions.checkArgument(pitch >= 0, "Sound pitch must be higher than 0");
+        Preconditions.checkArgument(pitch >= 0, "Sound pitch must be higher or equal to 0");
 
         PlaySoundPacket packet = new PlaySoundPacket();
-        packet.name = sound.getSound();
+        packet.name = soundName;
         packet.volume = volume;
         packet.pitch = pitch;
         packet.x = pos.getFloorX();
@@ -789,32 +808,58 @@ public class Level implements Metadatable {
         }
     }
 
-    public void addParticleEffect(Vector3 pos, ParticleEffect particleEffect) {
-        this.addParticleEffect(pos, particleEffect, -1, this.getDimension(), (Player[]) null);
+    public void addParticleEffect(Vector3 pos, ParticleEffect effect) {
+        this.addParticleEffect(pos, effect, -1L);
     }
 
-    public void addParticleEffect(Vector3 pos, ParticleEffect particleEffect, long uniqueEntityId) {
-        this.addParticleEffect(pos, particleEffect, uniqueEntityId, this.getDimension(), (Player[]) null);
+    public void addParticleEffect(Vector3 pos, ParticleEffect effect, long uniqueEntityId) {
+        this.addParticleEffect(pos, effect, uniqueEntityId, (MolangVariableMap) null);
     }
 
-    public void addParticleEffect(Vector3 pos, ParticleEffect particleEffect, long uniqueEntityId, int dimensionId) {
-        this.addParticleEffect(pos, particleEffect, uniqueEntityId, dimensionId, (Player[]) null);
+    public void addParticleEffect(Vector3 pos, ParticleEffect effect, long uniqueEntityId, MolangVariableMap molangVariables) {
+        this.addParticleEffect(pos, effect, uniqueEntityId, molangVariables, (Player[]) null);
     }
 
-    public void addParticleEffect(Vector3 pos, ParticleEffect particleEffect, long uniqueEntityId, int dimensionId, Collection<Player> players) {
-        this.addParticleEffect(pos, particleEffect, uniqueEntityId, dimensionId, players.toArray(Player.EMPTY_ARRAY));
+    public void addParticleEffect(Vector3 pos, ParticleEffect effect, long uniqueEntityId, MolangVariableMap molangVariables, Collection<Player> players) {
+        this.addParticleEffect(pos.asVector3f(), effect.getIdentifier(), uniqueEntityId, molangVariables, players != null ? players.toArray(Player.EMPTY_ARRAY) : null);
     }
 
-    public void addParticleEffect(Vector3 pos, ParticleEffect particleEffect, long uniqueEntityId, int dimensionId, Player... players) {
-        this.addParticleEffect(pos.asVector3f(), particleEffect.getIdentifier(), uniqueEntityId, dimensionId, players);
+    public void addParticleEffect(Vector3 pos, ParticleEffect effect, long uniqueEntityId, MolangVariableMap molangVariables, Player... players) {
+        this.addParticleEffect(pos.asVector3f(), effect.getIdentifier(), uniqueEntityId, molangVariables, players);
     }
 
-    public void addParticleEffect(Vector3f pos, String identifier, long uniqueEntityId, int dimensionId, Player... players) {
+    public void addParticleEffect(Vector3 pos, String effectName) {
+        this.addParticleEffect(pos, effectName, -1L);
+    }
+
+    public void addParticleEffect(Vector3 pos, String effectName, long uniqueEntityId) {
+        this.addParticleEffect(pos, effectName, uniqueEntityId, (MolangVariableMap) null);
+    }
+
+    public void addParticleEffect(Vector3 pos, String effectName, long uniqueEntityId, MolangVariableMap molangVariables) {
+        this.addParticleEffect(pos, effectName, uniqueEntityId, molangVariables, (Player[]) null);
+    }
+
+    public void addParticleEffect(Vector3 pos, String effectName, long uniqueEntityId, MolangVariableMap molangVariables, Collection<Player> players) {
+        this.addParticleEffect(pos.asVector3f(), effectName, uniqueEntityId, molangVariables, players != null ? players.toArray(Player.EMPTY_ARRAY) : null);
+    }
+
+    public void addParticleEffect(Vector3 pos, String effectName, long uniqueEntityId, MolangVariableMap molangVariables, Player... players) {
+        this.addParticleEffect(pos.asVector3f(), effectName, uniqueEntityId, molangVariables, players);
+    }
+
+    public void addParticleEffect(Vector3f pos, String identifier, long uniqueEntityId, MolangVariableMap molangVariables, Player... players) {
         SpawnParticleEffectPacket pk = new SpawnParticleEffectPacket();
         pk.identifier = identifier;
         pk.uniqueEntityId = uniqueEntityId;
-        pk.dimensionId = dimensionId;
+        pk.dimensionId = this.getDimension();
         pk.position = pos;
+
+        if (molangVariables == null) {
+            pk.molangVariablesJson = Optional.empty();
+        } else {
+            pk.molangVariablesJson = Optional.of(molangVariables.isEmpty() ? "[]" : molangVariables.toJson());
+        }
 
         if (players == null || players.length == 0) {
             addChunkPacket(pos.getFloorX() >> 4, pos.getFloorZ() >> 4, pk);
@@ -926,7 +971,7 @@ public class Level implements Metadatable {
             this.loaderCounter.put(hash, this.loaderCounter.get(hash) + 1);
         }
 
-        this.cancelUnloadChunkRequest(hash);
+        this.cancelUnloadChunkRequest(chunkX, chunkZ);
 
         if (autoLoad) {
             this.loadChunk(chunkX, chunkZ);
@@ -936,7 +981,7 @@ public class Level implements Metadatable {
     public boolean unregisterChunkLoader(ChunkLoader loader, int chunkX, int chunkZ, boolean isSafeUnload) {
         int loaderId = loader.getLoaderId();
         long chunkHash = Level.chunkHash(chunkX, chunkZ);
-        if(chunkHash < 0) return false;
+
         Map<Integer, ChunkLoader> chunkLoadersIndex = this.chunkLoaders.get(chunkHash);
         if (chunkLoadersIndex != null) {
             ChunkLoader oldLoader = chunkLoadersIndex.remove(loaderId);
@@ -2218,7 +2263,7 @@ public class Level implements Metadatable {
                 int chunkZ = Level.getHashZ(index);
                 int bx = chunkX << 4;
                 int bz = chunkZ << 4;
-                for (int blockHash : blocks) {
+                for (int blockHash : blocks.clone()) {
                     int hi = (byte) (blockHash >>> 16);
                     int lo = (short) blockHash;
                     int y = ensureY(lo - 64);
@@ -2281,6 +2326,7 @@ public class Level implements Metadatable {
             }
         } catch (Throwable e) {
             log.error("Error while updating block light", e);
+            e.printStackTrace();
         }
     }
 
@@ -2867,13 +2913,11 @@ public class Level implements Metadatable {
         if (item.canBePlaced()) {
             hand = item.getBlock();
             hand.position(block);
-        } else if (item instanceof ItemCustom customItem) {
-            Block blockToPlace = customItem.getBlockPlacerTargetBlock();
-            if (blockToPlace == null || blockToPlace.isAir()) return null;
+        } else {
+            Block blockToPlace = item.getBlockPlacerTargetBlock();
+            if (blockToPlace == null) return null;
             hand = blockToPlace;
             hand.position(block);
-        } else {
-            return null;
         }
 
         // Check for valid placement conditions
@@ -3006,8 +3050,258 @@ public class Level implements Metadatable {
         return this.entities.containsKey(entityId) ? this.entities.get(entityId) : null;
     }
 
+    /**
+     * Retrieves all entities currently in this level.
+     * <p>
+     * This method does not apply any filtering — it simply returns every entity loaded
+     * in the world. If you want to filter by type, tags, distance, or location, use
+     * {@link #getEntities(EntityQueryOptions)} with an {@link EntityQueryOptions} instance.
+     *
+     * <pre>
+     * Example: Get all entities in the world {@code
+     * Entity[] all = level.getEntities();
+     * }
+     * </pre>
+     * @return An array of all loaded entities in the level.
+     */
     public Entity[] getEntities() {
         return entities.values().toArray(Entity.EMPTY_ARRAY);
+    }
+
+    /**
+     * Retrieves a list of entities that match the given {@link EntityQueryOptions}.
+     * <p>
+     * This is the preferred method for spatial or attribute-based queries.
+     * You can filter by:
+     * <ul>
+     *     <li>Exact location or radius</li>
+     *     <li>Bounding box volume</li>
+     *     <li>Entity class</li>
+     *     <li>Name tag</li>
+     *     <li>Tags (include/exclude)</li>
+     *     <li>Custom predicates</li>
+     * </ul>
+     *
+     * <pre>
+     * Example: Find the closest zombie within 10 blocks {@code
+     * List<Entity> result = level.getEntities(
+     *     new EntityQueryOptions()
+     *         .location(player)
+     *         .maxDistance(10)
+     *         .typeClass(Zombie.class)
+     *         .closest(1)
+     * );
+     * Zombie zombie = result.isEmpty() ? null : (Zombie) result.get(0);
+     * }
+     * </pre>
+     *
+     * @param o The query options to apply.
+     * @return A list of entities matching the filters.
+     */
+    public List<Entity> getEntities(EntityQueryOptions o) {
+        return getEntities(o, new ArrayList<>(32));
+    }
+
+    /**
+     * Retrieves all entities within a spherical radius of the given location.
+     * <p>
+     * This is a shorthand for a distance-based query and is equivalent to:
+     * <pre>
+     * getEntities(new EntityQueryOptions()
+     *     .location(center)
+     *     .maxDistance(radius)
+     *     .loadChunks(loadChunks)
+     * );
+     * </pre>
+     *
+     * <pre>
+     * Example: Get all entities within 5 blocks of a position {@code
+     * List<Entity> nearby = level.getEntities(player, 5, false);
+     * }
+     * </pre>
+     *
+     * @param center     The center position for the search.
+     * @param radius     The search radius in blocks.
+     * @param loadChunks If true, loads chunks that are not already loaded.
+     * @return A list of entities within the specified radius.
+     */
+    public List<Entity> getEntities(Vector3 center, double radius, boolean loadChunks) {
+        return getEntities(new EntityQueryOptions()
+                .location(center)
+                .maxDistance(radius)
+                .loadChunks(loadChunks));
+    }
+
+    /**
+     * Retrieves entities matching the given {@link EntityQueryOptions},
+     * writing results into the provided output list.
+     *
+     * <pre>
+     * Example: Reuse an output list for performance {@code
+     * List<Entity> buffer = new ArrayList<>();
+     * EntityQueryOptions opts = new EntityQueryOptions()
+     *     .location(player)
+     *     .maxDistance(10);
+     *
+     * level.getEntities(opts, buffer);
+     * for (Entity e : buffer) {
+     *     // process entity
+     * }
+     * buffer.clear(); // ready for next query
+     * }
+     * </pre>
+     *
+     * @param o   The query options to apply.
+     * @param out The list to store matching entities in.
+     * @return The same list instance passed in {@code out}, now filled with results.
+     */
+    public List<Entity> getEntities(EntityQueryOptions o, List<Entity> out) {
+        out.clear();
+
+        if (o == null) {
+            out.addAll(this.entities.values());
+            return out;
+        }
+
+        boolean hasLocation = (o.location != null);
+        boolean hasVolume = (hasLocation && o.volume != null);
+        boolean hasRadius = (hasLocation && o.maxDistance != null);
+        boolean exactLocationMatch = (hasLocation && o.exactLocationMatch);
+
+        boolean needsLocation =
+            (o.volume != null) ||
+            (o.maxDistance != null) ||
+            (o.minDistance != null) ||
+            (o.closest != null && o.closest > 0) ||
+            (o.farthest != null && o.farthest > 0);
+
+        if (needsLocation && !hasLocation) {
+            log.error("EntityQueryOptions requires location() when using volume, minDistance, maxDistance, closest, or farthest.");
+            return out;
+        }
+
+        if (hasLocation
+                && o.volume == null
+                && o.maxDistance == null
+                && o.minDistance == null
+                && (o.closest == null || o.closest <= 0)
+                && (o.farthest == null || o.farthest <= 0)
+                && !exactLocationMatch) {
+            exactLocationMatch = true;
+        }
+
+        boolean hasNonSpatialFilters =
+            (o.tags != null && !o.tags.isEmpty()) ||
+            (o.excludeTags != null && !o.excludeTags.isEmpty()) ||
+            (o.typeClass != null) ||
+            (o.nameTagEquals != null) ||
+            (o.predicate != null) ||
+            (o.families != null && !o.families.isEmpty()) ||
+            (o.excludeFamilies != null && !o.excludeFamilies.isEmpty());
+
+        if (exactLocationMatch) {
+            int cx = NukkitMath.floorDouble(o.location.x * INV_CHUNK_SIZE);
+            int cz = NukkitMath.floorDouble(o.location.z * INV_CHUNK_SIZE);
+
+            Map<Long, Entity> map = this.getChunkEntities(cx, cz, o.loadChunks);
+            if (map != null && !map.isEmpty()) {
+                int lx = NukkitMath.floorDouble(o.location.x);
+                int ly = NukkitMath.floorDouble(o.location.y);
+                int lz = NukkitMath.floorDouble(o.location.z);
+
+                for (Entity e : map.values()) {
+                    if (e != null && e.getFloorX() == lx && e.getFloorY() == ly && e.getFloorZ() == lz) {
+                        out.add(e);
+                    }
+                }
+            }
+
+            if (!out.isEmpty() && hasNonSpatialFilters) {
+                EntityQueryUtils.filterNonSpatial(out, o);
+            }
+            EntityQueryUtils.applyOrderingAndLimits(out, o.location, o);
+            return out;
+        }
+
+        if (!hasVolume && !hasRadius) {
+            out.addAll(this.entities.values());
+
+            if (hasLocation && (o.minDistance != null || o.maxDistance != null)) {
+                EntityQueryUtils.filterByDistanceBand(out, o.location, o.minDistance, o.maxDistance);
+            }
+
+            if (!out.isEmpty() && hasNonSpatialFilters) {
+                EntityQueryUtils.filterNonSpatial(out, o);
+            }
+            EntityQueryUtils.applyOrderingAndLimits(out, o.location, o);
+            return out;
+        }
+
+        double startX, startZ, endX, endZ;
+        if (hasVolume) {
+            double vx = Math.max(0.0, o.volume.x);
+            double vz = Math.max(0.0, o.volume.z);
+            startX = o.location.x;
+            endX   = o.location.x + vx;
+            startZ = o.location.z;
+            endZ   = o.location.z + vz;
+
+            startX -= o.margin; endX += o.margin;
+            startZ -= o.margin; endZ += o.margin;
+        } else if (hasRadius) {
+            double r = Math.max(0.0, o.maxDistance);
+            double scanPad = Math.min(o.margin, r);
+            startX = o.location.x - (r + scanPad);
+            endX   = o.location.x + (r + scanPad);
+            startZ = o.location.z - (r + scanPad);
+            endZ   = o.location.z + (r + scanPad);
+        } else {
+            out.addAll(this.entities.values());
+            if (hasLocation && (o.minDistance != null || o.maxDistance != null)) {
+                EntityQueryUtils.filterByDistanceBand(out, o.location, o.minDistance, o.maxDistance);
+            }
+            if (!out.isEmpty() && hasNonSpatialFilters) {
+                EntityQueryUtils.filterNonSpatial(out, o);
+            }
+            EntityQueryUtils.applyOrderingAndLimits(out, o.location, o);
+            return out;
+        }
+
+        int minCX = NukkitMath.floorDouble(startX * INV_CHUNK_SIZE);
+        int maxCX = NukkitMath.ceilDouble(endX * INV_CHUNK_SIZE);
+        int minCZ = NukkitMath.floorDouble(startZ * INV_CHUNK_SIZE);
+        int maxCZ = NukkitMath.ceilDouble(endZ * INV_CHUNK_SIZE);
+
+        EntityQueryUtils.ChunkQuery chunk = new EntityQueryUtils.ChunkQuery(
+            minCX, maxCX, minCZ, maxCZ, o.loadChunks
+        );
+
+        EntityQueryUtils.SpatialFilter filter = new EntityQueryUtils.SpatialFilter()
+            .withCenter(o.location)
+            .withDistanceBand(o.minDistance, o.maxDistance);
+
+        if (hasVolume) {
+            double vx = Math.max(0.0, o.volume.x);
+            double vy = Math.max(0.0, o.volume.y);
+            double vz = Math.max(0.0, o.volume.z);
+
+            double vMinX = o.location.x;
+            double vMaxX = o.location.x + vx;
+            double vMinY = o.location.y;
+            double vMaxY = o.location.y + vy;
+            double vMinZ = o.location.z;
+            double vMaxZ = o.location.z + vz;
+
+            filter.withCuboid(vMinX, vMaxX, vMinY, vMaxY, vMinZ, vMaxZ);
+        }
+
+        EntityQueryUtils.collectEntitiesInChunks(this, chunk, filter, out);
+
+        if (!out.isEmpty() && hasNonSpatialFilters) {
+            EntityQueryUtils.filterNonSpatial(out, o);
+        }
+        EntityQueryUtils.applyOrderingAndLimits(out, o.location, o);
+        return out;
     }
 
     public Entity[] getCollidingEntities(AxisAlignedBB bb) {
@@ -3898,11 +4192,15 @@ public class Level implements Metadatable {
     }
 
     public Position getSafeSpawn(Vector3 spawn, int horizontalMaxOffset, boolean allowWaterUnder) {
+        return getSafeSpawn(spawn, horizontalMaxOffset, allowWaterUnder, true);
+    }
+
+    public Position getSafeSpawn(Vector3 spawn, int horizontalMaxOffset, boolean allowWaterUnder, boolean checkHighest) {
         if (spawn == null)
-            spawn = this.getFuzzySpawnLocation();
+            spawn = (horizontalMaxOffset == 0) ? this.getSpawnLocation().add(0.5, 0, 0.5) : this.getFuzzySpawnLocation();
         if (spawn == null)
             return null;
-        if (standable(spawn, true))
+        if (standable(spawn, allowWaterUnder) || horizontalMaxOffset == 0)
             return Position.fromObject(spawn, this);
 
         int maxY = getDimensionData().getMaxHeight();
@@ -3921,7 +4219,11 @@ public class Level implements Metadatable {
                         count++;
                         if(count > 10000) {
                             log.warn("cannot find a safe spawn around " + spawn.asBlockVector3() + ". Too many attempts!");
-                            return Position.fromObject(spawn, this);
+
+                            if(checkHighest)
+                                return getSafeSpawn(spawn.setY(getHighestBlockAt((int) spawn.getX(), (int) spawn.getZ())), horizontalMaxOffset, allowWaterUnder, false);
+                            else
+                                return Position.fromObject(spawn, this);
                         }
                         if(standable(checkLoc, allowWaterUnder)) return checkLoc;
                     }
