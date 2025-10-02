@@ -26,7 +26,7 @@ import cn.nukkit.entity.EntityHuman;
 import cn.nukkit.entity.EntityInteractable;
 import cn.nukkit.entity.EntityLiving;
 import cn.nukkit.entity.EntityRideable;
-import cn.nukkit.entity.data.EntityDataTypes;
+import cn.nukkit.entity.custom.CustomEntityComponents;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.entity.data.PlayerFlag;
 import cn.nukkit.entity.data.Skin;
@@ -1501,11 +1501,6 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         }
     }
 
-    @Override
-    public double getStepHeight() {
-        return 0.6f;
-    }
-
     /**
      * @return {@link #lastAttackEntity}
      */
@@ -2639,6 +2634,16 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         var pk = new CameraPresetsPacket();
         pk.presets.addAll(CameraPreset.getPresets().values());
         dataPacket(pk);
+    }
+
+    @Override
+    public Set<String> typeFamily() {
+        return Set.of("player");
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return true;
     }
 
     @Override
@@ -4933,14 +4938,21 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
     @Override
     public void setSprinting(boolean value) {
         if (value && this.getFreezingTicks() > 0) return;
+
         if (isSprinting() != value) {
             super.setSprinting(value);
-            this.setMovementSpeed(value ? getMovementSpeed() * 1.3f : getMovementSpeed() / 1.3f);
 
+            float base = DEFAULT_SPEED;
+            int speedLvl = 0;
             if (this.hasEffect(EffectType.SPEED)) {
-                float movementSpeed = this.getMovementSpeed();
-                this.sendMovementSpeed(value ? movementSpeed * 1.3f : movementSpeed);
+                speedLvl = this.getEffect(EffectType.SPEED).getLevel();
             }
+            float effectMul = 1.0f + 0.2f * speedLvl;
+            float sprintMul = value ? 1.3f : 1.0f;
+
+            float finalSpeed = base * effectMul * sprintMul;
+
+            this.setMovementSpeed(finalSpeed, true);
         }
     }
 
@@ -5062,7 +5074,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                 entity.close();
                 return true;
             } else if (entity instanceof EntityItem entityItem) {
-                if (entityItem.getPickupDelay() <= 0) {
+                if (entityItem.getPickupDelay() <= 0 && !entityItem.isDisplayOnly()) {
                     Item item = entityItem.getItem();
 
                     if (item != null) {
