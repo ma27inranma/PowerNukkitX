@@ -64804,8 +64804,8 @@
     "collision_index": 1,
     "can_break_with_hand": false
   },
-  "minecraft:chain[waterlogged=true,axis=x]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=true,axis=x]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -64813,8 +64813,8 @@
       "pillar_axis": "x"
     }
   },
-  "minecraft:chain[waterlogged=false,axis=x]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=false,axis=x]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -64822,8 +64822,8 @@
       "pillar_axis": "x"
     }
   },
-  "minecraft:chain[waterlogged=true,axis=y]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=true,axis=y]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -64831,8 +64831,8 @@
       "pillar_axis": "y"
     }
   },
-  "minecraft:chain[waterlogged=false,axis=y]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=false,axis=y]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -64840,8 +64840,8 @@
       "pillar_axis": "y"
     }
   },
-  "minecraft:chain[waterlogged=true,axis=z]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=true,axis=z]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -64849,8 +64849,8 @@
       "pillar_axis": "z"
     }
   },
-  "minecraft:chain[waterlogged=false,axis=z]": {
-    "bedrock_identifier": "minecraft:chain",
+  "minecraft:iron_chain[waterlogged=false,axis=z]": {
+    "bedrock_identifier": "minecraft:iron_chain",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129500,8 +129500,8 @@
       "facing_direction": 0
     }
   },
-  "minecraft:chain_command_block[facing=north,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=north,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129510,8 +129510,8 @@
       "facing_direction": 2
     }
   },
-  "minecraft:chain_command_block[facing=east,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=east,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129520,8 +129520,8 @@
       "facing_direction": 5
     }
   },
-  "minecraft:chain_command_block[facing=south,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=south,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129530,8 +129530,8 @@
       "facing_direction": 3
     }
   },
-  "minecraft:chain_command_block[facing=west,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=west,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129540,8 +129540,8 @@
       "facing_direction": 4
     }
   },
-  "minecraft:chain_command_block[facing=up,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=up,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129550,8 +129550,8 @@
       "facing_direction": 1
     }
   },
-  "minecraft:chain_command_block[facing=down,conditional=true]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=down,conditional=true]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129560,8 +129560,8 @@
       "facing_direction": 0
     }
   },
-  "minecraft:chain_command_block[facing=north,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=north,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129570,8 +129570,8 @@
       "facing_direction": 2
     }
   },
-  "minecraft:chain_command_block[facing=east,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=east,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129580,8 +129580,8 @@
       "facing_direction": 5
     }
   },
-  "minecraft:chain_command_block[facing=south,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=south,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129590,8 +129590,8 @@
       "facing_direction": 3
     }
   },
-  "minecraft:chain_command_block[facing=west,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=west,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129600,8 +129600,8 @@
       "facing_direction": 4
     }
   },
-  "minecraft:chain_command_block[facing=up,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=up,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
@@ -129610,8 +129610,8 @@
       "facing_direction": 1
     }
   },
-  "minecraft:chain_command_block[facing=down,conditional=false]": {
-    "bedrock_identifier": "minecraft:chain_command_block",
+  "minecraft:iron_chain_command_block[facing=down,conditional=false]": {
+    "bedrock_identifier": "minecraft:iron_chain_command_block",
     "block_hardness": 1.5,
     "collision_index": 1,
     "can_break_with_hand": false,
