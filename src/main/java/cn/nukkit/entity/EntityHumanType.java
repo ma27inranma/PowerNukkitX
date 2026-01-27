@@ -6,10 +6,12 @@ import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
 import cn.nukkit.event.entity.EntityDamageEvent.DamageModifier;
+import cn.nukkit.inventory.EntityHandItem;
 import cn.nukkit.inventory.HumanOffHandInventory;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.inventory.HumanEnderChestInventory;
 import cn.nukkit.inventory.HumanInventory;
+import cn.nukkit.inventory.InventoryHolder;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemShield;
 import cn.nukkit.item.enchantment.Enchantment;
@@ -24,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-public abstract class EntityHumanType extends EntityCreature implements IHuman {
+public abstract class EntityHumanType extends EntityCreature implements IHuman, InventoryHolder, EntityHandItem {
 
     protected HumanInventory inventory;
     protected HumanEnderChestInventory enderChestInventory;
@@ -48,6 +50,11 @@ public abstract class EntityHumanType extends EntityCreature implements IHuman {
     }
 
     @Override
+    public Item getItemInHand() {
+        return this.getInventory().getItemInHand();
+    }
+
+    @Override
     public void setInventories(Inventory[] inventory) {
         this.inventory = (HumanInventory) inventory[0];
         this.offhandInventory = (HumanOffHandInventory) inventory[1];
@@ -55,7 +62,7 @@ public abstract class EntityHumanType extends EntityCreature implements IHuman {
     }
 
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         if (this.inventory != null) {
             List<Item> drops = new ArrayList<>(this.inventory.getContents().values());
             drops.addAll(this.offhandInventory.getContents().values());
@@ -168,31 +175,38 @@ public abstract class EntityHumanType extends EntityCreature implements IHuman {
             }
         }
 
-        if (event.getCause() != DamageCause.VOID &&
-                event.getCause() != DamageCause.MAGIC &&
-                event.getCause() != DamageCause.HUNGER &&
-                event.getCause() != DamageCause.DROWNING &&
-                event.getCause() != DamageCause.SUFFOCATION &&
-                event.getCause() != DamageCause.SUICIDE &&
-                event.getCause() != DamageCause.FIRE_TICK &&
-                event.getCause() != DamageCause.FALL) { // No armor damage
+        if (shouldDamageArmor(armor) &&
+                event.getCause() != EntityDamageEvent.DamageCause.VOID &&
+                event.getCause() != EntityDamageEvent.DamageCause.MAGIC &&
+                event.getCause() != EntityDamageEvent.DamageCause.HUNGER &&
+                event.getCause() != EntityDamageEvent.DamageCause.DROWNING &&
+                event.getCause() != EntityDamageEvent.DamageCause.SUFFOCATION &&
+                event.getCause() != EntityDamageEvent.DamageCause.SUICIDE &&
+                event.getCause() != EntityDamageEvent.DamageCause.FIRE_TICK &&
+                event.getCause() != EntityDamageEvent.DamageCause.FALL) {
 
-            if (armor.isUnbreakable() || armor.getMaxDurability() < 0) {
-                return armor;
+            if (armor instanceof ItemShield) {
+                armor.setDamage(armor.getDamage() + (event.getDamage() >= 3 ? (int) event.getDamage() + 1 : 0));
+            } else {
+                armor.setDamage(armor.getDamage() + Math.max(1, (int) (event.getDamage() / 4.0f)));
             }
 
-            if (armor instanceof ItemShield)
-                armor.setDamage(armor.getDamage() + (event.getDamage() >= 3 ? (int) event.getDamage() + 1 : 0));
-            else
-                armor.setDamage(armor.getDamage() + Math.max(1, (int) (event.getDamage() / 4.0f)));
-
-            if (armor.getDamage() >= armor.getMaxDurability()) {
+            if (armor.getMaxDurability() > 0 && armor.getDamage() >= armor.getMaxDurability()) {
                 getLevel().addSound(this, Sound.RANDOM_BREAK);
                 return Item.get(BlockID.AIR, 0, 0);
             }
         }
 
         return armor;
+    }
+
+    public boolean shouldDamageArmor(Item armor) {
+        if (armor.isUnbreakable() || armor.getMaxDurability() <= 0) return false;
+
+        int min = armor.getDamageChanceMin();
+        int max = armor.getDamageChanceMax();
+        int chance = (min == max) ? min : ThreadLocalRandom.current().nextInt(min, max + 1);
+        return ThreadLocalRandom.current().nextInt(100) < chance;
     }
 
     @Override

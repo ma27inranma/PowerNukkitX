@@ -1,15 +1,21 @@
 package cn.nukkit.registry;
 
 import cn.nukkit.network.protocol.*;
+import cn.nukkit.plugin.Plugin;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import me.sunlan.fastreflection.FastConstructor;
+import me.sunlan.fastreflection.FastMemberLoader;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnegative;
+import java.lang.reflect.Constructor;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? extends DataPacket>> {
     private final Int2ObjectOpenHashMap<FastConstructor<? extends DataPacket>> PACKET_POOL = new Int2ObjectOpenHashMap<>(256);
+    private final Map<String, FastMemberLoader> fastMemberLoaderCache = new ConcurrentHashMap<>();
     private static final AtomicBoolean isLoad = new AtomicBoolean(false);
 
     @Override
@@ -20,14 +26,16 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
 
     @Override
     public DataPacket get(Integer key) {
-        FastConstructor<? extends DataPacket> fastConstructor = PACKET_POOL.get(key);
+        FastConstructor<? extends DataPacket> fastConstructor = PACKET_POOL.get(key.intValue());
         if (fastConstructor == null) {
             return null;
         } else {
             try {
                 return (DataPacket) fastConstructor.invoke();
+            } catch (Error e) {
+                throw e;
             } catch (Throwable e) {
-                throw new RuntimeException(e);
+                throw new PacketInstantiationException("Failed to instantiate packet", e);
             }
         }
     }
@@ -39,8 +47,10 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
         } else {
             try {
                 return (DataPacket) fastConstructor.invoke();
+            } catch (Error e) {
+                throw e;
             } catch (Throwable e) {
-                throw new RuntimeException(e);
+                throw new PacketInstantiationException("Failed to instantiate packet", e);
             }
         }
     }
@@ -57,19 +67,65 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
     }
 
     /**
-     * Register a packet to the pool. Using from 1.19.70.
+     * Registers an internal (non-plugin) packet class into the registry.
      *
-     * @param id    The packet id, non-negative int
-     * @param clazz The packet class
+     * <p>This method is intended for registering standard/internal packet classes
+     * that are part of the server implementation. It creates a {@link me.sunlan.fastreflection.FastConstructor}
+     * from the packet class's no-arg constructor and stores it in the packet pool.</p>
+     *
+     * <p>Do not use this method to register plugin-provided packet classes; use
+     * {@code registerCustomPacket} for plugin classes so the plugin classloader is used.</p>
+     *
+     * @param id    the packet id (should be non-negative)
+     * @param clazz the packet class to register (must have a public no-arg constructor)
+     * @throws RegisterException if the id is already registered or the class has no no-arg constructor
      */
     @Override
-    public void register(Integer id, Class<? extends DataPacket> clazz) throws RegisterException {
+    public void register(Integer id, Class<? extends DataPacket> clazz) throws RegisterException
+    {
         try {
             if (this.PACKET_POOL.putIfAbsent(id, FastConstructor.create(clazz.getConstructor())) != null) {
                 throw new RegisterException("The packet has been registered!");
             }
         } catch (NoSuchMethodException e) {
             throw new RegisterException(e);
+        }
+    }
+
+    /**
+     * Registers a plugin-provided custom packet using the plugin's classloader.
+     *
+     * <p>This method is intended specifically for registering custom packets supplied
+     * by plugins. It ensures instances are instantiated using a {@link FastConstructor}
+     * configured with a {@link FastMemberLoader} that uses the plugin's classloader,
+     * so plugin classes resolve correctly at runtime.</p>
+     *
+     * <p>Do not use this method for standard/internal packet registration; internal
+     * packets should be registered via the normal internal registration path
+     * (for example {@code register0} or {@code register}).</p>
+     *
+     * @param plugin the plugin that provides the custom packet; its classloader will be used
+     * @param id     the packet id (non-negative)
+     * @param clazz  the packet class provided by the plugin
+     * @throws RegisterException if the packet id is already registered or the class has no no-arg constructor
+     */
+    public void registerCustomPacket(Plugin plugin, Integer id, Class<? extends DataPacket> clazz) throws RegisterException {
+        final Constructor<? extends DataPacket> ctor;
+        try {
+            ctor = clazz.getConstructor();
+        } catch (NoSuchMethodException e) {
+            throw new RegisterException(e);
+        }
+
+        FastMemberLoader memberLoader = fastMemberLoaderCache.computeIfAbsent(
+                plugin.getName(),
+                p -> new FastMemberLoader(plugin.getPluginClassLoader())
+        );
+
+        FastConstructor<? extends DataPacket> fastCtor = FastConstructor.create(ctor, memberLoader, false);
+
+        if (this.PACKET_POOL.putIfAbsent(id, fastCtor) != null) {
+            throw new RegisterException("The packet has been registered!");
         }
     }
 
@@ -106,6 +162,7 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
         this.register0(ProtocolInfo.COMMAND_REQUEST_PACKET, CommandRequestPacket.class);
         this.register0(ProtocolInfo.CONTAINER_CLOSE_PACKET, ContainerClosePacket.class);
         this.register0(ProtocolInfo.CONTAINER_OPEN_PACKET, ContainerOpenPacket.class);
+        this.register0(ProtocolInfo.CORRECT_PLAYER_MOVE_PREDICTION_PACKET, CorrectPlayerMovePredictionPacket.class);
         this.register0(ProtocolInfo.CONTAINER_SET_DATA_PACKET, ContainerSetDataPacket.class);
         this.register0(ProtocolInfo.CRAFTING_DATA_PACKET, CraftingDataPacket.class);
         this.register0(ProtocolInfo.CRAFTING_EVENT_PACKET, CraftingEventPacket.class);
@@ -240,6 +297,8 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
         this.register0(ProtocolInfo.PLAYER_FOG_PACKET, PlayerFogPacket.class);
         this.register0(ProtocolInfo.SET_DEFAULT_GAME_TYPE_PACKET, SetDefaultGameTypePacket.class);
         this.register0(ProtocolInfo.STRUCTURE_BLOCK_UPDATE_PACKET, StructureBlockUpdatePacket.class);
+        this.register0(ProtocolInfo.STRUCTURE_DATA_REQUEST, StructureTemplateDataRequestPacket.class);
+        this.register0(ProtocolInfo.STRUCTURE_DATA_RESPONSE, StructureTemplateDataResponsePacket.class);
         this.register0(ProtocolInfo.CAMERA_PRESETS_PACKET, CameraPresetsPacket.class);
         this.register0(ProtocolInfo.UNLOCKED_RECIPES_PACKET, UnlockedRecipesPacket.class);
         this.register0(ProtocolInfo.CAMERA_INSTRUCTION_PACKET, CameraInstructionPacket.class);
@@ -254,6 +313,7 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
         this.register0(ProtocolInfo.CLIENTBOUND_CLOSE_FORM_PACKET, ClientboundCloseFormPacket.class);
         this.register0(ProtocolInfo.SERVERBOUND_LOADING_SCREEN_PACKET, ServerboundLoadingScreenPacket.class);
         this.register0(ProtocolInfo.SERVERBOUND_DIAGNOSTICS_PACKET, ServerboundDiagnosticsPacket.class);
+        this.register0(ProtocolInfo.SERVERBOUND_PACK_SETTING_CHANGE_PACKET, ServerboundPackSettingChangePacket.class);
         this.register0(ProtocolInfo.CAMERA_AIM_ASSIST_PRESETS_PACKET, CameraAimAssistPresetsPacket.class);
         this.register0(ProtocolInfo.CLIENT_CAMERA_AIM_ASSIST_PACKET, ClientCameraAimAssistPacket.class);
         this.register0(ProtocolInfo.CLIENT_MOVEMENT_PREDICTION_SYNC_PACKET, ClientMovementPredictionSyncPacket.class);
@@ -262,6 +322,8 @@ public class PacketRegistry implements IRegistry<Integer, DataPacket, Class<? ex
         this.register0(ProtocolInfo.PLAYER_VIDEO_CAPTURE_PACKET, PlayerVideoCapturePacket.class);
         this.register0(ProtocolInfo.PLAYER_UPDATE_ENTITY_OVERRIDES_PACKET, PlayerUpdateEntityOverridesPacket.class);
         this.register0(ProtocolInfo.PLAYER_LOCATION_PACKET, PlayerLocationPacket.class);
+        this.register0(ProtocolInfo.SERVER_SCRIPT_DEBUG_DRAWER_PACKET, ServerScriptDebugDrawerPacket.class);
+        this.register0(ProtocolInfo.SHOW_STORE_OFFER_PACKET, ShowStoreOfferPacket.class);
 
         this.PACKET_POOL.trim();
     }

@@ -5,6 +5,9 @@ import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockBedrock;
 import cn.nukkit.block.BlockEndGateway;
+import cn.nukkit.block.BlockState;
+import cn.nukkit.block.BlockTorch;
+import cn.nukkit.block.property.enums.TorchFacingDirection;
 import cn.nukkit.entity.Attribute;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityFlyable;
@@ -40,11 +43,8 @@ import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.Vector2;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.network.protocol.AddEntityPacket;
-import cn.nukkit.network.protocol.BossEventPacket;
-import cn.nukkit.network.protocol.DataPacket;
-import cn.nukkit.network.protocol.EntityEventPacket;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.*;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.plugin.InternalPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -52,6 +52,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
+
+import static cn.nukkit.block.property.CommonBlockProperties.TORCH_FACING_DIRECTION;
 
 public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
 
@@ -141,13 +143,13 @@ public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
         }
         if (currentTick % 2 == 0) {
             if(currentTick % ((toHorizontal().distance(Vector2.ZERO) < 1) ? 10 : 20) == 0) {
-                getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_FLAP, -1, this.getIdentifier(), false, false);
+                getLevel().addLevelSoundEvent(this, LevelSoundEvent.FLAP, -1, this.getIdentifier(), false, false);
             }
             for (Entity e : this.getLevel().getEntities()) {
                 if (e instanceof EntityEnderCrystal) {
                     if (e.distance(this) <= 28) {
                         float health = this.getHealth();
-                        if (!(health > this.getMaxHealth()) && health != 0) {
+                        if (health < this.getMaxHealth() && health != 0) {
                             this.heal(0.2f);
                         }
                     }
@@ -163,7 +165,7 @@ public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
     public void kill() {
         if(deathTicks == -1) {
             deathTicks = 190;
-            getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_DEATH, -1, getIdentifier(), false, false);
+            getLevel().addLevelSoundEvent(this, LevelSoundEvent.DEATH, -1, getIdentifier(), false, false);
             EntityEventPacket packet = new EntityEventPacket();
             packet.event = EntityEventPacket.ENDER_DRAGON_DEATH;
             packet.eid = getId();
@@ -173,7 +175,13 @@ public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
             super.kill();
             close();
             if(!isRevived()) {
-                getLevel().setBlock(new Vector3(0, getLevel().getHighestBlockAt(Vector2.ZERO)+1, 0), Block.get(Block.DRAGON_EGG));
+                int y = getLevel().getHighestBlockAt(Vector2.ZERO); 
+                getLevel().setBlock(new Vector3(0, y+1, 0), Block.get(Block.DRAGON_EGG));
+                for(BlockFace face : BlockFace.getHorizontals()) {
+                    Block torch = BlockTorch.PROPERTIES.getBlockState(TORCH_FACING_DIRECTION.createValue(TorchFacingDirection.getByTorchDirection(face))).toBlock();
+                    getLevel().setBlock(new Vector3(0, y-1, 0).getSide(face), torch);
+
+                }
             }
 
             for(int y = getLevel().getMinHeight(); y < getLevel().getHighestBlockAt(0, 0); y++) {
@@ -238,7 +246,17 @@ public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
     }
 
     @Override
+    public Set<String> typeFamily() {
+        return Set.of("dragon", "mob");
+    }
+
+    @Override
     public boolean isBoss() {
+        return true;
+    }
+
+    @Override
+    public boolean isPersistent() {
         return true;
     }
 
@@ -285,7 +303,7 @@ public class EntityEnderDragon extends EntityBoss implements EntityFlyable {
     public boolean move(double dx, double dy, double dz) {
         boolean superRes = super.move(dx, dy, dz);
         if(superRes) {
-            Arrays.stream(getLevel().getCollisionBlocks(getBoundingBox())).filter(block -> canBreakBlock(block)).forEach(block -> getLevel().breakBlock(block));
+            Arrays.stream(getLevel().getCollisionBlocks(getBoundingBox())).filter(this::canBreakBlock).forEach(block -> getLevel().breakBlock(block));
         }
         return superRes;
     }

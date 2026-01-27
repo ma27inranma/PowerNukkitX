@@ -6,6 +6,9 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @EqualsAndHashCode(callSuper = true)
 @Data
 @Accessors(fluent = true)
@@ -46,4 +49,19 @@ public class GameplaySettings extends OkaeriConfig {
     boolean allowClientPacks = true;
     @Comment("pnx.settings.gameplay.serverAuthoritativeMovement")
     String serverAuthoritativeMovement = "server-auth";
+    @Comment("pnx.settings.gameplay.allowVibrantVisuals")
+    boolean allowVibrantVisuals = true;
+    @Comment("pnx.settings.gameplay.experiments")
+    ArrayList<String> experiments = new ArrayList<>(List.of(
+            "data_driven_biomes",
+            "experimental_creator_cameras",
+            "gametest",
+            "jigsaw_structures",
+            "upcoming_creator_features",
+            "villager_trades_rebalance"
+    ));
+    @Comment("pnx.settings.gameplay.cacheStructures")
+    boolean cacheStructures = false;
+    @Comment("pnx.settings.gameplay.enableEdu")
+    boolean enableEducation = false;
 }

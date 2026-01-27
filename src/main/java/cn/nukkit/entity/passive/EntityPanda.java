@@ -239,6 +239,11 @@ public class EntityPanda extends EntityAnimal implements EntityWalkable, EntityC
     }
 
     @Override
+    public Set<String> typeFamily() {
+        return Set.of("panda" , "panda_aggressive", "mob");
+    }
+
+    @Override
     public boolean isBreedingItem(Item item) {
         return item.getId().equals(Block.BAMBOO);
     }
@@ -272,7 +277,7 @@ public class EntityPanda extends EntityAnimal implements EntityWalkable, EntityC
     }
 
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         return new Item[] {
           Item.get(Block.BAMBOO, 0, Utils.rand(0, 3))
         };

@@ -27,7 +27,7 @@ import cn.nukkit.item.Item;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
 
@@ -106,7 +106,7 @@ public class EntityWitherSkeleton extends EntityMob implements EntityWalkable, E
             this.setItemInHand(Item.get(Item.STONE_SWORD));
         }
         // 设置凋零骷髅空闲状态播放空闲声音
-        this.setDataProperty(AMBIENT_SOUND_EVENT_NAME, LevelSoundEventPacket.SOUND_AMBIENT);
+        this.setDataProperty(AMBIENT_SOUND_EVENT_NAME, LevelSoundEvent.AMBIENT.getId());
     }
 
     @Override
@@ -125,6 +125,11 @@ public class EntityWitherSkeleton extends EntityMob implements EntityWalkable, E
     }
 
     @Override
+    public Set<String> typeFamily() {
+        return Set.of("wither", "monster", "undead", "skeleton", "mob");
+    }
+
+    @Override
     public boolean isUndead() {
         return true;
     }
@@ -136,7 +141,7 @@ public class EntityWitherSkeleton extends EntityMob implements EntityWalkable, E
 
     //掉落剑的概率为8.5% 掉落头的概率为2.5%
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         List<Item> drops = new ArrayList<>();
         drops.add(Item.get(Item.BONE, 0, Utils.rand(0, 2)));
         if (Utils.rand(0, 2) == 0) {

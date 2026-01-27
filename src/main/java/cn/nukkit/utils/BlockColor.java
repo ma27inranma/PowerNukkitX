@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.util.Arrays;
 
 /**
+ * Represents a color used for blocks, including support for tints and alpha.
+ * Provides utility methods for color manipulation and conversion.
+ *
  * @author Snake1999
  * @since 2016/1/10
  */
@@ -17,7 +20,7 @@ public class BlockColor implements Cloneable {
     private static final CompoundTag tint_tag;
 
     static {
-        try (var stream = ItemRegistry.class.getClassLoader().getResourceAsStream("tint_map.nbt")) {
+        try (var stream = ItemRegistry.class.getClassLoader().getResourceAsStream("gamedata/unknown/tint_map.nbt")) {
             tint_tag = NBTIO.readCompressed(stream);
         } catch (IOException e) {
             throw new RuntimeException(e);

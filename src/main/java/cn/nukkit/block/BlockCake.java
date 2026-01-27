@@ -6,7 +6,7 @@ import cn.nukkit.level.Level;
 import cn.nukkit.level.vibration.VibrationEvent;
 import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.BlockFace;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -100,12 +100,10 @@ public class BlockCake extends BlockTransparent {
 
     @Override
     public int onUpdate(int type) {
-        if (type == Level.BLOCK_UPDATE_NORMAL) {
-            if (down().isAir()) {
-                getLevel().setBlock(this, Block.get(BlockID.AIR), true);
+        if (type == Level.BLOCK_UPDATE_NORMAL && down().isAir()) {
+            getLevel().setBlock(this, Block.get(BlockID.AIR), true);
 
-                return Level.BLOCK_UPDATE_NORMAL;
-            }
+            return Level.BLOCK_UPDATE_NORMAL;
         }
 
         return 0;
@@ -123,7 +121,7 @@ public class BlockCake extends BlockTransparent {
             return false;
         }
         int damage = getBiteCount();
-        if (player != null && (player.getFoodData().isHungry() || player.isCreative() || player.getServer().getDifficulty() == 0)) {
+        if ((player.getFoodData().isHungry() || player.isCreative() || player.getServer().getDifficulty() == 0)) {
             if (damage < BITE_COUNTER.getMax()) setBiteCount(damage + 1);
             if (damage >= BITE_COUNTER.getMax()) {
                 getLevel().setBlock(this, Block.get(BlockID.AIR), true);
@@ -131,7 +129,7 @@ public class BlockCake extends BlockTransparent {
                 player.getFoodData().addFood(2, 0.4F);
                 getLevel().setBlock(this, this, true);
             }
-            this.level.addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_BURP );
+            this.level.addLevelSoundEvent(this, LevelSoundEvent.BURP );
             this.level.getVibrationManager().callVibrationEvent(new VibrationEvent(player, this.add(0.5, 0.5, 0.5), VibrationType.EAT));
             return true;
         }

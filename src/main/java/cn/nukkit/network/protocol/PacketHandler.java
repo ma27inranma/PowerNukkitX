@@ -130,6 +130,9 @@ public interface PacketHandler {
     default void handle(ContainerRegistryCleanupPacket pk) {
     }
 
+    default void handle(CorrectPlayerMovePredictionPacket pk) {
+    }
+
     default void handle(ContainerSetDataPacket pk) {
     }
 
@@ -579,4 +582,21 @@ public interface PacketHandler {
     }
 
     default void handle(PlayerLocationPacket pk) {
-    }}
+    }
+
+    default void handle(ServerScriptDebugDrawerPacket pk) {
+    }
+
+    default void handle(ShowStoreOfferPacket pk) {
+    }
+
+    default void handle(StructureTemplateDataRequestPacket pk) {
+    }
+
+    default void handle(StructureTemplateDataResponsePacket pk) {
+    }
+
+    default void handle(ServerboundDataStorePacket pk) {
+
+    }
+}

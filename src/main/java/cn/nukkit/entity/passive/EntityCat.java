@@ -42,7 +42,7 @@ import cn.nukkit.level.particle.ItemBreakParticle;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.EntityEventPacket;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.utils.DyeColor;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
@@ -199,9 +199,9 @@ public class EntityCat extends EntityAnimal implements EntityWalkable, EntityOwn
         this.setMaxHealth(10);
         super.initEntity();
         if (this.isBaby()) {
-            this.setDataProperty(Entity.AMBIENT_SOUND_EVENT_NAME, LevelSoundEventPacket.SOUND_AMBIENT_BABY);
+            this.setDataProperty(Entity.AMBIENT_SOUND_EVENT_NAME, LevelSoundEvent.AMBIENT_BABY.getId());
         } else {
-            this.setDataProperty(Entity.AMBIENT_SOUND_EVENT_NAME, LevelSoundEventPacket.SOUND_AMBIENT);
+            this.setDataProperty(Entity.AMBIENT_SOUND_EVENT_NAME, LevelSoundEvent.AMBIENT.getId());
         }
         if (!hasVariant()) {
             this.setVariant(randomVariant());
@@ -278,7 +278,7 @@ public class EntityCat extends EntityAnimal implements EntityWalkable, EntityOwn
     //击杀猫会掉落0-2根线
     //击杀小猫不会获得
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         if (!this.isBaby()) {
             int catdrops = Utils.rand(0, 2);
             if (catdrops > 0)
@@ -290,6 +290,11 @@ public class EntityCat extends EntityAnimal implements EntityWalkable, EntityOwn
     @Override
     public String getOriginalName() {
         return "Cat";
+    }
+
+    @Override
+    public Set<String> typeFamily() {
+        return Set.of("cat", "mob");
     }
 
     /**

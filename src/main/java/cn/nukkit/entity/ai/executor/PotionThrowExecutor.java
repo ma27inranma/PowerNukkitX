@@ -66,11 +66,8 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
         Entity newTarget = entity.getBehaviorGroup().getMemoryStorage().get(memory);
         if (this.target == null) target = newTarget;
 
-        if (!target.isAlive()) return false;
-        else if (target instanceof Player player) {
-            if (player.isCreative() || player.isSpectator() || !player.isOnline() || !entity.level.getName().equals(player.level.getName())) {
-                return false;
-            }
+        if (!target.isAlive() || (target instanceof Player player && (player.isCreative() || player.isSpectator() || !player.isOnline() || !entity.level.getName().equals(player.level.getName())))) {
+            return false;
         }
 
         if (!this.target.getPosition().equals(newTarget.getPosition())) {
@@ -109,7 +106,7 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
     public void onStop(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(EntityLiving.DEFAULT_SPEED);
+        entity.setMovementSpeed(entity.getDefaultSpeed());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
@@ -122,7 +119,7 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
     public void onInterrupt(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(EntityLiving.DEFAULT_SPEED);
+        entity.setMovementSpeed(entity.getDefaultSpeed());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }

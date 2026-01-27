@@ -32,17 +32,17 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
     @Override
     public void init() {
         if (isLoad.getAndSet(true)) return;
-        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biomes.json")) { //From Endstone Data
+        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biomes.json")) { //From Endstone Data
             Gson gson = new GsonBuilder().setObjectToNumberStrategy(JsonReader::nextInt).create();
             Map<String, ?> map = gson.fromJson(new InputStreamReader(stream), Map.class);
             for (var e : map.entrySet()) {
-                NAME2ID.put(e.getKey(), Integer.parseInt(((Map<String, ?>) e.getValue()).get("id").toString()));
+                NAME2ID.put(e.getKey(), (Integer) e.getValue());
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biome_definitions.nbt")) {
+        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biome_definitions.nbt")) {
             CompoundTag root = NBTIO.readCompressed(stream);
             BIOME_STRING_LIST.addAll(root.getList("biomeStringList", StringTag.class).getAll().stream().map(tag -> tag.data).toList());
             ListTag<CompoundTag> biomeData = root.getList("biomeData", CompoundTag.class);
@@ -76,7 +76,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
     }
 
     public int getBiomeId(String biomeName) {
-        return NAME2ID.getInt(biomeName);
+        return NAME2ID.getInt(biomeName.split(":")[1]);
     }
 
     public BiomeDefinitionListPacket getBiomeDefinitionListPacket() {
@@ -111,7 +111,12 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
         if (DEFINITIONS.putIfAbsent(key, value) == null) {
             NAME2ID.put(BIOME_STRING_LIST.get(value.stringIndex), key);
         } else {
-            throw new RegisterException("This biome has already been registered with the id: " + key);
+            throw new RegisterException("This biome " + value.getName() + " has already been registered with the id: " + key);
         }
+    }
+
+    public int registerToBiomeStringList(String value) {
+        BIOME_STRING_LIST.add(value);
+        return BIOME_STRING_LIST.size()-1;
     }
 }

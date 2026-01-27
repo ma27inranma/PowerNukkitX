@@ -138,6 +138,9 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
             return;
         }
         int type = useItemOnEntityData.actionType;
+        if(player.getInventory().getHeldItemIndex() != useItemOnEntityData.hotbarSlot) {
+            player.getInventory().equipItem(useItemOnEntityData.hotbarSlot);
+        }
         if (!useItemOnEntityData.itemInHand.equalsExact(player.getInventory().getItemInHand())) {
             player.getInventory().sendHeldItem(player);
         }
@@ -191,7 +194,7 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                     if(event.isKick())
                         player.kick(PlayerKickEvent.Reason.INVALID_PVP, "Attempting to attack yourself");
 
-                    log.warn(player.getName() + " tried to attack oneself");
+                    log.warn("{} tried to attack oneself", player.getName());
                     return;
                 }
                 if (!player.canInteract(target, player.isCreative() ? 8 : 5)) {
@@ -276,14 +279,14 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 if (player.canInteract(blockVector.add(0.5, 0.5, 0.5), player.isCreative() ? 13 : 7)) {
                     if (player.isCreative()) {
                         Item i = player.getInventory().getItemInHand();
-                        if (player.level.useItemOn(blockVector.asVector3(), i, face, useItemData.clickPos.x, useItemData.clickPos.y, useItemData.clickPos.z, player) != null) {
+                        if (player.level.useItemOn(blockVector.asVector3(), i, face, useItemData, player) != null) {
                             return;
                         }
                     } else if (player.getInventory().getItemInHand().equals(useItemData.itemInHand, true, false)) {
                         Item i = player.getInventory().getItemInHand();
                         Item oldItem = i.clone();
                         //TODO: Implement adventure mode checks
-                        if ((i = player.level.useItemOn(blockVector.asVector3(), i, face, useItemData.clickPos.x, useItemData.clickPos.y, useItemData.clickPos.z, player)) != null) {
+                        if ((i = player.level.useItemOn(blockVector.asVector3(), i, face, useItemData, player)) != null) {
                             if (!i.equals(oldItem) || i.getCount() != oldItem.getCount()) {
                                 if (Objects.equals(oldItem.getId(), i.getId()) || i.isNull()) {
                                     player.getInventory().setItem(useItemData.hotbarSlot, i);
@@ -380,6 +383,14 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                     if (!player.isUsingItem(item.getId())) {
                         lastUsedItem = item;
                         player.setLastUseTick(item.getId(), player.getLevel().getTick());//set lastUsed tick
+                        if (lastUsedItem.getUsingTicks() <= 0) {
+                            if (lastUsedItem.onUse(player, 0)) {
+                                lastUsedItem.afterUse(player);
+                            }
+                            player.removeLastUseTick(item.getId());
+                            lastUsedItem = null;
+                            return;
+                        }
                         return;
                     }
 

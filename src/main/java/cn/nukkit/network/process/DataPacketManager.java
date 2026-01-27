@@ -60,6 +60,7 @@ public final class DataPacketManager {
                 new CommandRequestProcessor(),
                 new CommandBlockUpdateProcessor(),
                 new StructureBlockUpdateProcessor(),
+                new StructureBlockTemplateDataProcessor(),
                 new TextProcessor(),
                 new ContainerCloseProcessor(),
                 new CraftingEventProcessor(),
@@ -86,7 +87,6 @@ public final class DataPacketManager {
                 new ShowCreditsProcessor(),
                 new TickSyncProcessor(),
                 new RequestPermissionsProcessor(),
-                new RiderJumpProcessor(),
                 new ItemStackRequestPacketProcessor(),
                 new SetLocalPlayerAsInitializedPacketProcessor(),
                 new ToggleCrafterSlotRequestPacketProcessor()

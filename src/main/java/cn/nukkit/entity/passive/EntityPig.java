@@ -5,7 +5,6 @@ import cn.nukkit.block.BlockID;
 import cn.nukkit.entity.ClimateVariant;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityIntelligent;
-import cn.nukkit.entity.EntityRideable;
 import cn.nukkit.entity.EntityWalkable;
 import cn.nukkit.entity.ai.behavior.Behavior;
 import cn.nukkit.entity.ai.behaviorgroup.BehaviorGroup;
@@ -33,13 +32,18 @@ import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestFeedingPlayerSensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
 import cn.nukkit.entity.data.EntityFlag;
+import cn.nukkit.entity.data.property.EntityProperty;
+import cn.nukkit.entity.data.property.EnumEntityProperty;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
+
+import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
@@ -48,13 +52,19 @@ import java.util.Set;
 /**
  * @author BeYkeRYkt (Nukkit Project)
  */
-public class EntityPig extends EntityAnimal implements EntityWalkable, EntityRideable, ClimateVariant {
+public class EntityPig extends EntityAnimal implements EntityWalkable, ClimateVariant {
+    public static final EntityProperty[] PROPERTIES = new EntityProperty[]{
+        new EnumEntityProperty("minecraft:climate_variant", new String[]{
+            "temperate",
+            "warm",
+            "cold"
+        }, "temperate", true)
+    };
 
     @Override
     @NotNull public String getIdentifier() {
         return PIG;
     }
-    
 
     public EntityPig(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
@@ -117,6 +127,16 @@ public class EntityPig extends EntityAnimal implements EntityWalkable, EntityRid
     }
 
     @Override
+    public boolean isRideable() {
+        return true;
+    }
+
+    @Override
+    public boolean isRiderControl() {
+        return true;
+    }
+
+    @Override
     public float getHeight() {
         if (this.isBaby()) {
             return 0.45f;
@@ -157,7 +177,7 @@ public class EntityPig extends EntityAnimal implements EntityWalkable, EntityRid
                 mountEntity(player);
             } else if (item.getId().equals(Item.SADDLE)) {
                 player.getInventory().decreaseCount(player.getInventory().getHeldItemIndex());
-                getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_SADDLE, -1, getIdentifier(), false, false);
+                getLevel().addLevelSoundEvent(this, LevelSoundEvent.SADDLE, -1, getIdentifier(), false, false);
                 setSaddled(true);
             }
             return true;
@@ -171,8 +191,30 @@ public class EntityPig extends EntityAnimal implements EntityWalkable, EntityRid
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(((this.isOnFire()) ? Item.COOKED_PORKCHOP : Item.PORKCHOP)), isSaddled() ? Item.get(Item.SADDLE) : Item.AIR};
+    public Set<String> typeFamily() {
+        return Set.of("pig", "mob");
+    }
+
+    @Override
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+
+        int amount = Utils.rand(1, 3 + looting);
+
+        Item porkchop = Item.get(
+                this.isOnFire() ? Item.COOKED_PORKCHOP : Item.PORKCHOP,
+                0,
+                amount
+        );
+
+        if (isSaddled()) {
+            return new Item[]{
+                    porkchop,
+                    Item.get(Item.SADDLE)
+            };
+        }
+
+        return new Item[]{porkchop};
     }
 
     @Override
@@ -181,16 +223,14 @@ public class EntityPig extends EntityAnimal implements EntityWalkable, EntityRid
         return Objects.equals(id, Item.CARROT) || Objects.equals(id, Item.POTATO) || Objects.equals(id, BlockID.BEETROOT);
     }
 
-    protected class RiderEvaluator implements IBehaviorEvaluator {
+    protected static class RiderEvaluator implements IBehaviorEvaluator {
 
         @Override
         public boolean evaluate(EntityIntelligent entity) {
             Entity rider = entity.getPassenger();
             if(rider == null) return false;
             if(rider instanceof Player player) {
-                if(player.getInventory().getItemInHand().getId().equals(Item.CARROT_ON_A_STICK)) {
-                    return true;
-                }
+                return player.getInventory().getItemInHand().getId().equals(Item.CARROT_ON_A_STICK);
             }
             return false;
         }
