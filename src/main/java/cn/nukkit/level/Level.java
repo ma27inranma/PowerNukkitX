@@ -997,7 +997,9 @@ public class Level implements Metadatable {
 
         if (!this.loaders.containsKey(hash)) {
             this.loaderCounter.put(hash, 1);
-            this.loaders.put(hash, loader);
+            synchronized (this.loaders) {
+                this.loaders.put(hash, loader);
+            }
         } else {
             this.loaderCounter.put(hash, this.loaderCounter.get(hash) + 1);
         }
@@ -1025,7 +1027,9 @@ public class Level implements Metadatable {
                 int count = this.loaderCounter.get(loaderId);
                 if (--count == 0) {
                     this.loaderCounter.remove(loaderId);
-                    this.loaders.remove(loaderId);
+                    synchronized (this.loaders) {
+                        this.loaders.remove(loaderId);
+                    }
                 } else {
                     this.loaderCounter.put(loaderId, count);
                 }
@@ -1072,29 +1076,33 @@ public class Level implements Metadatable {
     }
 
     private void doTick(GameLoop gameLoop) {
-        int baseTickRate = getServer().getSettings().levelSettings().baseTickRate();
-        long levelTime = System.currentTimeMillis();
-        int tickMs = (int) (System.currentTimeMillis() - levelTime);
-        doTick(gameLoop.getTick());
-        if (getServer().getSettings().levelSettings().autoTickRate()) {
-            if (tickMs < 50 && this.getTickRate() > baseTickRate) {
-                int r;
-                this.setTickRate(r = this.getTickRate() - 1);
-                if (r > baseTickRate) {
+        try {
+            int baseTickRate = getServer().getSettings().levelSettings().baseTickRate();
+            long levelTime = System.currentTimeMillis();
+            int tickMs = (int) (System.currentTimeMillis() - levelTime);
+            doTick(gameLoop.getTick());
+            if (getServer().getSettings().levelSettings().autoTickRate()) {
+                if (tickMs < 50 && this.getTickRate() > baseTickRate) {
+                    int r;
+                    this.setTickRate(r = this.getTickRate() - 1);
+                    if (r > baseTickRate) {
+                        this.tickRateCounter = this.getTickRate();
+                    }
+                    log.debug("Raising level \"{}\" tick rate to {} ticks", this.getName(), this.getTickRate());
+                } else if (tickMs >= 50) {
+                    int autoTickRateLimit = getServer().getSettings().levelSettings().autoTickRateLimit();
+                    if (this.getTickRate() == baseTickRate) {
+                        this.setTickRate(Math.max(baseTickRate + 1, Math.min(autoTickRateLimit, tickMs / 50)));
+                        log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", this.getName(), NukkitMath.round(tickMs, 2), this.getTickRate());
+                    } else if ((tickMs / this.getTickRate()) >= 50 && this.getTickRate() < autoTickRateLimit) {
+                        this.setTickRate(this.getTickRate() + 1);
+                        log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", this.getName(), NukkitMath.round(tickMs, 2), this.getTickRate());
+                    }
                     this.tickRateCounter = this.getTickRate();
                 }
-                log.debug("Raising level \"{}\" tick rate to {} ticks", this.getName(), this.getTickRate());
-            } else if (tickMs >= 50) {
-                int autoTickRateLimit = getServer().getSettings().levelSettings().autoTickRateLimit();
-                if (this.getTickRate() == baseTickRate) {
-                    this.setTickRate(Math.max(baseTickRate + 1, Math.min(autoTickRateLimit, tickMs / 50)));
-                    log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", this.getName(), NukkitMath.round(tickMs, 2), this.getTickRate());
-                } else if ((tickMs / this.getTickRate()) >= 50 && this.getTickRate() < autoTickRateLimit) {
-                    this.setTickRate(this.getTickRate() + 1);
-                    log.debug("Level \"{}\" took {}ms, setting tick rate to {} ticks", this.getName(), NukkitMath.round(tickMs, 2), this.getTickRate());
-                }
-                this.tickRateCounter = this.getTickRate();
             }
+        } catch (Exception e) {
+            log.error("Failed to tick levelThread for " + getName(), e);
         }
     }
 
@@ -1540,79 +1548,82 @@ public class Level implements Metadatable {
         randRange = Math.min(randRange, this.chunkTickRadius);
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        if (!this.loaders.isEmpty()) {
-            for (ChunkLoader loader : this.loaders.values()) {
-                int chunkX = (int) loader.getX() >> 4;
-                int chunkZ = (int) loader.getZ() >> 4;
+        synchronized (this.loaders) {
+            if (!this.loaders.isEmpty()) {
+                for (ChunkLoader loader : this.loaders.values()) {
+                    int chunkX = (int) loader.getX() >> 4;
+                    int chunkZ = (int) loader.getZ() >> 4;
 
-                long index = Level.chunkHash(chunkX, chunkZ);
-                int existingLoaders = Math.max(0, this.chunkTickList.getOrDefault(index, 0));
-                this.chunkTickList.put(index, existingLoaders + 1);
-                for (int chunk = 0; chunk < chunksPerLoader; ++chunk) {
-                    int dx = random.nextInt(2 * randRange) - randRange;
-                    int dz = random.nextInt(2 * randRange) - randRange;
-                    long hash = Level.chunkHash(dx + chunkX, dz + chunkZ);
-                    if (!this.chunkTickList.containsKey(hash) && requireProvider().isChunkLoaded(hash)) {
-                        this.chunkTickList.put(hash, -1);
-                    }
-                }
-            }
-        }
-
-        if (!chunkTickList.isEmpty()) {
-            ObjectIterator<Long2IntMap.Entry> iter = chunkTickList.long2IntEntrySet().iterator();
-            while (iter.hasNext()) {
-                Long2IntMap.Entry entry = iter.next();
-                long index = entry.getLongKey();
-                if (!areNeighboringChunksLoaded(index)) {
-                    iter.remove();
-                    continue;
-                }
-
-                int loaders = entry.getIntValue();
-
-                int chunkX = getHashX(index);
-                int chunkZ = getHashZ(index);
-
-                IChunk chunk;
-                if ((chunk = this.getChunk(chunkX, chunkZ, false)) == null) {
-                    iter.remove();
-                    continue;
-                } else if (loaders <= 0) {
-                    iter.remove();
-                }
-
-                CompletableFuture.runAsync(() -> {
-                    for (Entity entity : chunk.getEntities().values()) {
-                        entity.scheduleUpdate();
-                    }
-                });
-
-                int tickSpeed = gameRules.getInteger(GameRule.RANDOM_TICK_SPEED);
-                if (tickSpeed <= 0) {
-                    continue;
-                }
-
-                for (ChunkSection section : chunk.getSections()) {
-                    if (section == null || section.isEmpty()) {
-                        continue;
-                    }
-                    for (int i = 0; i < tickSpeed; ++i) {
-                        int lcg = this.getUpdateLCG();
-                        int x = lcg & 0x0f;
-                        int y = lcg >>> 8 & 0x0f;
-                        int z = lcg >>> 16 & 0x0f;
-                        BlockState state = section.getBlockState(x, y, z);
-                        if (state != null && randomTickBlocks.contains(state.getIdentifier())) {
-                            Block block = Block.get(state, this, (chunk.getX() << 4) + x, (section.y() << 4) + y, (chunk.getZ() << 4) + z);
-                            block.setLevel(this);
-                            block.onUpdate(BLOCK_UPDATE_RANDOM);
+                    long index = Level.chunkHash(chunkX, chunkZ);
+                    int existingLoaders = Math.max(0, this.chunkTickList.getOrDefault(index, 0));
+                    this.chunkTickList.put(index, existingLoaders + 1);
+                    for (int chunk = 0; chunk < chunksPerLoader; ++chunk) {
+                        int dx = random.nextInt(2 * randRange) - randRange;
+                        int dz = random.nextInt(2 * randRange) - randRange;
+                        long hash = Level.chunkHash(dx + chunkX, dz + chunkZ);
+                        if (!this.chunkTickList.containsKey(hash) && requireProvider().isChunkLoaded(hash)) {
+                            this.chunkTickList.put(hash, -1);
                         }
                     }
                 }
             }
         }
 
+        synchronized (this.chunkTickList) {
+            if (!this.chunkTickList.isEmpty()) {
+                ObjectIterator<Long2IntMap.Entry> iter = this.chunkTickList.long2IntEntrySet().iterator();
+                while (iter.hasNext()) {
+                    Long2IntMap.Entry entry = iter.next();
+                    long index = entry.getLongKey();
+                    if (!areNeighboringChunksLoaded(index)) {
+                        iter.remove();
+                        continue;
+                    }
+
+                    int loaders = entry.getIntValue();
+
+                    int chunkX = getHashX(index);
+                    int chunkZ = getHashZ(index);
+
+                    IChunk chunk;
+                    if ((chunk = this.getChunk(chunkX, chunkZ, false)) == null) {
+                        iter.remove();
+                        continue;
+                    } else if (loaders <= 0) {
+                        iter.remove();
+                    }
+
+                    CompletableFuture.runAsync(() -> {
+                        for (Entity entity : chunk.getEntities().values()) {
+                            entity.scheduleUpdate();
+                        }
+                    });
+
+                    int tickSpeed = gameRules.getInteger(GameRule.RANDOM_TICK_SPEED);
+                    if (tickSpeed <= 0) {
+                        continue;
+                    }
+
+                    for (ChunkSection section : chunk.getSections()) {
+                        if (section == null || section.isEmpty()) {
+                            continue;
+                        }
+                        for (int i = 0; i < tickSpeed; ++i) {
+                            int lcg = this.getUpdateLCG();
+                            int x = lcg & 0x0f;
+                            int y = lcg >>> 8 & 0x0f;
+                            int z = lcg >>> 16 & 0x0f;
+                            BlockState state = section.getBlockState(x, y, z);
+                            if (state != null && randomTickBlocks.contains(state.getIdentifier())) {
+                                Block block = Block.get(state, this, (chunk.getX() << 4) + x, (section.y() << 4) + y, (chunk.getZ() << 4) + z);
+                                block.setLevel(this);
+                                block.onUpdate(BLOCK_UPDATE_RANDOM);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (this.clearChunksOnTick) {
             this.chunkTickList.clear();
         }
@@ -4346,10 +4357,14 @@ public class Level implements Metadatable {
     }
 
     public boolean standable(Vector3 vec, boolean allowWaterUnder) {
+        return standable(vec, allowWaterUnder, true);
+    }
+
+    public boolean standable(Vector3 vec, boolean allowWaterUnder, boolean loadChunks) {
         Position pos = Position.fromObject(vec, this);
-        Block blockUnder = pos.add(0, -1, 0).getLevelBlock(0, true);
-        Block block = pos.getLevelBlock(0, true);
-        Block blockUpper = pos.add(0, 1, 0).getLevelBlock(0, true);
+        Block blockUnder = pos.add(0, -1, 0).getLevelBlock(0, loadChunks);
+        Block block = pos.getLevelBlock(0, loadChunks);
+        Block blockUpper = pos.add(0, 1, 0).getLevelBlock(0, loadChunks);
         if (!allowWaterUnder)
             return !blockUnder.canPassThrough()
                     && (block.isAir() || block.canPassThrough())

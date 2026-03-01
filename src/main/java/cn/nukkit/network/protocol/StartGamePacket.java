@@ -11,6 +11,7 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,7 +98,7 @@ public class StartGamePacket extends DataPacket {
     /**
      * @since v567
      */
-    public boolean emoteChatMuted;
+    public boolean muteEmoteAnnouncements;
     /**
      * Whether block runtime IDs should be replaced by 32-bit integer hashes of the NBT block state.
      * Unlike runtime IDs, this hashes should be persistent across versions and should make support for data-driven/custom blocks easier.
@@ -173,7 +174,7 @@ public class StartGamePacket extends DataPacket {
         try {
             byteBuf.writeBytes(NBTIO.writeNetwork(playerPropertyData)); // playerPropertyData
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
         byteBuf.writeLongLE(0); // blockRegistryChecksum
         byteBuf.writeUUID(new UUID(0, 0)); // worldTemplateId
@@ -236,7 +237,7 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeBoolean(this.isOnlySpawningV1Villagers);
         byteBuf.writeBoolean(this.isDisablingPersonas);
         byteBuf.writeBoolean(this.isDisablingCustomSkins);
-        byteBuf.writeBoolean(this.emoteChatMuted);
+        byteBuf.writeBoolean(this.muteEmoteAnnouncements);
         byteBuf.writeString("*"); // vanillaVersion
         byteBuf.writeIntLE(16); // Limited world width
         byteBuf.writeIntLE(16); // Limited world height

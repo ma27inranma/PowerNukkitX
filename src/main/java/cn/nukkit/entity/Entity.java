@@ -95,6 +95,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Optional;
 
 /**
  * @author MagicDroidX
@@ -745,7 +746,25 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public void setSneaking(boolean value) {
-        this.setDataFlag(EntityFlag.SNEAKING, value);
+        boolean changed = this.getEntityDataMap().existFlag(EntityFlag.SNEAKING) ^ value;
+
+        if (changed) {
+            this.getEntityDataMap().setFlag(EntityFlag.SNEAKING, value);
+        }
+
+        recalculateBoundingBox(false);
+        float newHeight = this.getEntityDataMap().getOrDefault(EntityDataTypes.HEIGHT, getCurrentHeight());
+
+        if (changed) {
+            EntityDataMap delta = new EntityDataMap();
+            delta.put(EntityDataTypes.FLAGS, this.getEntityDataMap().getFlags());
+            delta.putType(EntityDataTypes.HEIGHT, newHeight);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
+        } else {
+            EntityDataMap delta = new EntityDataMap();
+            delta.putType(EntityDataTypes.HEIGHT, newHeight);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), delta);
+        }
     }
 
     public boolean isSwimming() {
@@ -1211,7 +1230,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
 
         addEntity.links = new EntityLink[this.passengers.size()];
         for (int i = 0; i < addEntity.links.length; i++) {
-            addEntity.links[i] = new EntityLink(this.getId(), this.passengers.get(i).getId(), i == 0 ? EntityLink.Type.RIDER : EntityLink.Type.PASSENGER, false, false);
+            addEntity.links[i] = new EntityLink(this.getId(), this.passengers.get(i).getId(), i == 0 ? EntityLink.Type.RIDER : EntityLink.Type.PASSENGER, false, false, 0f);
         }
         addEntity.syncedProperties = this.getClientSyncProperties();
 
@@ -1287,7 +1306,8 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
      */
     public boolean attack(EntityDamageEvent source) {
         // Fire Protection enchantment implemented
-        if (hasEffect(EffectType.FIRE_RESISTANCE)
+        if ((hasEffect(EffectType.FIRE_RESISTANCE)
+                || !this.level.gameRules.getBoolean(GameRule.FIRE_DAMAGE))
                 && (source.getCause() == DamageCause.FIRE
                 || source.getCause() == DamageCause.FIRE_TICK
                 || source.getCause() == DamageCause.LAVA)) {
@@ -1644,6 +1664,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             }
         }
 
+        if(this.fireTicks > 0 && this.hasEffect(EffectType.FIRE_RESISTANCE)) fireTicks = 0;
         if (this.fireTicks > 0) {
             if (this.fireProof) {
                 this.fireTicks -= 4 * tickDiff;
@@ -1651,7 +1672,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
                     this.fireTicks = 0;
                 }
             } else {
-                if (!this.hasEffect(EffectType.FIRE_RESISTANCE) && ((this.fireTicks % 20) == 0 || tickDiff > 20)) {
+                if (((this.fireTicks % 20) == 0 || tickDiff > 20)) {
                     this.attack(new EntityDamageEvent(this, DamageCause.FIRE_TICK, 1));
                 }
                 this.fireTicks -= tickDiff;
@@ -1671,30 +1692,34 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             }
         }
 
-        if (this.inPortalTicks == 80) {//handle portal teleport
+        if (this.inPortalTicks == 80) { // Handle portal teleport
             EntityPortalEnterEvent ev = new EntityPortalEnterEvent(this, PortalType.NETHER);
-            getServer().getPluginManager().callEvent(ev);//call event
+            getServer().getPluginManager().callEvent(ev);
 
             if (!ev.isCancelled() && (level.getDimension() == Level.DIMENSION_OVERWORLD || level.getDimension() == Level.DIMENSION_NETHER)) {
-
                 Position newPos = PortalHelper.convertPosBetweenNetherAndOverworld(this);
-                if(newPos != null) {
+                if (newPos != null) {
                     IChunk destChunk = newPos.getChunk();
                     if (!destChunk.isGenerated()) {
                         newPos.getLevel().syncGenerateChunk(destChunk.getX(), destChunk.getZ());
                         newPos = PortalHelper.convertPosBetweenNetherAndOverworld(this);
                     }
                     if (newPos != null) {
-                        Position nearestPortal = PortalHelper.getNearestValidPortal(newPos);
-                        if (nearestPortal != null) {
-                            teleport(nearestPortal.add(0.5, 0, 0.5), PlayerTeleportEvent.TeleportCause.NETHER_PORTAL);
+                        // Use Optional for safer portal search
+                        Optional<Position> nearestPortalOpt = PortalHelper.getNearestValidPortal(newPos);
+                        if (nearestPortalOpt.isPresent()) {
+                            teleport(nearestPortalOpt.get().add(0.5, 0, 0.5), PlayerTeleportEvent.TeleportCause.NETHER_PORTAL);
                         } else {
                             final Position finalPos = newPos.add(1.5, 1, 1.5);
                             inPortalTicks = 81;
                             PortalHelper.spawnPortal(newPos);
                             teleport(finalPos, PlayerTeleportEvent.TeleportCause.NETHER_PORTAL);
                         }
+                    } else {
+                        getServer().getLogger().warning("Failed to calculate new Nether position for portal teleport.");
                     }
+                } else {
+                    getServer().getLogger().warning("Failed to convert position between Nether and Overworld for portal teleport.");
                 }
             }
         }
@@ -2758,7 +2783,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
             }
         }
 
-        if (endPortal) {//handle endPortal teleport
+        if (endPortal) { // Handle End portal teleport
             if (!inEndPortal) {
                 inEndPortal = true;
                 if (this.getRiding() == null && this.getPassengers().isEmpty() && !(this instanceof EntityEnderDragon)) {
@@ -2773,7 +2798,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
                                     newPos.getLevel().getScheduler().scheduleDelayedTask(new Task() {
                                         @Override
                                         public void onRun(int currentTick) {
-                                            // dirty hack to make sure chunks are loaded and generated before spawning player
+                                            // Ensure chunks are loaded and generated before spawning player
                                             teleport(newPos.add(0.5, 1, 0.5), PlayerTeleportEvent.TeleportCause.END_PORTAL);
                                             BlockEndPortal.spawnObsidianPlatform(newPos);
                                         }
@@ -2784,12 +2809,14 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
                                     newPos.getLevel().getScheduler().scheduleDelayedTask(new Task() {
                                         @Override
                                         public void onRun(int currentTick) {
-                                            // dirty hack to make sure chunks are loaded and generated before spawning player
+                                            // Ensure chunks are loaded and generated before spawning player
                                             teleport(newPos, PlayerTeleportEvent.TeleportCause.END_PORTAL);
                                         }
                                     }, 5);
                                 }
                             }
+                        } else {
+                            getServer().getLogger().warning("Failed to convert position between End and Overworld for portal teleport.");
                         }
                     }
                 }
@@ -3183,17 +3210,40 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     public void setDataFlag(EntityFlag entityFlag, boolean value, boolean send) {
         if (this.getEntityDataMap().existFlag(entityFlag) ^ value) {
             this.getEntityDataMap().setFlag(entityFlag, value);
-            if(send) {
+
+            if (send) {
                 EntityDataMap entityDataMap = new EntityDataMap();
-                entityDataMap.put(EntityDataTypes.FLAGS, this.getEntityDataMap().getFlags());
+
+                if (entityFlag.getValue() >= 64) {
+                    entityDataMap.put(EntityDataTypes.FLAGS_2, this.getEntityDataMap().getFlags2());
+                } else {
+                    entityDataMap.put(EntityDataTypes.FLAGS, this.getEntityDataMap().getFlags());
+                }
+
                 sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
             }
         }
     }
 
     public void setDataFlags(EnumSet<EntityFlag> entityFlags) {
-        this.getEntityDataMap().put(FLAGS, entityFlags);
-        sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), entityDataMap);
+        // split the incoming set into FLAGS and FLAGS_2 in the backing map
+        this.getEntityDataMap().putFlags(entityFlags);
+
+        // send both lanes (only if non-empty)
+        EnumSet<EntityFlag> f0 = this.getEntityDataMap().getFlags();
+        EnumSet<EntityFlag> f1 = this.getEntityDataMap().getFlags2();
+
+        if (f0 != null && !f0.isEmpty()) {
+            EntityDataMap d0 = new EntityDataMap();
+            d0.put(EntityDataTypes.FLAGS, f0);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), d0);
+        }
+
+        if (f1 != null && !f1.isEmpty()) {
+            EntityDataMap d1 = new EntityDataMap();
+            d1.put(EntityDataTypes.FLAGS_2, f1);
+            sendData(this.hasSpawned.values().toArray(Player.EMPTY_ARRAY), d1);
+        }
     }
 
     public void setDataFlagExtend(EntityFlag entityFlag) {
@@ -3205,14 +3255,19 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public void setDataFlagExtend(EntityFlag entityFlag, boolean value, boolean send) {
+        if (entityFlag.getValue() < 64) {
+            this.setDataFlag(entityFlag, value, send);
+            return;
+        }
+
         if (this.getEntityDataMap().existFlag(entityFlag) ^ value) {
-            EnumSet<EntityFlag> entityFlags = this.getEntityDataMap().getOrDefault(EntityDataTypes.FLAGS_2, EnumSet.noneOf(EntityFlag.class));
+            EnumSet<EntityFlag> entityFlags = this.getEntityDataMap().getOrCreateFlags2();
             if (value) {
                 entityFlags.add(entityFlag);
             } else {
                 entityFlags.remove(entityFlag);
             }
-            this.getEntityDataMap().put(EntityDataTypes.FLAGS_2, entityFlags);
+
             if(send) {
                 EntityDataMap entityDataMap = new EntityDataMap();
                 entityDataMap.put(EntityDataTypes.FLAGS_2, entityFlags);
@@ -3227,7 +3282,7 @@ public abstract class Entity extends Location implements Metadatable, EntityID, 
     }
 
     public boolean getDataFlag(EntityFlag id) {
-        return this.getEntityDataMap().getOrCreateFlags().contains(id);
+        return this.getEntityDataMap().existFlag(id);
     }
 
     public void setPlayerFlag(PlayerFlag entityFlag) {

@@ -44,6 +44,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -83,7 +84,7 @@ public class LevelDBProvider implements LevelProvider {
                         .compressionType(CompressionType.ZLIB_RAW)
                         .blockSize(64 * 1024));
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
         });
         this.path = path;
@@ -145,7 +146,7 @@ public class LevelDBProvider implements LevelProvider {
             output.write(levelDatMagic);//magic number
             NBTIO.write(createWorldDataNBT(levelDat), output, ByteOrder.LITTLE_ENDIAN);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -155,7 +156,7 @@ public class LevelDBProvider implements LevelProvider {
             try {
                 chunk = storage.readChunk(chunkX, chunkZ, this);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
         }
         if (chunk == null) {
@@ -265,7 +266,9 @@ public class LevelDBProvider implements LevelProvider {
     public void putChunk(long index, IChunk chunk) {
         if(this.chunks.containsKey(index)) {
             level.getPlayers().values().forEach(player -> {
-                player.getPlayerChunkManager().getUsedChunks().remove(index);
+                synchronized (player.getPlayerChunkManager().getUsedChunks()) {
+                    player.getPlayerChunkManager().getUsedChunks().remove(index);
+                }
             });
         }
         chunks.put(index, chunk);
@@ -807,7 +810,7 @@ public class LevelDBProvider implements LevelProvider {
         } catch (FileNotFoundException e) {
             log.error("The level.dat file does not exist!");
         }
-        throw new RuntimeException("level.dat is null!");
+        throw new IllegalStateException("level.dat is null!");
     }
 
     private static CompoundTag createWorldDataNBT(LevelDat worldData) {
