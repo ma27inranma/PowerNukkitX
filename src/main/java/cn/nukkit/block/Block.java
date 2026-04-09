@@ -58,7 +58,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         if (player == null) {
             return true;
         }
-        Item itemInHand = player.getInventory().getItemInHand();
+        Item itemInHand = player.getInventory().getItemInMainHand();
         return (player.isSneaking() || player.isFlySneaking()) && !(itemInHand.isTool() || itemInHand.isNull());
     }
 
@@ -411,7 +411,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
 
     /**
-     * Check if above space is greatner than 0.5 for chests
+     * Check if the above space is greater than 0.5 for chests
      *
      * @return Can chest be opened with the above space?
      */
@@ -515,7 +515,9 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         if (getWaterloggingLevel() == 0) return false;
 
         Block fluid = this.getLevelBlockAtLayer(1);
-        return fluid instanceof BlockWater && !fluid.isAir();
+        if (fluid == null || fluid.isAir()) return false;
+
+        return fluid instanceof BlockFlowingWater;
     }
 
     public final boolean canWaterloggingFlowInto() {
@@ -1643,7 +1645,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
             if(player == null) return true;
 
             if(player.isAdventure()) {
-                Item itemInHand = player.getInventory().getItemInHand();
+                Item itemInHand = player.getInventory().getItemInMainHand();
                 if(itemInHand.isNull()) return false;
 
                 Tag tag = itemInHand.getNamedTagEntry("CanDestroy");

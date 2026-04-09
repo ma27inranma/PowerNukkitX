@@ -50,6 +50,7 @@ import cn.nukkit.level.format.leveldb.LevelDBProvider;
 import cn.nukkit.level.generator.BiomedGenerator;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.level.generator.biome.BiomePicker;
+import cn.nukkit.level.generator.holder.ObjectHolder;
 import cn.nukkit.level.particle.DestroyBlockParticle;
 import cn.nukkit.level.particle.Particle;
 import cn.nukkit.level.tickingarea.TickingArea;
@@ -246,6 +247,9 @@ public class Level implements Metadatable {
         randomTickBlocks.add(BlockID.COPPER_BARS);
         randomTickBlocks.add(BlockID.EXPOSED_COPPER_BARS);
         randomTickBlocks.add(BlockID.WEATHERED_COPPER_BARS);
+        randomTickBlocks.add(BlockID.COPPER_GRATE);
+        randomTickBlocks.add(BlockID.EXPOSED_COPPER_GRATE);
+        randomTickBlocks.add(BlockID.WEATHERED_COPPER_GRATE);
         randomTickBlocks.add(BlockID.COPPER_CHAIN);
         randomTickBlocks.add(BlockID.EXPOSED_COPPER_CHAIN);
         randomTickBlocks.add(BlockID.WEATHERED_COPPER_CHAIN);
@@ -342,6 +346,7 @@ public class Level implements Metadatable {
     private final Generator generator;
     private final Class<? extends Generator> generatorClass;
     private BiomePicker biomePicker;
+    private ObjectHolder generatorObjectHolder;
     private int updateLCG = ThreadLocalRandom.current().nextInt();
     private int tickRate;
     private long levelCurrentTick = 0;
@@ -400,6 +405,7 @@ public class Level implements Metadatable {
         if (this.generator instanceof BiomedGenerator biomedGenerator) {
             this.biomePicker = biomedGenerator.createBiomePicker(this);
         }
+        this.generatorObjectHolder = this.generator.createObjectHolder(this);
         if (generatorConfig.enableAntiXray()) {
             this.setAntiXrayEnabled(true);
             antiXraySystem.reinitAntiXray(false);
@@ -646,10 +652,29 @@ public class Level implements Metadatable {
     }
 
     public void close() {
-        if (getServer().getSettings().levelSettings().levelThread() && baseTickThread.isAlive()) {
+        if (baseTickThread.isAlive()) {
             this.baseTickGameLoop.stop();
+            try {
+                this.baseTickThread.join(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (baseTickThread.isAlive()) {
+                log.warn("Level {} tick thread did not stop in time, interrupting", getFolderName());
+                baseTickThread.interrupt();
+                try {
+                    baseTickThread.join(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (this.provider.get() != null) {
+                    remove();
+                    log.warn("Level {} tick thread did not stop gracefully, forcing level unload.", getFolderName());
+                }
+            }
+        } else {
+            remove();
         }
-        remove();
     }
 
     private void remove() {
@@ -942,14 +967,6 @@ public class Level implements Metadatable {
         }
 
         this.close();
-        if (force && getServer().getSettings().levelSettings().levelThread()) {
-            getServer().getScheduler().scheduleDelayedTask(() -> {
-                if (baseTickThread.isAlive()) {
-                    getServer().getLogger().critical(getName() + " failed to unload. Trying to stop the thread.");
-                    baseTickThread.interrupt();
-                }
-            }, 100);
-        }
         return true;
     }
 
@@ -1077,6 +1094,7 @@ public class Level implements Metadatable {
     }
 
     private void doTick(GameLoop gameLoop) {
+        if (getProvider() == null) return; // level is closing
         try {
             int baseTickRate = getServer().getSettings().levelSettings().baseTickRate();
             long levelTime = System.currentTimeMillis();
@@ -1109,8 +1127,8 @@ public class Level implements Metadatable {
     }
 
     public void doTick(int currentTick) {
+        if (getProvider() == null) return; // level is closing
         players.values().forEach(player -> player.getSession().tick());
-        requireProvider();
         try {
             getScheduler().mainThreadHeartbeat(currentTick);
             updateBlockLight();
@@ -2965,7 +2983,7 @@ public class Level implements Metadatable {
             return null;
         }
 
-        boolean isPlayerInput = data.triggerType == UseItemData.TriggerType.PLAYER_INPUT;
+        boolean isInteractionTrigger = data.triggerType == UseItemData.TriggerType.PLAYER_INPUT || data.triggerType == UseItemData.TriggerType.SIMULATION_TICK;
 
         if (player == null) {
             if (!target.isAir() && target.canBeActivated() && target.onActivate(item, null, face, fx, fy, fz)) {
@@ -2974,15 +2992,18 @@ public class Level implements Metadatable {
                 }
                 return item;
             }
-        } else if (isPlayerInput) {
+        } else {
             PlayerInteractEvent ev = new PlayerInteractEvent(player, item, target, face, target.isAir() ? Action.RIGHT_CLICK_AIR : Action.RIGHT_CLICK_BLOCK);
-            //                                handle spawn protect
-            if (player.getGamemode() > 2 || (!player.isOp() && isInSpawnRadius(target))) {
-                ev.setCancelled();
+            if (isInteractionTrigger) {
+                //                                handle spawn protect
+                if (player.getGamemode() > 2 || (!player.isOp() && isInSpawnRadius(target))) {
+                    ev.setCancelled();
+                }
+
+                this.server.getPluginManager().callEvent(ev);
+                new PlayerHandle(player).setInteract();
             }
 
-            this.server.getPluginManager().callEvent(ev);
-            new PlayerHandle(player).setInteract();
             if (!ev.isCancelled()) {
                 target.onTouch(vector, item, face, fx, fy, fz, player, ev.getAction());
                 if (ev.getAction() == Action.RIGHT_CLICK_BLOCK && target.canBeActivated() && target.onActivate(item, player, face, fx, fy, fz)) {
@@ -3725,6 +3746,10 @@ public class Level implements Metadatable {
 
     public int pickBiome(int x, int y, int z) {
         return getBiomePicker().pick(x, y, z).getBiomeId();
+    }
+
+    public ObjectHolder getGeneratorObjectHolder() {
+        return this.generatorObjectHolder;
     }
 
     public Map<Long, IChunk> getChunks() {
@@ -4497,7 +4522,7 @@ public class Level implements Metadatable {
 
 
     public boolean isChunkGenerating(int x, int z) {
-        return this.chunkGenerationQueue.containsKey(Level.chunkHash(x, z));
+        return this.chunkGenerationQueue.getOrDefault(Level.chunkHash(x, z), false);
     }
 
     public void generateChunk(int x, int z) {
@@ -4517,11 +4542,18 @@ public class Level implements Metadatable {
 
     public void syncGenerateChunk(int x, int z) {
         long index = Level.chunkHash(x, z);
+        if(isChunkGenerating(x, z) && getChunk(x, z, false).getChunkState() == ChunkState.NEW) removeFromGenerateList(x, z);
         if (this.chunkGenerationQueue.putIfAbsent(index, Boolean.TRUE) == null) {
             IChunk chunk = this.getChunk(x, z, true);
             this.generator.syncGenerate(chunk);
             chunkGenerationQueue.remove(index);
         }
+        while (isChunkGenerating(x, z));
+    }
+
+    private void removeFromGenerateList(int x, int z) {
+        long index = Level.chunkHash(x, z);
+        chunkGenerationQueue.remove(index);
     }
 
     /**

@@ -24,6 +24,11 @@ public abstract class EntityVehicle extends Entity implements EntityInteractable
         super(chunk, nbt);
     }
 
+    @Override
+    protected void initEntity() {
+        super.initEntity();
+    }
+
     public int getRollingAmplitude() {
         return this.getDataProperty(HURT_TICKS);
     }
@@ -59,13 +64,18 @@ public abstract class EntityVehicle extends Entity implements EntityInteractable
     }
 
     @Override
-    public boolean isRiderControl() {
+    public boolean hasGroundInputControlsMeta() {
         return true;
     }
 
     @Override
     public boolean canDoInteraction() {
         return passengers.isEmpty();
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return true;
     }
 
     @Override
@@ -130,7 +140,7 @@ public abstract class EntityVehicle extends Entity implements EntityInteractable
                 return false;
         }
 
-        if (instantKill || getHealth() - source.getFinalDamage() < 1) {
+        if (instantKill || getHealthCurrent() - source.getFinalDamage() < 1) {
             if (source instanceof EntityDamageByEntityEvent) {
                 final Entity damagingEntity = ((EntityDamageByEntityEvent) source).getDamager();
                 final VehicleDestroyByEntityEvent byDestroyEvent = new VehicleDestroyByEntityEvent(this, damagingEntity);
