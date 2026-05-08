@@ -9,12 +9,16 @@ import cn.nukkit.level.generator.ChunkGenerateContext;
 import cn.nukkit.level.generator.object.BlockManager;
 import cn.nukkit.level.generator.object.RandomizableContainer;
 import cn.nukkit.level.generator.populator.Populator;
+import cn.nukkit.level.generator.populator.placement.StructurePlacement;
 import cn.nukkit.level.structure.PNXStructure;
+import cn.nukkit.math.BlockFace;
+import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.network.protocol.types.biome.BiomeDefinition;
 import cn.nukkit.registry.Registries;
 import cn.nukkit.tags.BiomeTags;
 import cn.nukkit.utils.random.RandomSourceProvider;
+import cn.nukkit.utils.random.Xoroshiro128;
 import java.util.Set;
 
 import static cn.nukkit.level.generator.stages.normal.NormalTerrainStage.SEA_LEVEL;
@@ -34,8 +38,11 @@ public class PopulatorRuinedPortal extends Populator {
 
     private static final ChestPopulator CHEST_POPULATOR = new ChestPopulator();
 
-    protected static final int MIN_DISTANCE = 40;
-    protected static final int MAX_DISTANCE = 25;
+    public static final StructurePlacement PLACEMENT = new StructurePlacement(StructurePlacement.PlacementSettings.builder()
+            .salt(34222645L)
+            .minDistance(15)
+            .maxDistance(40)
+            .build());
 
     private static final String[] PORTALS = new String[]{
             "ruined_portal/portal_1",
@@ -61,8 +68,9 @@ public class PopulatorRuinedPortal extends Populator {
         int chunkX = chunk.getX();
         int chunkZ = chunk.getZ();
         Level level = chunk.getLevel();
-        random.setSeed(level.getSeed() ^ Level.chunkHash(chunkX, chunkZ));
-        if(canGenerate(random, chunk)) {
+        int biome = chunk.getBiomeId(7, SEA_LEVEL, 7);
+        if(PLACEMENT.canGenerate(level.getSeed(), random, chunkX, chunkZ, biome)) {
+            random.setSeed(level.getSeed() ^ Level.chunkHash(chunkX, chunkZ));
             int x = (chunkX << 4) + 7;
             int z = (chunkZ << 4) + 7;
             BiomeDefinition definition = Registries.BIOME.get(chunk.getBiomeId(7, SEA_LEVEL, 7));
@@ -76,10 +84,15 @@ public class PopulatorRuinedPortal extends Populator {
             else height = random.nextBoolean() ? PortalHeight.ON_LAND_SURFACE : PortalHeight.UNDERGROUND;
             boolean big = random.nextBoundedInt(20) == 0;
             PNXStructure structure = (PNXStructure) Registries.STRUCTURE.get(big ? GIANT_PORTALS[random.nextInt(GIANT_PORTALS.length)] : PORTALS[random.nextInt(PORTALS.length)]);
-            int y = findSuitableY(random, chunk, height, chunk.getHeightMap(7, 7), structure.getSizeY());
+            boolean airPocket = height == PortalHeight.IN_NETHER && random.nextFloat() < 0.5f;
+            int y = findSuitableY(random, level, x, z, height, airPocket, structure.getSizeX(), structure.getSizeY(), structure.getSizeZ());
             BlockManager manager = new BlockManager(level);
             structure.preparePlace(new Position(x, y, z), manager);
             for(Block block : manager.getBlocks()) {
+                if (block.isAir() && shouldFillAirWithWater(level, block)) {
+                    manager.setBlockStateAt(block, BlockWater.PROPERTIES.getDefaultState());
+                    continue;
+                }
                 if(block instanceof BlockJigsaw) manager.setBlockStateAt(block, NETHERRACK);
                 if(level.getBlock(block) instanceof BlockFlowingWater) {
                     //WaterLogging does not work with BlockManager. Therefore, we set the water in the level.
@@ -99,8 +112,12 @@ public class PopulatorRuinedPortal extends Populator {
                     });
                 }
                 if(block instanceof BlockChest chest) {
+                    BlockVector3 chestPos = chest.asBlockVector3();
                     manager.addHook(() -> {
-                        CHEST_POPULATOR.create(chest.getOrCreateBlockEntity().getInventory(), random);
+                        Block worldBlock = level.getBlock(chestPos.getX(), chestPos.getY(), chestPos.getZ());
+                        if (worldBlock instanceof BlockChest worldChest) {
+                            CHEST_POPULATOR.create(worldChest.getOrCreateBlockEntity().getInventory(), createChestLootRandom(level, chestPos));
+                        }
                     });
                 }
                 if(level.getDimension() == Level.DIMENSION_NETHER) {
@@ -128,46 +145,102 @@ public class PopulatorRuinedPortal extends Populator {
 
     private static int findSuitableY(
             RandomSourceProvider random,
-            IChunk chunk,
+            Level level,
+            int worldX,
+            int worldZ,
             PortalHeight portalHeight,
-            int height,
-            int structureHeight) {
-        int j = 15;
+            boolean airPocket,
+            int structureWidth,
+            int structureHeight,
+            int structureDepth) {
+        int minY = level.getMinHeight() + 15;
+        int centerX = worldX + (structureWidth >> 1);
+        int centerZ = worldZ + (structureDepth >> 1);
+        int surfaceYAtCenter = getSurfaceY(level, centerX, centerZ, portalHeight);
         int i;
         if (portalHeight == PortalHeight.IN_NETHER) {
-            if (random.nextBoolean()) {
+            if (airPocket) {
+                i = NukkitMath.randomRange(random, 32, 100);
+            } else if (random.nextBoolean()) {
                 i = NukkitMath.randomRange(random, 27, 29);
             } else {
                 i = NukkitMath.randomRange(random, 29, 100);
             }
         } else if (portalHeight == PortalHeight.IN_MOUNTAIN) {
-            int k = height - structureHeight;
+            int k = surfaceYAtCenter - structureHeight;
             i = getRandomWithinInterval(random, 70, k);
         } else if (portalHeight == PortalHeight.UNDERGROUND) {
-            int j1 = height - structureHeight;
-            i = getRandomWithinInterval(random, j, j1);
+            int j1 = surfaceYAtCenter - structureHeight;
+            i = getRandomWithinInterval(random, minY, j1);
         } else if (portalHeight == PortalHeight.PARTLY_BURIED) {
-            i = height - structureHeight + NukkitMath.randomRange(random, 2, 8);
+            i = surfaceYAtCenter - structureHeight + NukkitMath.randomRange(random, 2, 8);
         } else {
-            i = height;
+            i = surfaceYAtCenter;
         }
 
-        int y = i;
-        Block id = chunk.getBlockState(7, y, 7).toBlock();
-        while (id.canBeReplaced()) {
-            id = chunk.getBlockState(7, --y, 7).toBlock();
+        int minCornerX = worldX;
+        int minCornerZ = worldZ;
+        int maxCornerX = worldX + structureWidth - 1;
+        int maxCornerZ = worldZ + structureDepth - 1;
+
+        int y;
+        for (y = i; y > minY; y--) {
+            int cornersOnSolidGround = 0;
+            if (isOpaqueGround(level.getBlock(minCornerX, y, minCornerZ))) cornersOnSolidGround++;
+            if (isOpaqueGround(level.getBlock(maxCornerX, y, minCornerZ))) cornersOnSolidGround++;
+            if (isOpaqueGround(level.getBlock(minCornerX, y, maxCornerZ))) cornersOnSolidGround++;
+            if (isOpaqueGround(level.getBlock(maxCornerX, y, maxCornerZ))) cornersOnSolidGround++;
+            if (cornersOnSolidGround >= 3) {
+                return y;
+            }
         }
         return y;
     }
 
-    private static int getRandomWithinInterval(RandomSourceProvider random, int start, int end) {
-        return start < end ? NukkitMath.randomRange(random, start, end) : end;
+    private static int getSurfaceY(Level level, int x, int z, PortalHeight portalHeight) {
+        int y = level.getHeightMap(x, z);
+        if (portalHeight != PortalHeight.ON_OCEAN_FLOOR) {
+            return y;
+        }
+        while (y > level.getMinHeight() && isWater(level.getBlock(x, y, z))) {
+            y--;
+        }
+        return y;
     }
 
-    public boolean canGenerate(RandomSourceProvider random, IChunk chunk) {
-        int chunkX = chunk.getX();
-        int chunkZ = chunk.getZ();
-        return ((chunkX < 0 ? (chunkX - MAX_DISTANCE - 1) / MAX_DISTANCE : chunkX / MAX_DISTANCE) * MAX_DISTANCE + random.nextBoundedInt(MAX_DISTANCE - MIN_DISTANCE) == chunkX && (chunkZ < 0 ? (chunkZ - MAX_DISTANCE - 1) / MAX_DISTANCE : chunkZ / MAX_DISTANCE) * MAX_DISTANCE + random.nextBoundedInt(MAX_DISTANCE - MIN_DISTANCE) == chunkZ);
+    private static boolean isWater(Block block) {
+        return block instanceof BlockFlowingWater;
+    }
+
+    private static boolean shouldFillAirWithWater(Level level, Block block) {
+        if (block.getFloorY() >= SEA_LEVEL) {
+            return false;
+        }
+        if (isWater(level.getBlock(block))) {
+            return true;
+        }
+        for (BlockFace face : BlockFace.values()) {
+            if (isWater(level.getBlock(block.getSide(face)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static RandomSourceProvider createChestLootRandom(Level level, BlockVector3 pos) {
+        long seed = level.getSeed();
+        seed ^= 0x9E3779B97F4A7C15L * pos.getX();
+        seed ^= 0xC2B2AE3D27D4EB4FL * pos.getY();
+        seed ^= 0x165667B19E3779F9L * pos.getZ();
+        return new Xoroshiro128(seed);
+    }
+
+    private static boolean isOpaqueGround(Block block) {
+        return block.isSolid() && !block.canBeReplaced() && !block.isTransparent();
+    }
+
+    private static int getRandomWithinInterval(RandomSourceProvider random, int start, int end) {
+        return start < end ? NukkitMath.randomRange(random, start, end) : end;
     }
 
     @Override
@@ -179,13 +252,13 @@ public class PopulatorRuinedPortal extends Populator {
 
         public ChestPopulator() {
             PoolBuilder pool1 = new PoolBuilder()
-                    .register(new ItemEntry(Block.OBSIDIAN, 0, 1, 2, 40))
-                    .register(new ItemEntry(Item.FLINT, 0, 1, 4, 40))
-                    .register(new ItemEntry(Item.IRON_NUGGET, 0, 9, 18, 40))
+                    .register(new ItemEntry(Block.OBSIDIAN, 0, 2, 1, 40))
+                    .register(new ItemEntry(Item.FLINT, 0, 4, 1, 40))
+                    .register(new ItemEntry(Item.IRON_NUGGET, 0, 18, 9, 40))
                     .register(new ItemEntry(Item.FLINT_AND_STEEL, 40))
                     .register(new ItemEntry(Item.FIRE_CHARGE, 40))
                     .register(new ItemEntry(Item.GOLDEN_APPLE, 15))
-                    .register(new ItemEntry(Item.GOLD_NUGGET, 0, 4, 24, 15))
+                    .register(new ItemEntry(Item.GOLD_NUGGET, 0, 24, 4, 15))
                     .register(new ItemEntry(Item.GOLDEN_SWORD, 0, 1, 1, 15, getDefaultEnchantments()))
                     .register(new ItemEntry(Item.GOLDEN_AXE, 0, 1, 1, 15, getDefaultEnchantments()))
                     .register(new ItemEntry(Item.GOLDEN_HOE, 0, 1, 1, 15, getDefaultEnchantments()))
@@ -195,21 +268,21 @@ public class PopulatorRuinedPortal extends Populator {
                     .register(new ItemEntry(Item.GOLDEN_CHESTPLATE, 0, 1, 1, 15, getDefaultEnchantments()))
                     .register(new ItemEntry(Item.GOLDEN_HELMET, 0, 1, 1, 15, getDefaultEnchantments()))
                     .register(new ItemEntry(Item.GOLDEN_LEGGINGS, 0, 1, 1, 15, getDefaultEnchantments()))
-                    .register(new ItemEntry(Item.GLISTERING_MELON_SLICE, 0, 4, 12, 5))
+                    .register(new ItemEntry(Item.GLISTERING_MELON_SLICE, 0, 12, 4, 5))
                     .register(new ItemEntry(Item.GOLDEN_HORSE_ARMOR, 5))
                     .register(new ItemEntry(Block.LIGHT_WEIGHTED_PRESSURE_PLATE, 5))
-                    .register(new ItemEntry(Item.GOLDEN_CARROT, 0, 4, 12, 5))
+                    .register(new ItemEntry(Item.GOLDEN_CARROT, 0, 12, 4, 5))
                     .register(new ItemEntry(Item.CLOCK, 5))
-                    .register(new ItemEntry(Item.GOLD_INGOT, 0, 2, 8, 5))
+                    .register(new ItemEntry(Item.GOLD_INGOT, 0, 8, 2, 5))
                     .register(new ItemEntry(Block.BELL, 1))
                     .register(new ItemEntry(Item.ENCHANTED_GOLDEN_APPLE, 1))
-                    .register(new ItemEntry(Block.GOLD_BLOCK, 0, 1, 2, 1));
+                    .register(new ItemEntry(Block.GOLD_BLOCK, 0, 2, 1, 1));
 
             this.pools.put(pool1.build(), new RollEntry(8, 4, pool1.getTotalWeight()));
 
             PoolBuilder pool2 = new PoolBuilder()
                     .register(new ItemEntry(Block.AIR, 1))
-                    .register(new ItemEntry(Block.LODESTONE, 0, 1, 2, 2));
+                    .register(new ItemEntry(Block.LODESTONE, 0, 2, 1, 2));
 
             this.pools.put(pool2.build(), new RollEntry(1, pool2.getTotalWeight()));
         }

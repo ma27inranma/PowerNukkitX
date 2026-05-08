@@ -9,9 +9,9 @@ import cn.nukkit.level.generator.object.structures.OceanMonumentPieces;
 import cn.nukkit.level.generator.object.structures.utils.BoundingBox;
 import cn.nukkit.level.generator.object.structures.utils.StructureStart;
 import cn.nukkit.level.generator.populator.Populator;
+import cn.nukkit.level.generator.populator.placement.StructurePlacement;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.registry.Registries;
-import cn.nukkit.tags.BiomeTags;
 import cn.nukkit.utils.random.NukkitRandom;
 import cn.nukkit.utils.random.RandomSourceProvider;
 import com.google.common.collect.Maps;
@@ -24,32 +24,18 @@ public class OceanMonumentPopulator extends Populator {
 
     public static final String NAME = "normal_ocean_monument";
 
-
-    protected static final int SPACING = 32;
-    protected static final int SEPARATION = 5;
-    protected static boolean[] DEEP_OCEAN_BIOMES = new boolean[256];
-    protected static boolean[] WATER_BIOMES = new boolean[256];
-
-    static {
-        // Oceans
-        WATER_BIOMES[BiomeID.OCEAN] = true;
-        WATER_BIOMES[BiomeID.FROZEN_OCEAN] = true;
-        WATER_BIOMES[BiomeID.LUKEWARM_OCEAN] = true;
-        WATER_BIOMES[BiomeID.COLD_OCEAN] = true;
-        WATER_BIOMES[BiomeID.WARM_OCEAN] = true;
-
-        //Deep Oceans
-        WATER_BIOMES[BiomeID.DEEP_OCEAN] = DEEP_OCEAN_BIOMES[BiomeID.DEEP_OCEAN] = true;
-        WATER_BIOMES[BiomeID.DEEP_WARM_OCEAN] = DEEP_OCEAN_BIOMES[BiomeID.DEEP_WARM_OCEAN] = true;
-        WATER_BIOMES[BiomeID.DEEP_LUKEWARM_OCEAN] = DEEP_OCEAN_BIOMES[BiomeID.DEEP_LUKEWARM_OCEAN] = true;
-        WATER_BIOMES[BiomeID.DEEP_COLD_OCEAN] = DEEP_OCEAN_BIOMES[BiomeID.DEEP_COLD_OCEAN] = true;
-        WATER_BIOMES[BiomeID.DEEP_FROZEN_OCEAN] = DEEP_OCEAN_BIOMES[BiomeID.DEEP_FROZEN_OCEAN] = true;
-
-        // Rivers
-        WATER_BIOMES[BiomeID.RIVER] = true;
-        WATER_BIOMES[BiomeID.FROZEN_RIVER] = true;
-    }
-
+    public static final StructurePlacement PLACEMENT = new StructurePlacement(StructurePlacement.PlacementSettings.builder()
+            .salt(10387313L)
+            .minDistance(5)
+            .maxDistance(32)
+            .isBiomeValid(biome -> switch (biome) {
+                case BiomeID.DEEP_OCEAN,
+                     BiomeID.DEEP_COLD_OCEAN,
+                     BiomeID.DEEP_FROZEN_OCEAN,
+                     BiomeID.DEEP_LUKEWARM_OCEAN -> true;
+                default -> false;
+            })
+            .build());
     protected final Map<Long, Set<Long>> waitingChunks = Maps.newConcurrentMap();
 
     @Override
@@ -58,48 +44,44 @@ public class OceanMonumentPopulator extends Populator {
         int chunkX = chunk.getX();
         int chunkZ = chunk.getZ();
         Level l = chunk.getLevel();
-        if(Registries.BIOME.get(chunk.getBiomeId(7, chunk.getHeightMap(7,7), 7)).getTags().contains(BiomeTags.OCEAN)) {
-            BlockManager level = new BlockManager(l);
-            int cX = (chunkX < 0 ? chunkX - SPACING + 1 : chunkX) / SPACING;
-            int cZ = (chunkZ < 0 ? chunkZ - SPACING + 1 : chunkZ) / SPACING;
-            random.setSeed(cX * 0x4f9939f508L + cZ * 0x1ef1565bd5L + level.getSeed() + 0x9e7f71L);
+        int biome = Registries.BIOME.get(chunk.getBiomeId(7, chunk.getHeightMap(7, 7), 7)).getId();
+        if (!PLACEMENT.canGenerate(l.getSeed(), random, chunkX, chunkZ, biome)) {
+            return;
+        }
 
-            if (chunkX == cX * SPACING + (random.nextBoundedInt(SPACING - SEPARATION) + random.nextBoundedInt(SPACING - SEPARATION)) / 2
-                    && chunkZ == cZ * SPACING + (random.nextBoundedInt(SPACING - SEPARATION) + random.nextBoundedInt(SPACING - SEPARATION)) / 2) {
-                int startX = (chunkX << 4) + 9;
-                int startZ = (chunkZ << 4) + 9;
+        BlockManager level = new BlockManager(l);
+        int startX = (chunkX << 4) + 9;
+        int startZ = (chunkZ << 4) + 9;
 
-                Set<IChunk> chunks = Sets.newHashSet();
-                Set<Long> indexes = Sets.newConcurrentHashSet();
+        Set<IChunk> chunks = Sets.newHashSet();
+        Set<Long> indexes = Sets.newConcurrentHashSet();
 
-                for (int ckX = (startX - 29) >> 4; ckX <= (startX + 29) >> 4; ckX++) {
-                    for (int ckZ = (startZ - 29) >> 4; ckZ <= (startZ + 29) >> 4; ckZ++) {
-                        IChunk ck = level.getChunk(ckX, ckZ);
-                        if (ck == null) {
-                            ck = chunk.getProvider().getChunk(ckX, ckZ, true);
-                        }
-                        if (!ck.isGenerated()) {
-                            chunks.add(ck);
-                            indexes.add(Level.chunkHash(ck.getX(), ck.getZ()));
-                        }
-                    }
+        for (int ckX = (startX - 29) >> 4; ckX <= (startX + 29) >> 4; ckX++) {
+            for (int ckZ = (startZ - 29) >> 4; ckZ <= (startZ + 29) >> 4; ckZ++) {
+                IChunk ck = level.getChunk(ckX, ckZ);
+                if (ck == null) {
+                    ck = chunk.getProvider().getChunk(ckX, ckZ, true);
                 }
-
-                if (!chunks.isEmpty()) {
-                    this.waitingChunks.put(Level.chunkHash(chunkX, chunkZ), indexes);
-                    for (IChunk ck : chunks) {
-                        if(ck.isGenerated())
-                        level.getLevel().syncGenerateChunk(ck.getX(), ck.getZ());
-                        generateChunkCallback(level, startX, startZ, chunk, ck.getX(), ck.getZ());
-                    }
-                    queueObject(chunk, level);
-                    return;
+                if (!ck.isGenerated()) {
+                    chunks.add(ck);
+                    indexes.add(Level.chunkHash(ck.getX(), ck.getZ()));
                 }
-
-                this.place(level, startX, startZ, chunk);
-                queueObject(chunk, level);
             }
         }
+
+        if (!chunks.isEmpty()) {
+            this.waitingChunks.put(Level.chunkHash(chunkX, chunkZ), indexes);
+            for (IChunk ck : chunks) {
+                if (ck.isGenerated())
+                    level.getLevel().syncGenerateChunk(ck.getX(), ck.getZ());
+                generateChunkCallback(level, startX, startZ, chunk, ck.getX(), ck.getZ());
+            }
+            queueObject(chunk, level);
+            return;
+        }
+
+        this.place(level, startX, startZ, chunk);
+        queueObject(chunk, level);
     }
 
 

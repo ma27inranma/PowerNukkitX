@@ -15,7 +15,6 @@ import cn.nukkit.level.generator.stages.normal.NormalPopulatorStage;
 import cn.nukkit.level.generator.stages.normal.NormalSurfaceDataStage;
 import cn.nukkit.level.generator.stages.normal.NormalSurfaceOverwriteStage;
 import cn.nukkit.level.generator.stages.normal.NormalTerrainStage;
-import cn.nukkit.level.generator.stages.normal.NormalWaterFloodFillStage;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import java.lang.reflect.InvocationTargetException;
@@ -38,7 +37,6 @@ public class GenerateStageRegistry implements IRegistry<String, GenerateStage, C
             this.register(NormalTerrainStage.NAME, NormalTerrainStage.class);
             this.register(NormalSurfaceDataStage.NAME, NormalSurfaceDataStage.class);
             this.register(NormalSurfaceOverwriteStage.NAME, NormalSurfaceOverwriteStage.class);
-            this.register(NormalWaterFloodFillStage.NAME, NormalWaterFloodFillStage.class);
             this.register(NormalPopulatorStage.NAME, NormalPopulatorStage.class);
             this.register(NormalChunkFeatureStage.NAME, NormalChunkFeatureStage.class);
             this.register(NetherTerrainStage.NAME, NetherTerrainStage.class);

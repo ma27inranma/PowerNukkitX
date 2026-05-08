@@ -64,6 +64,7 @@ public class PopulatorRegistry implements IRegistry<String, Populator, Class<? e
         this.register0(LavaPopulator.NAME, LavaPopulator.class);
         this.register0(NetherGravelPopulator.NAME, NetherGravelPopulator.class);
         this.register0(NetherBlackstonePopulator.NAME, NetherBlackstonePopulator.class);
+        this.register0(BastionRemnantPopulator.NAME, BastionRemnantPopulator.class);
         this.register0(DesertWellPopulator.NAME, DesertWellPopulator.class);
         this.register0(DesertPyramidPopulator.NAME, DesertPyramidPopulator.class);
         this.register0(FossilPopulator.NAME, FossilPopulator.class);
@@ -80,6 +81,7 @@ public class PopulatorRegistry implements IRegistry<String, Populator, Class<? e
         this.register0(TrailRuinsPopulator.NAME, TrailRuinsPopulator.class);
         this.register0(TrialChambersPopulator.NAME, TrialChambersPopulator.class);
         this.register0(VillagePopulator.NAME, VillagePopulator.class);
+        this.register0(WoodlandMansionPopulator.NAME, WoodlandMansionPopulator.class);
         this.register0(PopulatorRuinedPortal.NAME, PopulatorRuinedPortal.class);
         this.register0(NetherFossilPopulator.NAME, NetherFossilPopulator.class);
     }

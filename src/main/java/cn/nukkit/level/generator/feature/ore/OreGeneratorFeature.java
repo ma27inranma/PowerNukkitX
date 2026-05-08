@@ -83,11 +83,6 @@ public abstract class OreGeneratorFeature extends GenerateFeature {
             }
             if(!skip) {
                 for(Block block : object.getBlocks()) {
-                    if(block.getChunk() != chunk) {
-                        IChunk nextChunk = block.getChunk();
-                        long chunkHash = Level.chunkHash(nextChunk.getX(), nextChunk.getZ());
-                        getChunkPlacementQueue(chunkHash, level).setBlockStateAt(block.asBlockVector3(), block.getBlockState());
-                    }
                     if(block.getChunk().isGenerated()) {
                         manager.setBlockStateAt(block.asBlockVector3(), block.getBlockState());
                     }
@@ -95,8 +90,7 @@ public abstract class OreGeneratorFeature extends GenerateFeature {
             }
         }
 
-        writeOutsideChunkStructureData(chunk);
-        manager.applySubChunkUpdate();
+        queueObject(chunk, manager);
     }
 
     protected void spawn(BlockManager level, RandomSourceProvider rand, int x, int y, int z) {

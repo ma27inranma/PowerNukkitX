@@ -4,17 +4,23 @@ import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockAir;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.format.Chunk;
 import cn.nukkit.level.format.IChunk;
+import cn.nukkit.level.format.UnsafeChunk;
 import cn.nukkit.level.generator.ChunkGenerateContext;
 import cn.nukkit.level.generator.feature.CountGenerateFeature;
 import cn.nukkit.level.generator.object.BlockManager;
 import cn.nukkit.math.NukkitMath;
-import cn.nukkit.math.Vector3;
+import cn.nukkit.registry.Registries;
 import cn.nukkit.tags.BlockTags;
-import cn.nukkit.utils.random.NukkitRandom;
 import cn.nukkit.utils.random.RandomSourceProvider;
 
+import java.util.Set;
+
 public abstract class GroupedDiscFeature extends CountGenerateFeature {
+    private static final Set<String> DIRT_BLOCK_IDS = BlockTags.getBlockSet(BlockTags.DIRT);
+    private static final Set<String> SAND_BLOCK_IDS = BlockTags.getBlockSet(BlockTags.SAND);
+
 
     public abstract BlockState getSourceBlock();
     public abstract int getMinRadius();
@@ -45,29 +51,86 @@ public abstract class GroupedDiscFeature extends CountGenerateFeature {
         int height = getY(chunk, randomX, randomZ);
         int sourceX = (chunkX << 4) + randomX;
         int sourceZ = (chunkZ << 4) + randomZ;
-        BlockState topBlockState = chunk.getBlockState(randomX, height+1, randomZ);
-        if(topBlockState == BlockAir.STATE) {
+        double probability = getProbability();
+        boolean alwaysPlace = probability >= 1d;
+
+        if (chunk.getBlockState(randomX, height + 1, randomZ) == BlockAir.STATE) {
             BlockManager object = new BlockManager(level);
+            BlockState sourceBlock = getSourceBlock();
             int radius = NukkitMath.randomRange(random, getMinRadius(), getMaxRadius());
-            for (int x = sourceX - radius; x <= sourceX + radius; x++) {
-                for (int z = sourceZ - radius; z <= sourceZ + radius; z++) {
-                    if ((x - sourceX) * (x - sourceX) + (z - sourceZ) * (z - sourceZ) <= radius * radius) {
-                        if (random.nextDouble() >= getProbability()) {
-                            continue;
-                        }
-                        Vector3 p = new Vector3(x, level.getHeightMap(x, z)+1, z);
-                        if(isSupportValid(level.getBlock(p.down()))) {
-                            object.setBlockStateAt(p, getSourceBlock());
+            int radiusSquared = radius * radius;
+            int minX = sourceX - radius;
+            int maxX = sourceX + radius;
+            int minZ = sourceZ - radius;
+            int maxZ = sourceZ + radius;
+            int minChunkX = minX >> 4;
+            int maxChunkX = maxX >> 4;
+            int minChunkZ = minZ >> 4;
+            int maxChunkZ = maxZ >> 4;
+            boolean placedAny = false;
+
+            for (int currentChunkX = minChunkX; currentChunkX <= maxChunkX; currentChunkX++) {
+                int chunkStartX = currentChunkX << 4;
+                int chunkEndX = chunkStartX + 15;
+                int startX = Math.max(minX, chunkStartX);
+                int endX = Math.min(maxX, chunkEndX);
+                for (int currentChunkZ = minChunkZ; currentChunkZ <= maxChunkZ; currentChunkZ++) {
+                    int chunkStartZ = currentChunkZ << 4;
+                    int chunkEndZ = chunkStartZ + 15;
+                    int startZ = Math.max(minZ, chunkStartZ);
+                    int endZ = Math.min(maxZ, chunkEndZ);
+                    IChunk targetChunk = level.getChunkIfLoaded(currentChunkX, currentChunkZ);
+                    if (targetChunk == null) {
+                        continue;
+                    }
+                    UnsafeChunk unsafeChunk = new UnsafeChunk((Chunk) targetChunk);
+                    for (int x = startX; x <= endX; x++) {
+                        int dx = x - sourceX;
+                        int dx2 = dx * dx;
+                        int localX = x & 15;
+                        for (int z = startZ; z <= endZ; z++) {
+                            int dz = z - sourceZ;
+                            if (dx2 + dz * dz > radiusSquared) {
+                                continue;
+                            }
+                            if (!alwaysPlace && random.nextDouble() >= probability) {
+                                continue;
+                            }
+                            int localZ = z & 15;
+                            int supportY = getY(targetChunk, localX, localZ);
+                            if (unsafeChunk.getBlockState(localX, supportY + 1, localZ, 0) != BlockAir.STATE) {
+                                continue;
+                            }
+                            Block supportBlock = Registries.BLOCK.get(
+                                    unsafeChunk.getBlockState(localX, supportY, localZ, 0),
+                                    x,
+                                    supportY,
+                                    z,
+                                    0,
+                                    level
+                            );
+                            if (isSupportValid(supportBlock)) {
+                                object.setBlockStateAt(x, supportY + 1, z, sourceBlock);
+                                placedAny = true;
+                            }
                         }
                     }
                 }
             }
-            queueObject(chunk, object);
+
+            if (placedAny) {
+                queueObject(chunk, object);
+            }
         }
     }
 
     public boolean isSupportValid(Block block) {
         return block.hasTag(BlockTags.DIRT) || block.hasTag(BlockTags.SAND);
+    }
+
+    protected boolean isSupportValid(BlockState blockState) {
+        String identifier = blockState.getIdentifier();
+        return DIRT_BLOCK_IDS.contains(identifier) || SAND_BLOCK_IDS.contains(identifier);
     }
 
     public int getY(IChunk chunk, int x, int z) {

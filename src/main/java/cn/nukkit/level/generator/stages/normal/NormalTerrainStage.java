@@ -1,155 +1,122 @@
 package cn.nukkit.level.generator.stages.normal;
 
-import cn.nukkit.block.BlockBedrock;
 import cn.nukkit.block.BlockDeepslate;
+import cn.nukkit.block.BlockBedrock;
+import cn.nukkit.block.BlockAir;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.block.BlockStone;
-import cn.nukkit.block.BlockWater;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.biome.BiomeID;
+import cn.nukkit.level.Position;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.level.generator.ChunkGenerateContext;
 import cn.nukkit.level.generator.GenerateStage;
-import cn.nukkit.level.generator.biome.OverworldBiomePicker;
-import cn.nukkit.level.generator.biome.result.OverworldBiomeResult;
+import cn.nukkit.level.generator.densityfunction.DensityCommon;
 import cn.nukkit.level.generator.holder.NormalObjectHolder;
-import cn.nukkit.level.generator.noise.minecraft.simplex.SimplexNoise;
-import cn.nukkit.level.generator.noise.spline.JaggednessSpline;
-import cn.nukkit.level.generator.noise.spline.OffsetSpline;
-import cn.nukkit.level.generator.stages.normal.sampler.CarvingSampler;
-import cn.nukkit.math.NukkitMath;
+import cn.nukkit.level.generator.material.MultiMaterial;
 import cn.nukkit.utils.random.NukkitRandom;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import java.util.Arrays;
 public class NormalTerrainStage extends GenerateStage {
 
-    private final static BlockState STONE = BlockStone.PROPERTIES.getDefaultState();
-    private final static BlockState WATER = BlockWater.PROPERTIES.getDefaultState();
-    private final static BlockState DEEPSLATE = BlockDeepslate.PROPERTIES.getDefaultState();
-    private final static BlockState BEDROCK = BlockBedrock.PROPERTIES.getDefaultState();
+    private static final long STONE_HASH = BlockStone.PROPERTIES.getDefaultState().blockStateHash();
+    private static final BlockState DEEPSLATE = BlockDeepslate.PROPERTIES.getDefaultState();
+    private static final BlockState BEDROCK = BlockBedrock.PROPERTIES.getDefaultState();
 
     public static final String NAME = "normal_terrain";
 
     public static final int SEA_LEVEL = 63;
-
-    private OverworldBiomePicker picker;
-
-
-    private final ThreadLocal<Map<String, Double>> depthSplineMap = ThreadLocal.withInitial(HashMap::new);
     private final ThreadLocal<NukkitRandom> random = ThreadLocal.withInitial(NukkitRandom::new);
 
     @Override
     public void apply(ChunkGenerateContext context) {
+        final IChunk chunk = context.getChunk();
+        final Level level = chunk.getLevel();
+        final NormalObjectHolder.TerrainHolder terrainHolder = ((NormalObjectHolder) level.getGeneratorObjectHolder())
+                .getTerrainHolder();
+        final MultiMaterial multiMaterial = terrainHolder.getMultiMaterial();
+        final int minY = level.getMinHeight();
+        final int maxY = level.getMaxHeight() - 1;
+        final int yBlockSize = level.getMaxHeight() - minY;
+        final int chunkBaseX = chunk.getX() << 4;
+        final int chunkBaseZ = chunk.getZ() << 4;
+        final int cellMinY = Math.floorDiv(minY, 8) * 8;
+        final int cellMaxY = Math.floorDiv(maxY, 8) * 8;
+        final DensityCommon.ChunkCache chunkCache = DensityCommon.chunkCache(chunk);
+        chunkCache.clear();
+        final NukkitRandom random = this.random.get();
+        random.setSeed(level.getSeed() ^ Level.chunkHash(chunk.getX(), chunk.getZ()));
+        final DensityCommon.CellFunctionContext functionContext = new DensityCommon.CellFunctionContext(chunkCache);
 
-        IChunk chunk = context.getChunk();
-        int chunkX = chunk.getX();
-        int chunkZ = chunk.getZ();
-        int baseX = chunkX << 4;
-        int baseZ = chunkZ << 4;
-        Level level = chunk.getLevel();
-        NukkitRandom random = this.random.get();
-        random.setSeed(level.getSeed());
-        if(picker == null) picker = (OverworldBiomePicker) level.getBiomePicker();
-        NormalObjectHolder.TerrainHolder holder = ((NormalObjectHolder) level.getGeneratorObjectHolder()).getTerrainHolder();
-        for(int x = 0; x < 16; x++) {
-            for(int z = 0; z < 16; z++) {
-                OverworldBiomeResult result = picker.pick(baseX + x, SEA_LEVEL, baseZ + z);
-                int biomeId = result.getBiomeId();
-                boolean oceanBiome = isOceanBiome(biomeId);
-                float baseHeightSum = 0.0F;
-                float biomeWeightSum = 0.0F;
-                int smoothFactor = 0;
-                if(biomeId == BiomeID.RIVER) smoothFactor = 3;
-                for (int xSmooth = -smoothFactor; xSmooth <= smoothFactor; ++xSmooth) {
-                    for (int zSmooth = -smoothFactor; zSmooth <= smoothFactor; ++zSmooth) {
-                        if(!(Math.abs(xSmooth) == smoothFactor || Math.abs(zSmooth) == smoothFactor)) continue;
-                        int cx = x + baseX + xSmooth;
-                        int cz = z + baseZ + zSmooth;
-                        OverworldBiomeResult result1 = picker.pick(cx, SEA_LEVEL, cz);
-                        float weight = 1;
-                        Map<String, Double> depthSplineMap = this.depthSplineMap.get();
-                        depthSplineMap.put("minecraft:overworld/continents", (double) result1.getContinental());
-                        depthSplineMap.put("minecraft:overworld/erosion", (double) result1.getErosion());
-                        depthSplineMap.put("minecraft:overworld/ridges_folded", (double) result1.getPv());
-                        depthSplineMap.put("minecraft:overworld/ridges", (double) result1.getWeirdness());
-                        float jaggedValue = holder.getJagged().getValue(cx * 1500, SEA_LEVEL, cz * 1500);
-
-                        if (jaggedValue < 0) jaggedValue /= 2;
-                        float jaggedness = (float) (JaggednessSpline.CACHED_SPLINE.evaluate(depthSplineMap) * jaggedValue * 4);
-                        float depth = (float) (OffsetSpline.CACHED_SPLINE.evaluate(depthSplineMap) - 0.5037500262260437f);
-
-                        float finalDensity = jaggedness + depth;
-                        float finalDensityRoughed = finalDensity;
-                        baseHeightSum += finalDensityRoughed * weight;
-                        biomeWeightSum += weight;
-                    }
-                }
-
-                baseHeightSum = baseHeightSum / Math.max(biomeWeightSum, 1);
-                boolean solidBlockAbove = false;
-                for(int y = level.getMaxHeight() - 1; y >= level.getMinHeight(); y--) {
-                    float density = holder.getSurfaceNoise().getValue((x + baseX), y,z + baseZ);
-                    float densityMod = ((baseHeightSum + 0.18f) - NukkitMath.remapNormalized(y, level.getMinHeight(), level.getMaxHeight())) * 24;
-                    boolean shouldCarve = holder.getCarver().shouldCarve(baseX + x, y, baseZ + z, oceanBiome);
-                    if(density + densityMod > 0 && !shouldCarve) {
-                        chunk.setBlockState(x, y, z, y < 0 ? DEEPSLATE : STONE, 0);
-                        solidBlockAbove = true;
-                    } else {
-                        if(y <= SEA_LEVEL && (!shouldCarve || (((isOceanBiome(biomeId) || isRiver(biomeId)) && !solidBlockAbove)))) {
-                            chunk.setBlockState(x, y, z, WATER, 0);
+        terrainHolder.beginAquifer(chunk, level, chunkCache, minY, yBlockSize, SEA_LEVEL);
+        try {
+            chunk.batchProcess(unsafeChunk -> {
+                for (int cellX = 0; cellX < 16; cellX += 4) {
+                    for (int cellZ = 0; cellZ < 16; cellZ += 4) {
+                        for (int cellY = cellMaxY; cellY >= cellMinY; cellY -= 8) {
+                            for (int localX = 0; localX < 4; localX++) {
+                                final int x = cellX + localX;
+                                final int worldX = chunkBaseX + x;
+                                for (int localZ = 0; localZ < 4; localZ++) {
+                                    final int z = cellZ + localZ;
+                                    final int worldZ = chunkBaseZ + z;
+                                    for (int localY = 7; localY >= 0; localY--) {
+                                        final int y = cellY + localY;
+                                        if (y < minY || y > maxY) {
+                                            continue;
+                                        }
+                                        BlockState generatedState = multiMaterial.calculate(functionContext.set(worldX, y, worldZ));
+                                        if (generatedState != null) {
+                                            if (generatedState.blockStateHash() == STONE_HASH && shouldPlaceDeepslate(random, y)) {
+                                                generatedState = DEEPSLATE;
+                                            }
+                                            unsafeChunk.setBlockState(x, y, z, generatedState, 0);
+                                            if(terrainHolder.getAquifer().get().shouldScheduleFluidUpdate()) {
+                                                level.scheduleUpdate(generatedState.toBlock(new Position(worldX, y, worldZ, level)), 10);
+                                            }
+                                            if(generatedState != BlockAir.STATE) {
+                                                if (y > unsafeChunk.getHeightMap(x, z)) {
+                                                    unsafeChunk.setHeightMap(x, z, y);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = 0; y < 8; y++) {
-                    if (random.nextBoundedInt(y) == 0 && chunk.getBlockState(x, y, z) == STONE) {
-                        chunk.setBlockState(x, y, z, DEEPSLATE, 0);
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        unsafeChunk.setBlockState(x, minY, z, BEDROCK, 0);
+                        final int bedrockDepth = random.nextBoundedInt(6);
+                        for (int i = 0; i < bedrockDepth; i++) {
+                            final int y = minY + i;
+                            final BlockState state = unsafeChunk.getBlockState(x, y, z);
+                            if (state != BlockAir.STATE) {
+                                unsafeChunk.setBlockState(x, y, z, BEDROCK, 0);
+                            }
+                        }
                     }
                 }
-                chunk.setBlockState(x, level.getMinHeight(), z, BEDROCK, 0);
-                for (int i = 1; i < 5; i++) {
-                    if (random.nextBoundedInt(i) == 0) {
-                        chunk.setBlockState(x, (level.getMinHeight() + i), z, STONE, 0);
-                    }
-                }
-            }
+            });
+        } finally {
+            terrainHolder.endAquifer();
+            DensityCommon.releaseChunkCache(chunk);
         }
-        chunk.recalculateHeightMap();
     }
-
 
     @Override
     public String name() {
         return NAME;
     }
 
-    private static boolean isOceanBiome(int biomeId) {
-        return switch (biomeId) {
-            case BiomeID.OCEAN,
-                 BiomeID.DEEP_OCEAN,
-                 BiomeID.WARM_OCEAN,
-                 BiomeID.DEEP_WARM_OCEAN,
-                 BiomeID.LUKEWARM_OCEAN,
-                 BiomeID.DEEP_LUKEWARM_OCEAN,
-                 BiomeID.COLD_OCEAN,
-                 BiomeID.DEEP_COLD_OCEAN,
-                 BiomeID.FROZEN_OCEAN,
-                 BiomeID.DEEP_FROZEN_OCEAN,
-                 BiomeID.LEGACY_FROZEN_OCEAN -> true;
-            default -> false;
-        };
-    }
-
-    private static boolean isRiver(int biomeId) {
-        return switch (biomeId) {
-            case BiomeID.RIVER,
-                 BiomeID.FROZEN_RIVER -> true;
-            default -> false;
-        };
+    private static boolean shouldPlaceDeepslate(NukkitRandom random, int y) {
+        if (y < 0) {
+            return true;
+        }
+        if (y > 8) {
+            return false;
+        }
+        return random.nextBoundedInt(9) >= y;
     }
 }

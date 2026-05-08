@@ -90,6 +90,7 @@ import cn.nukkit.math.SimpleAxisAlignedBB;
 import cn.nukkit.math.Vector2;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.metadata.MetadataValue;
+import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.ByteTag;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.DoubleTag;
@@ -1480,6 +1481,10 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         this.playerCursorInventory = new PlayerCursorInventory(this);
         this.creativeOutputInventory = new CreativeOutputInventory(this);
 
+        if (this.namedTag.containsCompound("CursorItem")) {
+            this.playerCursorInventory.setItem(0, NBTIO.getItemHelper(this.namedTag.getCompound("CursorItem")));
+        }
+
         this.addWindow(this.getInventory(), SpecialWindowId.PLAYER.getId());
         //addDefaultWindows when the player doesn't have a spawn yet,
         // so we need to manually open it to add the player to the viewer
@@ -2179,14 +2184,15 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         level = level == null ? this.level : level;
         long index = Level.chunkHash(x, z);
         if (level.unregisterChunkLoader(this, x, z, false)) {
-            if (playerChunkManager.getUsedChunks().contains(index)) {
+            boolean wasTracked;
+            synchronized (playerChunkManager) {
+                wasTracked = playerChunkManager.getUsedChunks().remove(index);
+            }
+            if (wasTracked) {
                 for (Entity entity : level.getChunkEntities(x, z).values()) {
                     if (entity != this) {
                         entity.despawnFrom(this);
                     }
-                }
-                synchronized (playerChunkManager.getUsedChunks()) {
-                    playerChunkManager.getUsedChunks().remove(index);
                 }
             }
         }
@@ -2233,7 +2239,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         }
 
         this.chunkLoadCount++;
-        synchronized (playerChunkManager.getUsedChunks()) {
+        synchronized (playerChunkManager) {
             this.playerChunkManager.getUsedChunks().add(Level.chunkHash(x, z));
         }
         this.dataPacket(packet);
@@ -3023,12 +3029,17 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
      * @param distance view distance
      */
     public void setViewDistance(int distance) {
-        this.chunkRadius = distance;
+        int clampedDistance = NukkitMath.clamp(distance, 2, this.server.getViewDistance());
+        int previousDistance = this.chunkRadius;
+        this.chunkRadius = clampedDistance;
 
         ChunkRadiusUpdatedPacket pk = new ChunkRadiusUpdatedPacket();
-        pk.radius = distance;
+        pk.radius = clampedDistance;
 
         this.dataPacket(pk);
+        if (previousDistance != clampedDistance) {
+            this.playerChunkManager.handleViewDistanceChange();
+        }
     }
 
     /**
@@ -3474,28 +3485,30 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         this.session.close(null);
     }
 
-    public synchronized void unloadAllUsedChunk() {
-        //save player data
-        //unload chunk for the player
-        LongIterator iterator = this.playerChunkManager.getUsedChunks().iterator();
-        try {
-            while (iterator.hasNext()) {
-                long l = iterator.nextLong();
-                int chunkX = Level.getHashX(l);
-                int chunkZ = Level.getHashZ(l);
-                if (level.unregisterChunkLoader(this, chunkX, chunkZ, false)) {
-                    for (Entity entity : level.getChunkEntities(chunkX, chunkZ).values()) {
-                        if (entity != this) {
-                            entity.despawnFrom(this);
+    public void unloadAllUsedChunk() {
+        synchronized (playerChunkManager) {
+            //save player data
+            //unload chunk for the player
+            LongIterator iterator = this.playerChunkManager.getUsedChunks().iterator();
+            try {
+                while (iterator.hasNext()) {
+                    long l = iterator.nextLong();
+                    int chunkX = Level.getHashX(l);
+                    int chunkZ = Level.getHashZ(l);
+                    if (level.unregisterChunkLoader(this, chunkX, chunkZ, false)) {
+                        for (Entity entity : level.getChunkEntities(chunkX, chunkZ).values()) {
+                            if (entity != this) {
+                                entity.despawnFrom(this);
+                            }
                         }
+                        iterator.remove();
                     }
-                    iterator.remove();
                 }
+            } catch (Exception e) {
+                getServer().getLogger().error("Failed to unload all used chunks.", e);
+            } finally {
+                this.playerChunkManager.getUsedChunks().clear();
             }
-        } catch (Exception e) {
-            getServer().getLogger().error("Failed to unload all used chunks.", e);
-        } finally {
-            this.playerChunkManager.getUsedChunks().clear();
         }
     }
 
@@ -3526,6 +3539,15 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
                 } else {
                     throw new IllegalStateException("Default level or default level provider is null");
                 }
+            }
+        }
+
+        if (this.playerCursorInventory != null) {
+            Item item = this.playerCursorInventory.getItem(0);
+            if (!item.isNull()) {
+                this.namedTag.putCompound("CursorItem", NBTIO.putItemHelper(item));
+            } else {
+                this.namedTag.remove("CursorItem");
             }
         }
 
@@ -4240,7 +4262,7 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             this.removeWindow(window);
         }
         final Entity currentRide = getRiding();
-        if (currentRide != null && !currentRide.dismountEntity(this)) {
+        if (currentRide != null && !currentRide.dismountEntity(this, true, false)) {
             return false;
         }
         setOpenSignFront(null);
@@ -4649,30 +4671,52 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
         return this.creativeOutputInventory;
     }
 
+    /**
+     * Moves items from open crafting grids and cursor back to player inventory
+     * <p>
+     * Usually already handled client-side through ItemStackRequestPackets.
+     * Items will be dropped when the inventory is full (unless they have ItemLockMode)
+     * This method mainly prevents preserving items (without any ItemLockMode) in cursor or crafting grid.
+     */
     @ApiStatus.Internal
     public void resetInventory() {
         if (spawned) {
-            Map<Integer, Item> contents = this.getCraftingGrid().getContents();
-            this.getCraftingGrid().clearAll();
-            List<Item> puts = new ArrayList<>(contents.values());
-
-            Map<Integer, Item> contents2 = this.getCursorInventory().getContents();
-            this.getCursorInventory().clearAll();
-            puts.addAll(contents2.values());
+            this.returnItemsFromInventory(this.getCraftingGrid());
+            this.returnItemsFromInventory(this.getCursorInventory());
 
             Optional<Inventory> topWindow = getTopWindow();
-            Inventory value;
             if (topWindow.isPresent()) {
-                value = topWindow.get();
+                Inventory value = topWindow.get();
                 if (value instanceof CraftTypeInventory || (value instanceof FakeInventory fakeInventory && fakeInventory.getFakeInventoryType().isCraftType())) {
-                    puts.addAll(value.getContents().values());
-                    value.clearAll();
+                    this.returnItemsFromInventory(value);
                 }
                 removeWindow(value);
             }
-            Item[] drops = getInventory().addItem(puts.toArray(Item.EMPTY_ARRAY));
-            for (Item drop : drops) {
-                this.dropItem(drop);
+        }
+    }
+
+    private void returnItemsFromInventory(Inventory inventory) {
+        String invName = inventory.getClass().getSimpleName();
+        for (Map.Entry<Integer, Item> entry : inventory.getContents().entrySet()) {
+            int slot = entry.getKey();
+            Item item = entry.getValue();
+            if (item.isNull()) {
+                continue;
+            }
+            Item[] remains = getInventory().addItem(item);
+            if (remains.length == 0) {
+                inventory.clear(slot);
+            } else {
+                Item remain = remains[0];
+                if (remain.getItemLockMode() == Item.ItemLockMode.NONE) {
+                    this.dropItem(remain);
+                    inventory.clear(slot);
+                } else if (remain.getCount() != item.getCount()) {
+                    log.debug("Partially moved {} to inventory of player {}. {} remains in {} slot {}", item, this.getName(), remain.getCount(), invName, slot);
+                    inventory.setItem(slot, remain);
+                } else {
+                    log.debug("Locked item {} in {} slot {} not moved: inventory of player {} is full and dropping locked items is forbidden. The item will persist", item, invName, slot, this.getName());
+                }
             }
         }
     }
@@ -4783,13 +4827,20 @@ public class Player extends EntityHuman implements CommandSender, ChunkLoader, I
             spawnPosition.dimension = spawn.getLevel().getDimension();
             this.dataPacket(spawnPosition);
 
-            // Remove old chunks
-            for (long index : new ArrayList<>(playerChunkManager.getUsedChunks())) {
+            // Remove old chunks; snapshot under lock so tick() can't mutate sentChunks
+            // while we iterate, then clear any residual entries afterward.
+            long[] oldChunks;
+            synchronized (playerChunkManager) {
+                oldChunks = playerChunkManager.getUsedChunks().toLongArray();
+            }
+            for (long index : oldChunks) {
                 int chunkX = Level.getHashX(index);
                 int chunkZ = Level.getHashZ(index);
                 this.unloadChunk(chunkX, chunkZ, oldLevel);
             }
-            playerChunkManager.getUsedChunks().clear();
+            synchronized (playerChunkManager) {
+                playerChunkManager.getUsedChunks().clear();
+            }
 
             SetTimePacket setTime = new SetTimePacket();
             setTime.time = level.getTime();
