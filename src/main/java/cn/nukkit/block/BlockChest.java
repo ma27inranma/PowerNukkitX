@@ -6,6 +6,7 @@ import cn.nukkit.block.property.CommonPropertyMap;
 import cn.nukkit.block.property.enums.MinecraftCardinalDirection;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityChest;
+import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.inventory.ContainerInventory;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBlock;
@@ -133,7 +134,7 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
             }
         }
 
-        BlockEntityChest blockEntity = BlockEntityHolder.setBlockAndCreateEntity(this, true, true, nbt);
+        BlockEntityChest blockEntity = BlockEntityHolder.setBlockAndCreateEntity(this, false, true, nbt);
         if (blockEntity == null) {
             return false;
         }
@@ -172,12 +173,14 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
      * @return 找到的可配对箱子。若没找到，则为null <br> Chest to pair with. Null if none have been found
      */
     protected @Nullable BlockEntityChest findPair() {
-        List<MinecraftCardinalDirection> universe = CommonBlockProperties.MINECRAFT_CARDINAL_DIRECTION.getValidValues();
+        List<MinecraftCardinalDirection> universe = CommonBlockProperties.MINECRAFT_CARDINAL_DIRECTION.getValidValues().reversed(); // The client tries to calculate the pair on their end as well, but in reverse order than our MINECRAFT_CARDINAL_DIRECTION
         BlockFace thisFace = getBlockFace();
         for (var direction : universe) {
             BlockFace directionFace = CommonPropertyMap.CARDINAL_BLOCKFACE.get(direction);
             Block side = this.getSide(directionFace);
-            if (side instanceof BlockChest chest && directionFace.getAxis() != thisFace.getAxis()) {
+            if (side instanceof BlockChest chest
+                    && !(side instanceof BlockTrappedChest) // Only pair BlockChest with BlockChest and BlockTrappedChest with BlockTrappedChest
+                    && directionFace.getAxis() != thisFace.getAxis()) {
                 BlockFace pairFace = chest.getBlockFace();
                 if (thisFace == pairFace) {
                     return chest.getBlockEntity();
@@ -212,11 +215,11 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
         if (isNotActivate(player)) return false;
-        Item itemInHand = player.getInventory().getItemInHand();
+        Item itemInHand = player.getInventory().getItemInMainHand();
         if (player.isSneaking() && !(itemInHand.isTool() || itemInHand.isNull())) return false;
 
-        // Check itself if can be opened
-        if (!this.hasFreeSpaceAbove()) {
+        // Check if the chest can be opened - bypass for SILENT
+        if (!player.getDataFlag(EntityFlag.SILENT) && !this.hasFreeSpaceAbove()) {
             return false;
         }
 
@@ -293,6 +296,6 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
 
     @Override
     public Item[] getDrops(Item item) {
-        return new Item[]{new ItemBlock(PROPERTIES.getDefaultState().toBlock(), 0)};
+        return new Item[]{new ItemBlock(getProperties().getDefaultState().toBlock(), 0)};
     }
 }

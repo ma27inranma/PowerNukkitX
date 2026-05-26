@@ -33,6 +33,8 @@ import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerAngryPiglinSensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
 import cn.nukkit.entity.ai.sensor.NearestTargetEntitySensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.data.EntityDataTypes;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.entity.item.EntityItem;
@@ -54,6 +56,7 @@ import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.network.protocol.TakeItemEntityPacket;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,13 +66,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class EntityPiglin extends EntityMob implements EntityWalkable {
     @Override
-    @NotNull public String getIdentifier() {
+    @NotNull
+    public String getIdentifier() {
         return PIGLIN;
     }
 
     public EntityPiglin(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
     }
+
     @Override
     public IBehaviorGroup requireBehaviorGroup() {
         return new BehaviorGroup(
@@ -91,7 +96,7 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
                                         )
                                 )
                         ), 12, 1),
-                        new Behavior(new PlaySoundExecutor(Sound.MOB_PIGLIN_JEALOUS, 0.8f, 1.2f, 0.8f, 0.8f), all(new RandomSoundEvaluator(), entity -> getViewers().values().stream().noneMatch(p -> p.distance(entity) < 8 && likesItem(p.getInventory().getItemInHand()) && p.level.raycastBlocks(p, entity).isEmpty())), 12, 1),
+                        new Behavior(new PlaySoundExecutor(Sound.MOB_PIGLIN_JEALOUS, 0.8f, 1.2f, 0.8f, 0.8f), all(new RandomSoundEvaluator(), entity -> getViewers().values().stream().noneMatch(p -> p.distance(entity) < 8 && likesItem(p.getInventory().getItemInMainHand()) && p.level.raycastBlocks(p, entity).isEmpty())), 12, 1),
                         new Behavior(new PlaySoundExecutor(Sound.MOB_PIGLIN_ANGRY, 0.8f, 1.2f, 0.8f, 0.8f), all(new RandomSoundEvaluator(), entity -> isAngry()), 11, 1),
                         new Behavior(new PlaySoundExecutor(Sound.MOB_PIGLIN_AMBIENT, 0.8f, 1.2f, 0.8f, 0.8f), all(new RandomSoundEvaluator(), entity -> !isAngry()), 10, 1),
                         new Behavior(new CrossBowShootExecutor(this::getItemInHand, CoreMemoryTypes.ATTACK_TARGET, 0.3f, 15, true, 30, 80), all(
@@ -134,11 +139,12 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
                         new Behavior(new PiglinFleeFromTargetExecutor(CoreMemoryTypes.NEAREST_SHARED_ENTITY), all(
                                 new MemoryCheckNotEmptyEvaluator(CoreMemoryTypes.NEAREST_SHARED_ENTITY),
                                 entity -> {
-                                    if(isBaby()) {
+                                    if (isBaby()) {
                                         return true;
                                     } else {
                                         Entity entity1 = getMemoryStorage().get(CoreMemoryTypes.NEAREST_SHARED_ENTITY);
-                                        if(entity1 instanceof EntityWither || entity1 instanceof EntityWitherSkeleton) return false;
+                                        if (entity1 instanceof EntityWither || entity1 instanceof EntityWitherSkeleton)
+                                            return false;
                                         return true;
                                     }
                                 }
@@ -149,10 +155,10 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
                         new NearestTargetEntitySensor<>(0, 16, 20,
                                 List.of(CoreMemoryTypes.NEAREST_SUITABLE_ATTACK_TARGET), this::attackTarget),
                         new NearestPlayerAngryPiglinSensor(),
-                        new NearestEntitySensor(EntityZombiePigman.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8 , 0),
-                        new NearestEntitySensor(EntityZoglin.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8 , 0),
-                        new NearestEntitySensor(EntityWither.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8 , 0),
-                        new NearestEntitySensor(EntityWitherSkeleton.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8 , 0),
+                        new NearestEntitySensor(EntityZombiePigman.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8, 0),
+                        new NearestEntitySensor(EntityZoglin.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8, 0),
+                        new NearestEntitySensor(EntityWither.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8, 0),
+                        new NearestEntitySensor(EntityWitherSkeleton.class, CoreMemoryTypes.NEAREST_SHARED_ENTITY, 8, 0),
                         new BlockSensor(BlockDoor.class, CoreMemoryTypes.NEAREST_BLOCK, 2, 2, 20),
                         new BlockSensor(BlockSoulFire.class, CoreMemoryTypes.NEAREST_BLOCK, 8, 2, 20)
                 ),
@@ -170,33 +176,29 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
 
     @Override
     public boolean onInteract(Player player, Item item, Vector3 clickedPos) {
-        if(getItemInOffhand().isNull() && !isAngry()) {
-            if(item instanceof ItemGoldIngot) {
-                if(player.getGamemode() != Player.CREATIVE) player.getInventory().decreaseCount(player.getInventory().getHeldItemIndex());
-                setItemInOffhand(Item.get(Item.GOLD_INGOT));
-            }
+        if (getItemInOffhand().isNull() && !isAngry() && item instanceof ItemGoldIngot) {
+            if (player.getGamemode() != Player.CREATIVE)
+                player.getInventory().decreaseCount(player.getInventory().getHeldItemIndex());
+            setItemInOffhand(Item.get(Item.GOLD_INGOT));
         }
         return super.onInteract(player, item);
     }
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(16);
         this.diffHandDamage = new float[]{3f, 5f, 7f};
         super.initEntity();
-        if(!isBaby()) setItemInHand(Item.get(Utils.rand() ? Item.GOLDEN_SWORD : Item.CROSSBOW));
-        if(Utils.rand(0,10) == 0) setHelmet(Item.get(Item.GOLDEN_HELMET));
-        if(Utils.rand(0,10) == 0) setChestplate(Item.get(Item.GOLDEN_CHESTPLATE));
-        if(Utils.rand(0,10) == 0) setLeggings(Item.get(Item.GOLDEN_LEGGINGS));
-        if(Utils.rand(0,10) == 0) setBoots(Item.get(Item.GOLDEN_BOOTS));
+        if (!isBaby()) setItemInHand(Item.get(Utils.rand() ? Item.GOLDEN_SWORD : Item.CROSSBOW));
+        if (Utils.rand(0, 10) == 0) setHelmet(Item.get(Item.GOLDEN_HELMET));
+        if (Utils.rand(0, 10) == 0) setChestplate(Item.get(Item.GOLDEN_CHESTPLATE));
+        if (Utils.rand(0, 10) == 0) setLeggings(Item.get(Item.GOLDEN_LEGGINGS));
+        if (Utils.rand(0, 10) == 0) setBoots(Item.get(Item.GOLDEN_BOOTS));
     }
 
     @Override
     public boolean onUpdate(int currentTick) {
-        if(currentTick%20 == 0) {
-            if(getLevel().getGameRules().getBoolean(GameRule.MOB_GRIEFING)) {
-                pickupItems(this);
-            }
+        if (currentTick % 20 == 0 && getLevel().getGameRules().getBoolean(GameRule.MOB_GRIEFING)) {
+            pickupItems(this);
         }
         return super.onUpdate(currentTick);
     }
@@ -209,6 +211,17 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
     @Override
     public float getHeight() {
         return 1.9f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(16);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        float ageMovement = this.isBaby() ? 0.42f : 0.35f;
+        return MovementComponent.value(ageMovement);
     }
 
     @Override
@@ -231,9 +244,9 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
     }
 
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         List<Item> drops = new ArrayList<>();
-        if(ThreadLocalRandom.current().nextInt(200) < 17) { // 8.5%
+        if (ThreadLocalRandom.current().nextInt(200) < 17) { // 8.5%
             drops.add(getItemInHand());
             drops.addAll(getArmorInventory().getContents().values());
         }
@@ -246,19 +259,18 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
         return switch (entity.getIdentifier()) {
             case Entity.WITHER_SKELETON, Entity.WITHER -> true;
             case Entity.HOGLIN -> {
-                if(entity instanceof EntityHoglin hoglin) {
-                    if(!hoglin.isBaby()) {
-                        if(hoglin.getHealth() - getDiffHandDamage(getServer().getDifficulty()) <= 0) {
-                            List<Entity> entities =  Arrays.stream(getLevel().getEntities()).filter(entity1 -> entity1 instanceof EntityPiglin piglin && piglin.distance(this) < 16).toList();
-                            AnimateEntityPacket.Animation.AnimationBuilder builder = AnimateEntityPacket.Animation.builder();
-                            builder.animation("animation.piglin.celebrate_hunt_special");
-                            builder.nextState("r");
-                            builder.blendOutTime(1);
-                            Entity.playAnimationOnEntities(builder.build(), entities);
-                            entities.forEach(entity1 -> entity1.level.addSound(entity1, Sound.MOB_PIGLIN_CELEBRATE));
-                        }
-                        yield true;
+                if (entity instanceof EntityHoglin hoglin
+                        && !hoglin.isBaby()) {
+                    if (hoglin.getHealthCurrent() - getDiffHandDamage(getServer().getDifficulty()) <= 0) {
+                        List<Entity> entities = Arrays.stream(getLevel().getEntities()).filter(entity1 -> entity1 instanceof EntityPiglin piglin && piglin.distance(this) < 16).toList();
+                        AnimateEntityPacket.Animation.AnimationBuilder builder = AnimateEntityPacket.Animation.builder();
+                        builder.animation("animation.piglin.celebrate_hunt_special");
+                        builder.nextState("r");
+                        builder.blendOutTime(1);
+                        Entity.playAnimationOnEntities(builder.build(), entities);
+                        entities.forEach(entity1 -> entity1.level.addSound(entity1, Sound.MOB_PIGLIN_CELEBRATE));
                     }
+                    yield true;
                 }
                 yield false;
             }
@@ -267,31 +279,27 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
     }
 
     public void pickupItems(Entity entity) {
-        if(!isAngry()) {
-            if(entity instanceof EntityInventoryHolder holder) {
-                for(Entity i : entity.level.getNearbyEntities(entity.getBoundingBox().grow(1, 0.5, 1))) {
-                    boolean pickup = false;
-                    if(i instanceof EntityItem entityItem) {
-                        Item item = entityItem.getItem();
-                        if((item.isArmor() || item.isTool()) && item.getTier() == ItemTool.TIER_GOLD) {
-                            if(holder.equip(item)) {
-                                pickup = true;
-                            }
-                        } else if(item instanceof ItemPorkchop) {
+        if (!isAngry() && entity instanceof EntityInventoryHolder holder) {
+            for (Entity i : entity.level.getNearbyEntities(entity.getBoundingBox().grow(1, 0.5, 1))) {
+                boolean pickup = false;
+                if (i instanceof EntityItem entityItem) {
+                    Item item = entityItem.getItem();
+                    if ((item.isArmor() || item.isTool()) && item.getTier() == ItemTool.TIER_GOLD) {
+                        if (holder.equip(item)) {
                             pickup = true;
-                        } else if(likesItem(item)) {
-                            if(getItemInOffhand().isNull()) {
-                                setItemInOffhand(item);
-                                pickup = true;
-                            }
                         }
-                        if(pickup) {
-                            TakeItemEntityPacket pk = new TakeItemEntityPacket();
-                            pk.entityId = entity.getId();
-                            pk.target = i.getId();
-                            Server.broadcastPacket(entity.getViewers().values(), pk);
-                            i.close();
-                        }
+                    } else if (item instanceof ItemPorkchop) {
+                        pickup = true;
+                    } else if (likesItem(item) && getItemInOffhand().isNull()) {
+                        setItemInOffhand(item);
+                        pickup = true;
+                    }
+                    if (pickup) {
+                        TakeItemEntityPacket pk = new TakeItemEntityPacket();
+                        pk.entityId = entity.getId();
+                        pk.target = i.getId();
+                        Server.broadcastPacket(entity.getViewers().values(), pk);
+                        i.close();
                     }
                 }
             }
@@ -305,7 +313,7 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
 
     @Override
     public boolean equip(Item item) {
-         if((item.getTier() > getItemInHand().getTier() && getItemInHand().getTier() != Item.WEARABLE_TIER_GOLD) || item.getTier() == Item.WEARABLE_TIER_GOLD) {
+        if ((item.getTier() > getItemInHand().getTier() && getItemInHand().getTier() != Item.WEARABLE_TIER_GOLD) || item.getTier() == Item.WEARABLE_TIER_GOLD) {
             this.getEquipmentInventory().addItem(getItemInHand());
             this.setItemInHand(item);
             return true;
@@ -322,7 +330,7 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
         @Override
         public void onStart(EntityIntelligent entity) {
             super.onStart(entity);
-            if(entity.distance(entity.getMemoryStorage().get(getMemory())) < 8) {
+            if (entity.distance(entity.getMemoryStorage().get(getMemory())) < 8) {
                 entity.getLevel().addSound(entity, Sound.MOB_PIGLIN_RETREAT);
             }
         }
@@ -341,7 +349,7 @@ public class EntityPiglin extends EntityMob implements EntityWalkable {
             entity.setDataFlag(EntityFlag.ANGRY);
             entity.level.addLevelSoundEvent(entity, LevelSoundEvent.ANGRY, -1, Entity.PIGLIN, false, false);
             Arrays.stream(entity.level.getEntities()).filter(entity1 -> entity1 instanceof EntityPiglin && entity1.distance(entity) < 16 && ((EntityPiglin) entity1).getMemoryStorage().isEmpty(CoreMemoryTypes.ATTACK_TARGET)).forEach(entity1 -> ((EntityPiglin) entity1).getMemoryStorage().put(CoreMemoryTypes.ATTACK_TARGET, entity.getMemoryStorage().get(memory)));
-            if(entity.getMemoryStorage().get(memory) instanceof EntityHoglin) {
+            if (entity.getMemoryStorage().get(memory) instanceof EntityHoglin) {
                 entity.getMemoryStorage().put(CoreMemoryTypes.LAST_HOGLIN_ATTACK_TIME, entity.getLevel().getTick());
             }
         }

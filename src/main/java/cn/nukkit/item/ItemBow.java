@@ -135,6 +135,8 @@ public class ItemBow extends ItemTool {
                 ((EntityArrow) projectile).setPickupMode(EntityProjectile.PICKUP_CREATIVE);
             }
 
+            arrow.setEnchantments(this.getEnchantments());
+
             for (var enc : this.getEnchantments()) {
                 if (enc instanceof EnchantmentBow enchantmentBow) {
                     enchantmentBow.onBowShoot(player, arrow, this);
@@ -159,7 +161,7 @@ public class ItemBow extends ItemTool {
                             player.getLevel().addSound(player, Sound.RANDOM_BREAK);
                             this.count--;
                         }
-                        player.getInventory().setItemInHand(this);
+                        player.getInventory().setItemInMainHand(this);
                     }
                 }
             }

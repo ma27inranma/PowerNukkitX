@@ -12,14 +12,19 @@ import cn.nukkit.level.vibration.VibrationEvent;
 import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.nbt.tag.DoubleTag;
+import cn.nukkit.nbt.tag.FloatTag;
 import cn.nukkit.registry.Registries;
 
 import javax.annotation.Nullable;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author MagicDroidX (Nukkit Project)
  */
-public class ItemSpawnEgg extends Item {
+public class ItemSpawnEgg extends Item implements SpawnEggPickable {
+
+    private CompoundTag entityNBT;
 
     public ItemSpawnEgg() {
         this(0, 1);
@@ -62,16 +67,23 @@ public class ItemSpawnEgg extends Item {
     public boolean onActivate(Level level, Player player, Block block, Block target, BlockFace face, double fx, double fy, double fz) {
         if (player.isAdventure()) return false;
 
-        IChunk chunk = level.getChunk((int) block.getX() >> 4, (int) block.getZ() >> 4);
-        if (chunk == null) return false;
-
         double spawnY = (target.getBoundingBox() == null) ? block.getY() : target.getBoundingBox().getMaxY() + 0.0001d;
-        float yaw = java.util.concurrent.ThreadLocalRandom.current().nextFloat() * 360f;
-        Location loc = new Location(block.getX() + 0.5, spawnY, block.getZ() + 0.5, yaw, 0f, level);
+        double spawnX = target.getX() + fx;
+        double spawnZ = target.getZ() + fz;
+        Location loc = new Location(spawnX, spawnY, spawnZ, 0f, 0f, level).setYawFacing(player);
+
+        IChunk chunk = level.getChunk((int) Math.floor(loc.getX()) >> 4, (int) Math.floor(loc.getZ()) >> 4);
+        if (chunk == null) return false;
 
         CompoundTag nbt = Entity.getDefaultNBT(loc);
         if (this.hasCustomName()) {
             nbt.putString("CustomName", this.getCustomName());
+        }
+        if (this.entityNBT != null) {
+            this.entityNBT.putList("Pos", nbt.getList("Pos", DoubleTag.class));
+            this.entityNBT.putList("Motion", nbt.getList("Motion", DoubleTag.class));
+            this.entityNBT.putList("Rotation", nbt.getList("Rotation", FloatTag.class));
+            nbt = this.entityNBT;
         }
 
         int networkId = getEntityNetworkId();
@@ -81,6 +93,10 @@ public class ItemSpawnEgg extends Item {
 
         Entity entity = Entity.createEntity(networkId, chunk, nbt);
         if (entity == null) return false;
+
+        if (entity.isAgeable() && ThreadLocalRandom.current().nextInt(6) == 0) {
+            entity.setBaby(true);
+        }
 
         if (player.isSurvival()) {
             player.getInventory().decreaseCount(player.getInventory().getHeldItemIndex());
@@ -108,5 +124,10 @@ public class ItemSpawnEgg extends Item {
             }
         }
         return result.toString().trim();
+    }
+
+    @Override
+    public void setEntityNBT(CompoundTag entityNBT) {
+        this.entityNBT = entityNBT;
     }
 }

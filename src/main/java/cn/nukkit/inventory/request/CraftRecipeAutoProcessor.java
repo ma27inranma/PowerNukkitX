@@ -6,6 +6,7 @@ import cn.nukkit.inventory.CreativeOutputInventory;
 import cn.nukkit.item.Item;
 import cn.nukkit.network.protocol.types.itemstack.request.action.AutoCraftRecipeAction;
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
+import cn.nukkit.recipe.UserDataShapelessRecipe;
 import cn.nukkit.recipe.descriptor.DefaultDescriptor;
 import cn.nukkit.recipe.descriptor.ItemDescriptor;
 import cn.nukkit.recipe.descriptor.ItemTagDescriptor;
@@ -68,11 +69,19 @@ public class CraftRecipeAutoProcessor implements ItemStackRequestActionProcessor
                 }
             }
             if (consumeActions.size() < consumeActionCountNeeded) {
-                log.warn("Mismatched consume action count! Expected: " + consumeActionCountNeeded + ", Actual: " + consumeActions.size());
+                log.warn("Mismatched consume action count! Expected: {}, Actual: {}", consumeActionCountNeeded, consumeActions.size());
                 return context.error();
             }
             if (recipe.getResults().size() == 1) {
                 Item output = recipe.getResults().getFirst().clone();
+                if (recipe instanceof UserDataShapelessRecipe) {
+                    for (Item inputItem : eventItems) {
+                        if (!inputItem.isNull() && inputItem.hasCompoundTag()) {
+                            output.setCompoundTag(inputItem.getCompoundTag());
+                            break;
+                        }
+                    }
+                }
                 output.setCount(output.getCount() * action.getTimesCrafted());
                 CreativeOutputInventory createdOutput = player.getCreativeOutputInventory();
                 createdOutput.setItem(0, output.clone().autoAssignStackNetworkId(), false);

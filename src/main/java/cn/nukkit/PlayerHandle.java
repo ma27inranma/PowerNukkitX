@@ -1,5 +1,6 @@
 package cn.nukkit;
 
+import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.dialog.window.FormWindowDialog;
 import cn.nukkit.entity.Entity;
@@ -13,6 +14,7 @@ import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.network.protocol.PlayerFogPacket;
 import cn.nukkit.network.protocol.types.PlayerBlockActionData;
+import cn.nukkit.network.security.PacketRateLimiter;
 import cn.nukkit.scheduler.AsyncTask;
 import cn.nukkit.utils.DummyBossBar;
 import cn.nukkit.utils.LoginChainData;
@@ -29,12 +31,15 @@ import java.util.UUID;
  * A PlayerHandle is used to access a player's protected data.
  */
 
-@SuppressWarnings("ClassCanBeRecord")
 public final class PlayerHandle {
     public final @NotNull Player player;
+    public final @NotNull PacketRateLimiter packetRateLimiter;
 
     public PlayerHandle(@NotNull Player player) {
         this.player = player;
+        this.packetRateLimiter = new PacketRateLimiter(
+                Server.getInstance().getSettings().networkSettings().rateLimitSettings()
+        );
     }
 
     public void forceSendEmptyChunks() {
@@ -91,10 +96,6 @@ public final class PlayerHandle {
 
     public void setSocketAddress(InetSocketAddress socketAddress) {
         player.socketAddress = socketAddress;
-    }
-
-    public boolean isRemoveFormat() {
-        return player.removeFormat;
     }
 
     public String getUsername() {
@@ -237,12 +238,12 @@ public final class PlayerHandle {
         player.lastInAirTick = lastInAirTick;
     }
 
-    public int getLastPlayerdLevelUpSoundTime() {
-        return player.lastPlayerdLevelUpSoundTime;
+    public int getLastPlayedLevelUpSoundTime() {
+        return player.lastPlayedLevelUpSoundTime;
     }
 
-    public void setLastPlayerdLevelUpSoundTime(int lastPlayerdLevelUpSoundTime) {
-        player.lastPlayerdLevelUpSoundTime = lastPlayerdLevelUpSoundTime;
+    public void setLastPlayedLevelUpSoundTime(int lastPlayedLevelUpSoundTime) {
+        player.lastPlayedLevelUpSoundTime = lastPlayedLevelUpSoundTime;
     }
 
     public void setLastAttackEntity(Entity lastAttackEntity) {

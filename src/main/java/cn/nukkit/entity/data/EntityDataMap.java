@@ -18,25 +18,40 @@ public final class EntityDataMap implements Map<EntityDataType<?>, Object> {
     private final Map<EntityDataType<?>, Object> map = new LinkedHashMap<>();
 
     @NonNull
-    public EnumSet<EntityFlag> getOrCreateFlags() {
-        EnumSet<EntityFlag> flags = get(FLAGS);
+    public synchronized EnumSet<EntityFlag> getOrCreateFlags() {
+        EnumSet<EntityFlag> flags = this.mapGetFlagsLane(FLAGS);
         if (flags == null) {
-            flags = get(FLAGS_2);
-            if (flags == null) {
-                flags = EnumSet.noneOf(EntityFlag.class);
-            }
-            this.putFlags(flags);
+            flags = EnumSet.noneOf(EntityFlag.class);
+            this.map.put(FLAGS, flags);
+        }
+        return flags;
+    }
+
+    @NonNull
+    public synchronized EnumSet<EntityFlag> getOrCreateFlags2() {
+        EnumSet<EntityFlag> flags = this.mapGetFlagsLane(FLAGS_2);
+        if (flags == null) {
+            flags = EnumSet.noneOf(EntityFlag.class);
+            this.map.put(FLAGS_2, flags);
         }
         return flags;
     }
 
     public EnumSet<EntityFlag> getFlags() {
-        return get(FLAGS);
+        EnumSet<EntityFlag> flags = this.mapGetFlagsLane(FLAGS);
+        return flags != null ? flags : EnumSet.noneOf(EntityFlag.class);
     }
 
-    public EntityFlag setFlag(EntityFlag flag, boolean value) {
+    public EnumSet<EntityFlag> getFlags2() {
+        EnumSet<EntityFlag> flags = this.mapGetFlagsLane(FLAGS_2);
+        return flags != null ? flags : EnumSet.noneOf(EntityFlag.class);
+    }
+
+    public synchronized EntityFlag setFlag(EntityFlag flag, boolean value) {
         Objects.requireNonNull(flag, "flag");
-        EnumSet<EntityFlag> flags = this.getOrCreateFlags();
+
+        EnumSet<EntityFlag> flags = (flag.getValue() >= 64) ? this.getOrCreateFlags2() : this.getOrCreateFlags();
+
         if (value) {
             flags.add(flag);
         } else {
@@ -47,19 +62,57 @@ public final class EntityDataMap implements Map<EntityDataType<?>, Object> {
 
     public boolean existFlag(EntityFlag flag) {
         Objects.requireNonNull(flag, "flag");
-        EnumSet<EntityFlag> flags = this.getOrCreateFlags();
-        return flags.contains(flag);
+
+        EnumSet<EntityFlag> flags = (flag.getValue() >= 64)
+                ? this.mapGetFlagsLane(FLAGS_2)
+                : this.mapGetFlagsLane(FLAGS);
+
+        return flags != null && flags.contains(flag);
     }
 
-    public EnumSet<EntityFlag> putFlags(EnumSet<EntityFlag> flags) {
+    /**
+     * Accepts a mixed flags set and splits it into FLAGS (0-63) and FLAGS_2 (64+).
+     */
+    public synchronized EnumSet<EntityFlag> putFlags(EnumSet<EntityFlag> flags) {
         Objects.requireNonNull(flags, "flags");
-        this.map.put(FLAGS, flags);
-        this.map.put(FLAGS_2, flags);
+
+        EnumSet<EntityFlag> lane0 = EnumSet.noneOf(EntityFlag.class);
+        EnumSet<EntityFlag> lane1 = EnumSet.noneOf(EntityFlag.class);
+
+        for (EntityFlag f : flags) {
+            if (f.getValue() >= 64) {
+                lane1.add(f);
+            } else {
+                lane0.add(f);
+            }
+        }
+
+        this.map.put(FLAGS, lane0);
+        this.map.put(FLAGS_2, lane1);
         return flags;
     }
 
     @SuppressWarnings("unchecked")
+    private EnumSet<EntityFlag> mapGetFlagsLane(EntityDataType<?> lane) {
+        Object o = this.map.get(lane);
+        if (o == null) return null;
+        if (o instanceof EnumSet<?> es) {
+            try {
+                return (EnumSet<EntityFlag>) es;
+            } catch (ClassCastException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
     public <T> T get(EntityDataType<T> type) {
+        if (type == FLAGS) {
+            return (T) this.getFlags();
+        } else if (type == FLAGS_2) {
+            return (T) this.getFlags2();
+        }
         return (T) this.map.getOrDefault(type, type.getDefaultValue());
     }
 
@@ -106,12 +159,14 @@ public final class EntityDataMap implements Map<EntityDataType<?>, Object> {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object put(EntityDataType<?> key, Object value) {
+    public synchronized Object put(EntityDataType<?> key, Object value) {
         checkNotNull(key, "type");
         checkNotNull(value, "value was null for %s", key);
 
         if (key == FLAGS || key == FLAGS_2) {
-            return this.putFlags((EnumSet<EntityFlag>) value);
+            EnumSet<EntityFlag> set = (EnumSet<EntityFlag>) value;
+            this.map.put(key, EnumSet.copyOf(set));
+            return value;
         }
 
         if (Number.class.isAssignableFrom(value.getClass())) {
@@ -135,18 +190,20 @@ public final class EntityDataMap implements Map<EntityDataType<?>, Object> {
     }
 
     @Override
-    public Object remove(Object key) {
+    public synchronized Object remove(Object key) {
         return this.map.remove(key);
     }
 
     @Override
-    public void putAll(@NonNull Map<? extends EntityDataType<?>, ?> map) {
+    public synchronized void putAll(@NonNull Map<? extends EntityDataType<?>, ?> map) {
         checkNotNull(map, "map");
-        this.map.putAll(map);
+        for (Entry<? extends EntityDataType<?>, ?> e : map.entrySet()) {
+            this.put(e.getKey(), e.getValue());
+        }
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
         this.map.clear();
     }
 

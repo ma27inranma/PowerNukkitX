@@ -1,6 +1,6 @@
 package cn.nukkit.network.connection.netty.initializer;
 
-import cn.nukkit.compression.CompressionProvider;
+import cn.nukkit.network.compression.CompressionProvider;
 import cn.nukkit.network.connection.netty.codec.compression.CompressionCodec;
 import cn.nukkit.network.connection.netty.codec.compression.CompressionStrategy;
 import cn.nukkit.network.connection.netty.codec.compression.NoopCompression;
@@ -12,15 +12,12 @@ import cn.nukkit.network.protocol.types.PacketCompressionAlgorithm;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import lombok.extern.slf4j.Slf4j;
-import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import cn.nukkit.network.connection.BedrockPeer;
 import cn.nukkit.network.connection.BedrockSession;
 import cn.nukkit.network.connection.netty.codec.FrameIdCodec;
 import cn.nukkit.network.connection.netty.codec.batch.BedrockBatchDecoder;
 import cn.nukkit.network.connection.netty.codec.batch.BedrockBatchEncoder;
 import cn.nukkit.network.connection.netty.codec.packet.BedrockPacketCodec;
-import cn.nukkit.network.connection.netty.codec.packet.BedrockPacketCodec_v1;
-import cn.nukkit.network.connection.netty.codec.packet.BedrockPacketCodec_v2;
 import cn.nukkit.network.connection.netty.codec.packet.BedrockPacketCodec_v3;
 
 @Slf4j
@@ -35,7 +32,7 @@ public abstract class BedrockChannelInitializer<T extends BedrockSession> extend
     private static final CompressionStrategy NOOP_STRATEGY = new SimpleCompressionStrategy(new NoopCompression());
 
     @Override
-    protected final void initChannel(Channel channel) throws Exception {
+    protected final void initChannel(Channel channel) {
         // Decode
         // RAKNET_FRAME_CODEC -> CompressionCodec -> BATCH_DECODER ->  BedrockPacketCodec -> BedrockPeer
         // Encode
@@ -56,20 +53,13 @@ public abstract class BedrockChannelInitializer<T extends BedrockSession> extend
     protected void preInitChannel(Channel channel) {
         channel.pipeline().addLast(FrameIdCodec.NAME, RAKNET_FRAME_CODEC);
 
-        int rakVersion = channel.config().getOption(RakChannelOption.RAK_PROTOCOL_VERSION);
-
-        CompressionStrategy compression = getCompression(PacketCompressionAlgorithm.ZLIB, rakVersion, true);
+        CompressionStrategy compression = getCompression(PacketCompressionAlgorithm.ZLIB, true);
         // At this point all connections use not prefixed compression
         channel.pipeline().addLast(CompressionCodec.NAME, new CompressionCodec(compression, false));
     }
 
-    public static CompressionStrategy getCompression(CompressionAlgorithm algorithm, int rakVersion, boolean initial) {
-        return switch (rakVersion) {
-            case 7, 8, 9 -> ZLIB_STRATEGY;
-            case 10 -> ZLIB_RAW_STRATEGY;
-            case 11 -> initial ? NOOP_STRATEGY : getCompression(algorithm);
-            default -> throw new UnsupportedOperationException("Unsupported RakNet protocol version: " + rakVersion);
-        };
+    public static CompressionStrategy getCompression(CompressionAlgorithm algorithm,boolean initial) {
+        return initial ? NOOP_STRATEGY : getCompression(algorithm);
     }
 
     private static CompressionStrategy getCompression(CompressionAlgorithm algorithm) {
@@ -82,27 +72,11 @@ public abstract class BedrockChannelInitializer<T extends BedrockSession> extend
         };
     }
 
-    protected void postInitChannel(Channel channel) throws Exception {
+    protected void postInitChannel(Channel channel) {
     }
 
-    protected void initPacketCodec(Channel channel) throws Exception {
-        int rakVersion = channel.config().getOption(RakChannelOption.RAK_PROTOCOL_VERSION);
-
-        switch (rakVersion) {
-            case 11:
-            case 10:
-            case 9: // Merged & Varint-ified
-                channel.pipeline().addLast(BedrockPacketCodec.NAME, new BedrockPacketCodec_v3());
-                break;
-            case 8: // Split-screen support
-                channel.pipeline().addLast(BedrockPacketCodec.NAME, new BedrockPacketCodec_v2());
-                break;
-            case 7: // Single byte packet ID
-                channel.pipeline().addLast(BedrockPacketCodec.NAME, new BedrockPacketCodec_v1());
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported RakNet protocol version: " + rakVersion);
-        }
+    protected void initPacketCodec(Channel channel) {
+        channel.pipeline().addLast(BedrockPacketCodec.NAME, new BedrockPacketCodec_v3());
     }
 
     protected BedrockPeer createPeer(Channel channel) {

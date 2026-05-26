@@ -332,7 +332,13 @@ public interface BlockID {
 
     String CHEMICAL_HEAT = "minecraft:chemical_heat";
 
-    String CHEMISTRY_TABLE = "minecraft:chemistry_table";
+    String COMPOUND_CREATOR = "minecraft:compound_creator";
+
+    String ELEMENT_CONSTRUCTOR = "minecraft:element_constructor";
+
+    String LAB_TABLE = "minecraft:lab_table";
+
+    String MATERIAL_REDUCER = "minecraft:material_reducer";
 
     String CHERRY_BUTTON = "minecraft:cherry_button";
 
@@ -432,9 +438,13 @@ public interface BlockID {
 
     String COCOA = "minecraft:cocoa";
 
-    String COLORED_TORCH_BP = "minecraft:colored_torch_bp";
+    String COLORED_TORCH_BLUE = "minecraft:colored_torch_blue";
 
-    String COLORED_TORCH_RG = "minecraft:colored_torch_rg";
+    String COLORED_TORCH_PURPLE = "minecraft:colored_torch_purple";
+
+    String COLORED_TORCH_GREEN = "minecraft:colored_torch_green";
+
+    String COLORED_TORCH_RED = "minecraft:colored_torch_red";
 
     String COMMAND_BLOCK = "minecraft:command_block";
 
@@ -1073,6 +1083,8 @@ public interface BlockID {
     String GOLD_BLOCK = "minecraft:gold_block";
 
     String GOLD_ORE = "minecraft:gold_ore";
+
+    String GOLDEN_DANDELION = "minecraft:golden_dandelion";
 
     String GOLDEN_RAIL = "minecraft:golden_rail";
 
@@ -2295,6 +2307,8 @@ public interface BlockID {
     String TWISTING_VINES = "minecraft:twisting_vines";
 
     String UNDERWATER_TORCH = "minecraft:underwater_torch";
+
+    String UNDERWATER_TNT = "minecraft:underwater_tnt";
 
     String UNDYED_SHULKER_BOX = "minecraft:undyed_shulker_box";
 

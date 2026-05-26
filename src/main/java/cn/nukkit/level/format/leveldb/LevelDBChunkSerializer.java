@@ -1,14 +1,14 @@
 package cn.nukkit.level.format.leveldb;
 
 import cn.nukkit.Player;
+import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockAir;
-import cn.nukkit.block.BlockID;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.block.BlockUnknown;
-import cn.nukkit.block.customblock.CustomBlockDefinition;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.level.DimensionData;
+import cn.nukkit.level.format.Chunk;
 import cn.nukkit.level.format.ChunkSection;
 import cn.nukkit.level.format.ChunkState;
 import cn.nukkit.level.format.IChunk;
@@ -19,15 +19,16 @@ import cn.nukkit.level.format.palette.BlockPalette;
 import cn.nukkit.level.format.palette.Palette;
 import cn.nukkit.level.util.LevelDBKeyUtil;
 import cn.nukkit.nbt.NBTIO;
+import cn.nukkit.nbt.stream.NBTOutputStream;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
-import cn.nukkit.registry.BlockRegistry;
 import cn.nukkit.registry.Registries;
+import cn.nukkit.utils.BlockUpdateEntry;
+import cn.nukkit.utils.LittleEndianByteBufOutputStream;
 import cn.nukkit.utils.Utils;
 import com.google.common.base.Predicates;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import org.iq80.leveldb.DB;
@@ -36,13 +37,13 @@ import org.iq80.leveldb.WriteBatch;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static cn.nukkit.level.format.IChunk.index;
+import java.util.Set;
 
 /**
  * Allay Project 8/23/2023
@@ -60,19 +61,19 @@ public class LevelDBChunkSerializer {
         //Spawning block entities requires call the getSpawnPacket method,
         //which is easy to call Level#getBlock, which can cause a deadlock,
         //so handle it without locking
-        serializeTileAndEntity(writeBatch, chunk);
 
+        serializeTileAndEntity(writeBatch, chunk);
         chunk.batchProcess(unsafeChunk -> {
             try {
                 writeBatch.put(LevelDBKeyUtil.VERSION.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getProvider().getDimensionData()), new byte[]{IChunk.VERSION});
-                writeBatch.put(LevelDBKeyUtil.CHUNK_FINALIZED_STATE.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), Unpooled.buffer(4).writeIntLE(unsafeChunk.getChunkState().ordinal() - 1).array());
+                writeBatch.put(LevelDBKeyUtil.CHUNK_FINALIZED_STATE.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), Utils.intToLittleEndian(unsafeChunk.getChunkState().ordinal() - 1));
                 serializeBlock(writeBatch, unsafeChunk);
                 serializeHeightAndBiome(writeBatch, unsafeChunk);
                 serializeLight(writeBatch, unsafeChunk);
                 serializeBlockTicks(unsafeChunk);
                 writeBatch.put(LevelDBKeyUtil.PNX_EXTRA_DATA.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), NBTIO.write(unsafeChunk.getExtraData()));
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
         });
 
@@ -108,12 +109,15 @@ public class LevelDBChunkSerializer {
 
     //serialize chunk section light
     private void serializeLight(WriteBatch writeBatch, UnsafeChunk chunk) {
+        final int chunkX = chunk.getX();
+        final int chunkZ = chunk.getZ();
+        final var dimensionData = chunk.getProvider().getDimensionData();
         ChunkSection[] sections = chunk.getSections();
         for (var section : sections) {
             if (section == null) {
                 continue;
             }
-            ByteBuf buffer = ByteBufAllocator.DEFAULT.ioBuffer();
+            ByteBuf buffer = ByteBufAllocator.DEFAULT.heapBuffer();
             try {
                 byte[] blockLights = section.blockLights().getData();
                 buffer.writeInt(blockLights.length);
@@ -121,7 +125,7 @@ public class LevelDBChunkSerializer {
                 byte[] skyLights = section.skyLights().getData();
                 buffer.writeInt(skyLights.length);
                 buffer.writeBytes(skyLights);
-                writeBatch.put(LevelDBKeyUtil.PNX_LIGHT.getKey(chunk.getX(), chunk.getZ(), section.y(), chunk.getProvider().getDimensionData()), Utils.convertByteBuf2Array(buffer));
+                writeBatch.put(LevelDBKeyUtil.PNX_LIGHT.getKey(chunkX, chunkZ, section.y(), dimensionData), Utils.convertByteBuf2Array(buffer));
             } finally {
                 buffer.release();
             }
@@ -157,20 +161,24 @@ public class LevelDBChunkSerializer {
 
     //serialize chunk section
     private void serializeBlock(WriteBatch writeBatch, UnsafeChunk chunk) {
+        final int chunkX = chunk.getX();
+        final int chunkZ = chunk.getZ();
+        final var dimensionData = chunk.getProvider().getDimensionData();
         ChunkSection[] sections = chunk.getSections();
         for (var section : sections) {
             if (section == null) {
                 continue;
             }
-            ByteBuf buffer = ByteBufAllocator.DEFAULT.ioBuffer();
+            final var blockLayers = section.blockLayer();
+            ByteBuf buffer = ByteBufAllocator.DEFAULT.heapBuffer();
             try {
                 buffer.writeByte(ChunkSection.VERSION);
                 buffer.writeByte(ChunkSection.LAYER_COUNT);
                 buffer.writeByte(section.y());
                 for (int i = 0; i < ChunkSection.LAYER_COUNT; i++) {
-                    section.blockLayer()[i].writeToStoragePersistent(buffer, BlockState::getBlockStateTag);
+                    blockLayers[i].writeToStoragePersistent(buffer, BlockState::getBlockStateTag);
                 }
-                writeBatch.put(LevelDBKeyUtil.CHUNK_SECTION_PREFIX.getKey(chunk.getX(), chunk.getZ(), section.y(), chunk.getProvider().getDimensionData()), Utils.convertByteBuf2Array(buffer));
+                writeBatch.put(LevelDBKeyUtil.CHUNK_SECTION_PREFIX.getKey(chunkX, chunkZ, section.y(), dimensionData), Utils.convertByteBuf2Array(buffer));
             } finally {
                 buffer.release();
             }
@@ -202,7 +210,7 @@ public class LevelDBChunkSerializer {
                                 section = new ChunkSection((byte) ySection);
                             } else {
                                 BlockPalette[] palettes = new BlockPalette[layers];
-                                Arrays.fill(palettes, new BlockPalette(BlockAir.PROPERTIES.getDefaultState(), new ReferenceArrayList<>(16), BitArrayVersion.V2));
+                                Arrays.fill(palettes, new BlockPalette(BlockAir.STATE, new ReferenceArrayList<>(16), BitArrayVersion.V2));
                                 section = new ChunkSection((byte) ySection, palettes);
                             }
                             for (int layer = 0; layer < layers; layer++) {
@@ -226,21 +234,26 @@ public class LevelDBChunkSerializer {
 
     //write biomeAndHeight
     private void serializeHeightAndBiome(WriteBatch writeBatch, UnsafeChunk chunk) {
-        //Write biomeAndHeight
-        ByteBuf heightAndBiomesBuffer = ByteBufAllocator.DEFAULT.ioBuffer();
+        final var dimensionData = chunk.getProvider().getDimensionData();
+        final int chunkX = chunk.getX();
+        final int chunkZ = chunk.getZ();
+        final short[] heightMap = chunk.getHeightMapArray();
+        ByteBuf heightAndBiomesBuffer = ByteBufAllocator.DEFAULT.heapBuffer(heightMap.length * Short.BYTES);
         try {
-            for (short height : chunk.getHeightMapArray()) {
+            for (short height : heightMap) {
                 heightAndBiomesBuffer.writeShortLE(height);
             }
             Palette<Integer> biomePalette = null;
-            for (int ySection = chunk.getProvider().getDimensionData().getMinSectionY(); ySection <= chunk.getProvider().getDimensionData().getMaxSectionY(); ySection++) {
+            for (int ySection = dimensionData.getMinSectionY(); ySection <= dimensionData.getMaxSectionY(); ySection++) {
                 ChunkSection section = chunk.getSection(ySection);
-                if (section == null) continue;
+                if (section == null) {
+                    continue;
+                }
                 section.biomes().writeToStorageRuntime(heightAndBiomesBuffer, Integer::intValue, biomePalette);
                 biomePalette = section.biomes();
             }
             if (heightAndBiomesBuffer.readableBytes() > 0) {
-                writeBatch.put(LevelDBKeyUtil.DATA_3D.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData()), Utils.convertByteBuf2Array(heightAndBiomesBuffer));
+                writeBatch.put(LevelDBKeyUtil.DATA_3D.getKey(chunkX, chunkZ, dimensionData), Utils.convertByteBuf2Array(heightAndBiomesBuffer));
             }
         } finally {
             heightAndBiomesBuffer.release();
@@ -312,7 +325,7 @@ public class LevelDBChunkSerializer {
                     blockEntityTags.add(NBTIO.read(stream, ByteOrder.LITTLE_ENDIAN));
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
             builder.blockEntities(blockEntityTags);
         }
@@ -326,7 +339,7 @@ public class LevelDBChunkSerializer {
                 entityTags.add(NBTIO.read(stream, ByteOrder.LITTLE_ENDIAN));
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
         if (pnxExtraData == null) {
             db.delete(key);
@@ -341,25 +354,27 @@ public class LevelDBChunkSerializer {
         //Write blockEntities
         Collection<BlockEntity> blockEntities = chunk.getBlockEntities().values();
         ByteBuf tileBuffer = ByteBufAllocator.DEFAULT.ioBuffer();
-        try (var bufStream = new ByteBufOutputStream(tileBuffer)) {
+        try (final LittleEndianByteBufOutputStream bufOutputStream = new LittleEndianByteBufOutputStream(tileBuffer);
+             final NBTOutputStream nbtOutputStream = new NBTOutputStream(bufOutputStream, ByteOrder.LITTLE_ENDIAN, false)) {
             byte[] key = LevelDBKeyUtil.BLOCK_ENTITIES.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData());
             if (blockEntities.isEmpty()) writeBatch.delete(key);
             else {
                 for (BlockEntity blockEntity : blockEntities) {
                     blockEntity.saveNBT();
-                    NBTIO.write(blockEntity.namedTag, bufStream, ByteOrder.LITTLE_ENDIAN);
+                    nbtOutputStream.writeTag(blockEntity.namedTag);
                 }
                 writeBatch.put(key, Utils.convertByteBuf2Array(tileBuffer));
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         } finally {
             tileBuffer.release();
         }
 
         Collection<Entity> entities = chunk.getEntities().values();
         ByteBuf entityBuffer = ByteBufAllocator.DEFAULT.ioBuffer();
-        try (var bufStream = new ByteBufOutputStream(entityBuffer)) {
+        try (final LittleEndianByteBufOutputStream bufOutputStream = new LittleEndianByteBufOutputStream(entityBuffer);
+             final NBTOutputStream nbtOutputStream = new NBTOutputStream(bufOutputStream, ByteOrder.LITTLE_ENDIAN, false)) {
             byte[] key = LevelDBKeyUtil.ENTITIES.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData());
             if (entities.isEmpty()) {
                 writeBatch.delete(key);
@@ -367,81 +382,47 @@ public class LevelDBChunkSerializer {
                 for (Entity e : entities) {
                     if (!(e instanceof Player) && !e.closed && e.canBeSavedWithChunk()) {
                         e.saveNBT();
-                        NBTIO.write(e.namedTag, bufStream, ByteOrder.LITTLE_ENDIAN);
+                        nbtOutputStream.writeTag(e.namedTag);
                     }
                 }
                 writeBatch.put(key, Utils.convertByteBuf2Array(entityBuffer));
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         } finally {
             entityBuffer.release();
         }
     }
 
-    private void serializeBlockTicks(UnsafeChunk chunk) {
-        int cx = chunk.getX();
-        int cz = chunk.getZ();
-
+    private void serializeBlockTicks(UnsafeChunk unsafe) {
         ListTag<CompoundTag> scheduledTicks = new ListTag<>();
         ListTag<CompoundTag> normalTickBlocks = new ListTag<>();
 
-        for (ChunkSection section : chunk.getSections()) {
-            if (section == null) continue;
-            int sectionY = section.y();
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    for (int y = 0; y < 16; y++) {
-                        BlockState state = section.blockLayer()[0].get(index(x, y, z));
-                        String id = state.getIdentifier();
+        Chunk chunk = unsafe.getChunk();
+        long currentTick = chunk.getLevel().getCurrentTick();
+        Set<BlockUpdateEntry> pending = chunk.getBlockUpdateScheduler().getPendingBlockUpdates();
+        for (BlockUpdateEntry blockUpdateEntry : pending) {
+            Block block = blockUpdateEntry.block;
+            int x = blockUpdateEntry.pos.getFloorX();
+            int y = blockUpdateEntry.pos.getFloorY();
+            int z = blockUpdateEntry.pos.getFloorZ();
+            int delay = (int) Math.max(1, blockUpdateEntry.delay - currentTick);
 
-                        handleCustomTickableBlock(id, x, y, z, cx, cz, sectionY, scheduledTicks);
-                        handleVanillaTickableBlock(id, x, y, z, cx, cz, sectionY, normalTickBlocks);
-                    }
-                }
-            }
+            CompoundTag tag = new CompoundTag()
+                    .putInt("x", x)
+                    .putInt("y", y)
+                    .putInt("z", z)
+                    .putString("id", block.getId())
+                    .putInt("layer", block.layer)
+                    .putInt("delay", delay)
+                    .putInt("priority", blockUpdateEntry.priority)
+                    .putBoolean("checkBlockWhenUpdate", blockUpdateEntry.checkBlockWhenUpdate);
+            scheduledTicks.add(tag);
         }
 
-        // Save both lists to extraData
-        CompoundTag extraData = chunk.getExtraData();
+        CompoundTag extraData = unsafe.getExtraData();
         extraData.putList("pendingScheduledTicks", scheduledTicks);
         extraData.putList("pendingNormalTickBlocks", normalTickBlocks);
-    }
-
-    private void handleCustomTickableBlock(String id, int x, int y, int z, int cx, int cz, int sectionY, ListTag<CompoundTag> scheduledTicks) {
-        CustomBlockDefinition def = BlockRegistry.getCustomBlockDefinition(id);
-        if (def == null || def.tickSettings() == null) return;
-        int bx = x + (cx << 4);
-        int by = (sectionY << 4) + y;
-        int bz = z + (cz << 4);
-
-        CompoundTag tag = new CompoundTag()
-            .putInt("x", bx)
-            .putInt("y", by)
-            .putInt("z", bz)
-            .putString("id", id)
-            .putInt("layer", 0)
-            .putInt("delay", def.tickSettings().minTicks())
-            .putInt("priority", 0)
-            .putBoolean("checkBlockWhenUpdate", true);
-
-        scheduledTicks.add(tag);
-    }
-
-    private void handleVanillaTickableBlock(String id, int x, int y, int z, int cx, int cz, int sectionY, ListTag<CompoundTag> normalTickBlocks) {
-        switch (id) {
-            case BlockID.DAYLIGHT_DETECTOR, BlockID.DAYLIGHT_DETECTOR_INVERTED,
-                 BlockID.REDSTONE_WIRE, BlockID.REDSTONE_TORCH,
-                 BlockID.POWERED_REPEATER, BlockID.UNPOWERED_REPEATER,
-                 BlockID.POWERED_COMPARATOR, BlockID.UNPOWERED_COMPARATOR -> {
-                CompoundTag tag = new CompoundTag()
-                    .putInt("x", x + (cx << 4))
-                    .putInt("y", (sectionY << 4) + y)
-                    .putInt("z", z + (cz << 4))
-                    .putString("id", id);
-                normalTickBlocks.add(tag);
-            }
-        }
     }
 
     public static class ScheduledTickInfo {
@@ -497,4 +478,3 @@ public class LevelDBChunkSerializer {
         }
     }
 }
-

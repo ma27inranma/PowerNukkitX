@@ -174,6 +174,9 @@ public class EntityHuman extends EntityHumanType {
             else
                 this.server.updatePlayerListData(this.getUniqueId(), this.getId(), this.getName(), this.skin, Color.WHITE, new Player[]{player});
 
+            this.entityDataMap.put(RESERVED_139, 0L);
+            this.entityDataMap.put(NAMEPLATE_RENDER_DISTANCE_MAX, 64.0f);
+
             AddPlayerPacket pk = new AddPlayerPacket();
             pk.uuid = this.getUniqueId();
             pk.username = this.getName();
@@ -187,7 +190,7 @@ public class EntityHuman extends EntityHumanType {
             pk.speedZ = (float) this.motionZ;
             pk.yaw = (float) this.yaw;
             pk.pitch = (float) this.pitch;
-            pk.item = this.getInventory().getItemInHand();
+            pk.item = this.getInventory().getItemInMainHand();
             pk.entityData = this.entityDataMap;
             player.dataPacket(pk);
 
@@ -237,11 +240,11 @@ public class EntityHuman extends EntityHumanType {
     @Override
     protected void onBlock(Entity entity, EntityDamageEvent event, boolean animate) {
         super.onBlock(entity, event, animate);
-        Item shield = getInventory().getItemInHand();
+        Item shield = getInventory().getItemInMainHand();
         Item shieldOffhand = getOffhandInventory().getItem(0);
         if (shield instanceof ItemShield) {
             shield = damageArmor(shield, entity, event);
-            getInventory().setItemInHand(shield);
+            getInventory().setItemInMainHand(shield);
         } else if (shieldOffhand instanceof ItemShield) {
             shieldOffhand = damageArmor(shieldOffhand, entity, event);
             getOffhandInventory().setItem(0, shieldOffhand);

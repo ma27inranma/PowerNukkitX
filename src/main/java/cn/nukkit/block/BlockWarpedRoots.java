@@ -19,6 +19,16 @@ public class BlockWarpedRoots extends BlockHanging implements BlockFlowerPot.Flo
     }
 
     @Override
+    public boolean canBeReplaced() {
+        return true;
+    }
+
+    @Override
+    public int getSnowloggingLevel() {
+        return 1;
+    }
+
+    @Override
     public String getName() {
         return "Warped Roots";
     }

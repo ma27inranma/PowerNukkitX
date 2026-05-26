@@ -9,14 +9,18 @@ import cn.nukkit.network.protocol.types.biome.BiomeDefinition;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.UnmodifiableView;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,14 +36,18 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
     @Override
     public void init() {
         if (isLoad.getAndSet(true)) return;
-        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biomes.json")) { //From Endstone Data
+        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biomes.json");
+             var reader = new InputStreamReader(stream)) { //From Endstone Data
             Gson gson = new GsonBuilder().setObjectToNumberStrategy(JsonReader::nextInt).create();
-            Map<String, ?> map = gson.fromJson(new InputStreamReader(stream), Map.class);
+            Map<String, ?> map = gson.fromJson(reader, new TypeToken<Map<String, ?>>() {}.getType());
             for (var e : map.entrySet()) {
-                NAME2ID.put(e.getKey(), (Integer) e.getValue());
+                Object value = e.getValue();
+                if (value instanceof Number number) {
+                    NAME2ID.put(e.getKey().replaceAll("minecraft:" ,""), number.intValue());
+                }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
 
         try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biome_definitions.nbt")) {
@@ -56,7 +64,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         } catch (RegisterException e) {
             throw new RuntimeException(e);
         }
@@ -64,7 +72,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
 
     @Override
     public BiomeDefinition get(Integer key) {
-        return DEFINITIONS.get(key);
+        return DEFINITIONS.get(key.intValue());
     }
 
     public BiomeDefinition get(String biomeName) {
@@ -108,10 +116,67 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeDefinition, BiomeD
 
     @Override
     public void register(Integer key, BiomeDefinition value) throws RegisterException {
-        if (DEFINITIONS.putIfAbsent(key, value) == null) {
-            NAME2ID.put(BIOME_STRING_LIST.get(value.stringIndex), key);
+        int id = key.intValue();
+        if (DEFINITIONS.putIfAbsent(id, value) == null) {
+            NAME2ID.put(BIOME_STRING_LIST.get(value.stringIndex), id);
         } else {
-            throw new RegisterException("This biome " + value.getName() + " has already been registered with the id: " + key);
+            throw new RegisterException("This biome " + value.getName() + " has already been registered with the id: " + id);
+        }
+    }
+
+    public int registerToBiomeStringList(String value) {
+        BIOME_STRING_LIST.add(value);
+        return BIOME_STRING_LIST.size()-1;
+    }
+
+    void writeCache(DataOutputStream out) throws IOException {
+        // NAME2ID
+        out.writeInt(NAME2ID.size());
+        for (var e : NAME2ID.object2IntEntrySet()) {
+            out.writeUTF(e.getKey());
+            out.writeInt(e.getIntValue());
+        }
+        // BIOME_STRING_LIST
+        out.writeInt(BIOME_STRING_LIST.size());
+        for (String s : BIOME_STRING_LIST) out.writeUTF(s);
+        // Definitions: re-read and store as uncompressed NBT bytes.
+        // This skips Gzip decompression on restore while keeping parse() logic unchanged.
+        try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/biome_definitions.nbt")) {
+            CompoundTag root = NBTIO.readCompressed(stream);
+            byte[] nbtBytes = NBTIO.write(root);
+            out.writeInt(nbtBytes.length);
+            out.write(nbtBytes);
+        }
+    }
+
+    void restoreCache(DataInputStream in) throws IOException {
+        if (isLoad.getAndSet(true)) return;
+        // NAME2ID
+        int nameSize = in.readInt();
+        for (int i = 0; i < nameSize; i++) {
+            NAME2ID.put(in.readUTF(), in.readInt());
+        }
+        // BIOME_STRING_LIST
+        int listSize = in.readInt();
+        for (int i = 0; i < listSize; i++) {
+            BIOME_STRING_LIST.add(in.readUTF());
+        }
+        // Definitions from uncompressed NBT bytes (no Gzip decompression needed)
+        int nbtLen = in.readInt();
+        byte[] nbtBytes = new byte[nbtLen];
+        in.readFully(nbtBytes);
+        CompoundTag root = NBTIO.read(nbtBytes);
+        ListTag<CompoundTag> biomeData = root.getList("biomeData", CompoundTag.class);
+        for (CompoundTag biomeTag : biomeData.getAll()) {
+            short index = biomeTag.getShort("index");
+            int biomeId = getBiomeId(getFromBiomeStringList(index));
+            BiomeDefinition definition = new BiomeDefinition();
+            definition.parse(biomeTag);
+            try {
+                register(biomeId, definition);
+            } catch (RegisterException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

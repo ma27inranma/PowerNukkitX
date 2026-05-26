@@ -8,8 +8,8 @@ import cn.nukkit.block.BlockGoldenRail;
 import cn.nukkit.block.BlockRail;
 import cn.nukkit.blockentity.BlockEntityHopper;
 import cn.nukkit.entity.Entity;
-import cn.nukkit.entity.EntityHuman;
 import cn.nukkit.entity.EntityLiving;
+import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.vehicle.VehicleMoveEvent;
@@ -30,6 +30,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.MinecartType;
 import cn.nukkit.utils.Rail;
 import cn.nukkit.utils.Rail.Orientation;
+import cn.nukkit.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -66,17 +67,16 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
     private double flyingZ = 0.95;
     private double maxSpeed = 0.4D;
     private boolean hasUpdated = false;
+    private boolean lastRailMountedState = false;
 
     public EntityMinecartAbstract(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
 
-        setMaxHealth(40);
-        setHealth(40);
+        setHealthMax(40);
+        setHealthCurrent(40);
     }
 
     public abstract MinecartType getType();
-
-    public abstract boolean isRideable();
 
     @Override
     public float getHeight() {
@@ -108,6 +108,8 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
         super.initEntity();
 
         prepareDataProperty();
+        setDataFlag(EntityFlag.COLLIDABLE);
+        lastRailMountedState = isOnRailForMountOffset();
     }
 
     @Override
@@ -134,8 +136,8 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
             super.onUpdate(currentTick);
 
             // The damage token
-            if (getHealth() < 20) {
-                setHealth(getHealth() + 1);
+            if (getHealthCurrent() < 20) {
+                setHealthCurrent(getHealthCurrent() + 1);
             }
 
             // Entity variables
@@ -156,12 +158,13 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
 
             // Ensure that the block is a rail
             if (Rail.isRailBlock(block)) {
+                hasUpdated = false;
                 processMovement(dx, dy, dz, (BlockRail) block);
                 // Activate the minecart/TNT
                 if (block instanceof BlockActivatorRail activator && activator.isActive()) {
                     activate(dx, dy, dz, activator.isActive());
-                    if (this.isRideable() && this.getRiding() != null) {
-                        this.dismountEntity(this.getRiding());
+                    if (this.isRideable() && this.getPassenger() != null) {
+                        this.dismountEntity(this.getPassenger(), true, false);
                     }
                 }
                 if (block instanceof BlockDetectorRail detector && !detector.isActive()) {
@@ -170,6 +173,16 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
             } else {
                 setFalling();
             }
+
+            boolean railMountedState = isOnRailForMountOffset();
+            if (railMountedState != lastRailMountedState) {
+                applySeatOffsets();
+                for (Entity passenger : passengers) {
+                    updatePassengerPosition(passenger);
+                }
+                lastRailMountedState = railMountedState;
+            }
+
             checkBlockCollision();
 
             // Minecart head
@@ -199,16 +212,16 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
             }
 
             // Collisions
-            for (cn.nukkit.entity.Entity entity : level.getNearbyEntities(boundingBox.grow(0.2D, 0, 0.2D), this)) {
+            for (Entity entity : level.getNearbyEntities(boundingBox.grow(0.2D, 0, 0.2D), this)) {
                 if (!passengers.contains(entity) && entity instanceof EntityMinecartAbstract) {
                     entity.applyEntityCollision(this);
                 }
             }
 
-            Iterator<cn.nukkit.entity.Entity> linkedIterator = this.passengers.iterator();
+            Iterator<Entity> linkedIterator = this.passengers.iterator();
 
             while (linkedIterator.hasNext()) {
-                cn.nukkit.entity.Entity linked = linkedIterator.next();
+                Entity linked = linkedIterator.next();
 
                 if (!linked.isAlive()) {
                     if (linked.riding == this) {
@@ -282,7 +295,7 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
         super.close();
 
         for (Entity passenger : new ArrayList<>(this.passengers)) {
-            dismountEntity(passenger);
+            dismountEntity(passenger, true, false);
         }
     }
 
@@ -293,26 +306,15 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
         }
 
         if (blockInside == null) {
-            mountEntity(p);
+            mountEntity(p, true);
         }
 
         return super.onInteract(p, item, clickedPos);
     }
 
     @Override
-    public void applyEntityCollision(cn.nukkit.entity.Entity entity) {
+    public void applyEntityCollision(Entity entity) {
         if (entity != riding && !(entity instanceof Player && ((Player) entity).isSpectator())) {
-            if (entity instanceof EntityLiving
-                    && !(entity instanceof EntityHuman)
-                    && motionX * motionX + motionZ * motionZ > 0.01D
-                    && passengers.isEmpty()
-                    && entity.riding == null
-                    && blockInside == null) {
-                if (riding == null && devs) {
-                    mountEntity(entity);// TODO: rewrite (weird riding)
-                }
-            }
-
             double motiveX = entity.x - x;
             double motiveZ = entity.z - z;
             double square = motiveX * motiveX + motiveZ * motiveZ;
@@ -404,26 +406,7 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
      * @return 是否有漏斗被通知
      */
     private boolean checkPushHopper(AxisAlignedBB pushArea, InventoryHolder holder) {
-        int minX = NukkitMath.floorDouble(pushArea.getMinX());
-        int minY = NukkitMath.floorDouble(pushArea.getMinY());
-        int minZ = NukkitMath.floorDouble(pushArea.getMinZ());
-        int maxX = NukkitMath.ceilDouble(pushArea.getMaxX());
-        int maxY = NukkitMath.ceilDouble(pushArea.getMaxY());
-        int maxZ = NukkitMath.ceilDouble(pushArea.getMaxZ());
-        var tmpBV = new BlockVector3();
-        for (int z = minZ; z <= maxZ; ++z) {
-            for (int x = minX; x <= maxX; ++x) {
-                for (int y = minY; y <= maxY; ++y) {
-                    tmpBV.setComponents(x, y, z);
-                    var be = this.level.getBlockEntity(tmpBV);
-                    if (be instanceof BlockEntityHopper blockEntityHopper) {
-                        blockEntityHopper.setMinecartInvPushTo(holder);
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return notifyHopper(pushArea, holder, true);
     }
 
     /**
@@ -433,26 +416,24 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
      * @return 是否有漏斗被通知
      */
     private boolean checkPickupHopper(AxisAlignedBB pickupArea, InventoryHolder holder) {
-        int minX = NukkitMath.floorDouble(pickupArea.getMinX());
-        int minY = NukkitMath.floorDouble(pickupArea.getMinY());
-        int minZ = NukkitMath.floorDouble(pickupArea.getMinZ());
-        int maxX = NukkitMath.ceilDouble(pickupArea.getMaxX());
-        int maxY = NukkitMath.ceilDouble(pickupArea.getMaxY());
-        int maxZ = NukkitMath.ceilDouble(pickupArea.getMaxZ());
+        return notifyHopper(pickupArea, holder, false);
+    }
+
+    private boolean notifyHopper(AxisAlignedBB area, InventoryHolder holder, boolean push) {
         var tmpBV = new BlockVector3();
-        for (int z = minZ; z <= maxZ; ++z) {
-            for (int x = minX; x <= maxX; ++x) {
-                for (int y = minY; y <= maxY; ++y) {
-                    tmpBV.setComponents(x, y, z);
-                    var be = this.level.getBlockEntity(tmpBV);
-                    if (be instanceof BlockEntityHopper blockEntityHopper) {
-                        blockEntityHopper.setMinecartInvPickupFrom(holder);
-                        return true;
-                    }
+        return Utils.anyBlockPos(area, true, (x, y, z) -> {
+            tmpBV.setComponents(x, y, z);
+            var be = this.level.getBlockEntity(tmpBV);
+            if (be instanceof BlockEntityHopper blockEntityHopper) {
+                if (push) {
+                    blockEntityHopper.setMinecartInvPushTo(holder);
+                } else {
+                    blockEntityHopper.setMinecartInvPickupFrom(holder);
                 }
+                return true;
             }
-        }
-        return false;
+            return false;
+        });
     }
 
     private void setFalling() {
@@ -460,11 +441,10 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
         motionZ = NukkitMath.clamp(motionZ, -getMaxSpeed(), getMaxSpeed());
 
         if (!hasUpdated) {
-            for (cn.nukkit.entity.Entity linked : passengers) {
-                linked.setSeatPosition(getMountedOffset(linked).add(0, 0.35f));
+            applySeatOffsets();
+            for (Entity linked : passengers) {
                 updatePassengerPosition(linked);
             }
-
             hasUpdated = true;
         }
 
@@ -538,7 +518,7 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
         double playerYawPos; // PlayerYawPositive
         double motion;
 
-        cn.nukkit.entity.Entity linked = getPassenger();
+        Entity linked = getPassenger();
 
         if (linked instanceof EntityLiving) {
             expectedSpeed = currentSpeed;
@@ -886,5 +866,17 @@ public abstract class EntityMinecartAbstract extends EntityVehicle {
 
     public void setMaximumSpeed(double speed) {
         maxSpeed = speed;
+    }
+
+    protected boolean isOnRailForMountOffset() {
+        int dx = MathHelper.floor(this.x);
+        int dy = MathHelper.floor(this.y);
+        int dz = MathHelper.floor(this.z);
+
+        if (Rail.isRailBlock(level.getBlockIdAt(dx, dy, dz))) {
+            return true;
+        }
+
+        return Rail.isRailBlock(level.getBlockIdAt(dx, dy - 1, dz));
     }
 }

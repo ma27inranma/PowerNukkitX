@@ -4,10 +4,9 @@ import cn.nukkit.AdventureSettings;
 import cn.nukkit.Player;
 import cn.nukkit.PlayerHandle;
 import cn.nukkit.Server;
-import cn.nukkit.entity.data.EntityFlag;
+import cn.nukkit.entity.Entity;
+import cn.nukkit.entity.EntityPhysical;
 import cn.nukkit.entity.item.EntityBoat;
-import cn.nukkit.entity.item.EntityMinecartAbstract;
-import cn.nukkit.entity.passive.EntityHorse;
 import cn.nukkit.event.player.PlayerHackDetectedEvent;
 import cn.nukkit.event.player.PlayerJumpEvent;
 import cn.nukkit.event.player.PlayerKickEvent;
@@ -29,16 +28,19 @@ import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.protocol.types.AuthInputAction;
 import cn.nukkit.network.protocol.types.PlayerActionType;
 import cn.nukkit.network.protocol.types.PlayerBlockActionData;
+import lombok.extern.slf4j.Slf4j;
+
 import org.jetbrains.annotations.NotNull;
 
+@Slf4j
 public class PlayerAuthInputProcessor extends DataPacketProcessor<PlayerAuthInputPacket> {
     @Override
     public void handle(@NotNull PlayerHandle playerHandle, @NotNull PlayerAuthInputPacket pk) {
         Player player = playerHandle.player;
         if (!pk.blockActionData.isEmpty()) {
             for (PlayerBlockActionData action : pk.blockActionData.values()) {
-                //hack 自从1.19.70开始，创造模式剑客户端不会发送PREDICT_DESTROY_BLOCK，但仍然发送START_DESTROY_BLOCK，过滤掉
-                if (player.getInventory().getItemInHand().isSword() && player.isCreative() && action.getAction() == PlayerActionType.START_DESTROY_BLOCK) {
+                //hack Since version 1.19.70, the Creative Mode Sword client no longer sends PREDITIC_DESTROY_BLOCK, but still sends START_DESTROY_BLOCK, filtering out
+                if (player.getInventory().getItemInMainHand().isSword() && player.isCreative() && action.getAction() == PlayerActionType.START_DESTROY_BLOCK) {
                     continue;
                 }
                 BlockVector3 blockPos = action.getPosition();
@@ -198,14 +200,16 @@ public class PlayerAuthInputProcessor extends DataPacketProcessor<PlayerAuthInpu
                 player.getAdventureSettings().set(AdventureSettings.Type.FLYING, playerToggleFlightEvent.isFlying());
             }
         }
-        if(pk.inputData.contains(AuthInputAction.JUMP_RELEASED_RAW)) {
-            if(player.getRiding() != null) {
-                if (playerHandle.player.riding instanceof EntityHorse horse && horse.isAlive() && !horse.isJumping()) {
-                    horse.getJumping().set(player.getLevel().getTick());
-                    horse.setDataFlag(EntityFlag.STANDING);
-                }
-            }
+        if (
+            pk.inputData.contains(AuthInputAction.JUMP_RELEASED_RAW)
+            && player.getRiding() != null
+            && (playerHandle.player.riding instanceof EntityPhysical ride)
+            && ride.isAlive()
+            && ((ride.rideCanJump() && !ride.isRideJumping()) || ride.rideHasVerticalMove())
+        ) {
+            ride.getRideJumping().set(player.getLevel().getTick());
         }
+        
         Vector3 clientPosition = pk.position.asVector3().subtract(0, playerHandle.getBaseOffset(), 0);
         float yaw = pk.yaw % 360;
         float pitch = pk.pitch % 360;
@@ -217,44 +221,62 @@ public class PlayerAuthInputProcessor extends DataPacketProcessor<PlayerAuthInpu
             yaw += 360;
         }
         Location clientLoc = Location.fromObject(clientPosition, player.level, yaw, pitch, headYaw);
-        // Proper player.isPassenger() check may be needed
-        if (player.riding instanceof EntityMinecartAbstract entityMinecartAbstract) {
-            double inputY = pk.motion.getY();
-            if (inputY >= -1.001 && inputY <= 1.001) {
-                entityMinecartAbstract.setCurrentSpeed(inputY);
-            }
-        } else if (player.riding instanceof EntityBoat boat && pk.inputData.contains(AuthInputAction.IN_CLIENT_PREDICTED_IN_VEHICLE)) {
-            if (player.riding.getId() == pk.predictedVehicle && player.riding.isControlling(player)) {
-                if (check(clientLoc, player)) {
-                    Location offsetLoc = clientLoc.add(0, playerHandle.getBaseOffset(), 0);
-                    boat.onInput(offsetLoc);
-                    playerHandle.handleMovement(offsetLoc);
-                }
-                return;
-            }
-        } else if (playerHandle.player.riding instanceof EntityHorse entityHorse) {
-            if (check(clientLoc, player)) {
-                Location playerLoc;
-                if (entityHorse.hasOwner() && !entityHorse.getSaddle().isNull()) {
-                    entityHorse.onInput(clientLoc.add(0, entityHorse.getHeight(), 0));
-                    playerLoc = clientLoc.add(0, playerHandle.getBaseOffset() + entityHorse.getHeight(), 0);
-                } else {
-                    playerLoc = clientLoc.add(0, 0.8, 0);
-                }
-                playerHandle.handleMovement(playerLoc);
-                return;
-            }
+
+        Entity vehicle = null;
+        if ((vehicle = player.getRiding()) != null && vehicle.hasWASDControls()) {
+            syncVehiclePositionFromRiderInput(player, vehicle, pk);
+            if (vehicle.onRiderInput(player, pk)) return;
         }
+
         playerHandle.offerMovementTask(clientLoc);
     }
 
-    private static boolean check(Location clientLoc, Player player) {
-        var distance = clientLoc.distanceSquared(player);
-        var updatePosition = (float) Math.sqrt(distance) > 0.1f;
-        var updateRotation = (float) Math.abs(player.getPitch() - clientLoc.pitch) > 1
-                || (float) Math.abs(player.getYaw() - clientLoc.yaw) > 1
-                || (float) Math.abs(player.getHeadYaw() - clientLoc.headYaw) > 1;
-        return updatePosition || updateRotation;
+    private static void syncVehiclePositionFromRiderInput(Player player, Entity vehicle, PlayerAuthInputPacket pk) {
+        if (vehicle == null || !vehicle.isAlive()) return;
+        if (pk.predictedVehicle == 0) return;
+        if (pk.predictedVehicle != vehicle.getId()) return;
+
+        Vector3 packetPosition = pk.position.asVector3();
+        Vector3 vehiclePosition = packetPosition;
+        EntityBoat boat = vehicle instanceof EntityBoat entityBoat ? entityBoat : null;
+
+        if (boat != null) {
+            double boatY = packetPosition.y - boat.getBaseOffset();
+            vehiclePosition = new Vector3(packetPosition.x, boatY, packetPosition.z);
+        }
+
+        double vehiclePitch = vehicle.getPitch();
+        double vehicleYaw = vehicle.getYaw();
+
+        if (pk.vehicleRotation != null) {
+            vehiclePitch = pk.vehicleRotation.x % 360;
+            vehicleYaw = pk.vehicleRotation.y % 360;
+        } else {
+            vehiclePitch = pk.pitch % 360;
+            vehicleYaw = pk.yaw % 360;
+        }
+
+        if (vehicleYaw < 0) vehicleYaw += 360;
+        if (vehiclePitch < 0) vehiclePitch += 360;
+
+        double distanceSquared = vehiclePosition.distanceSquared(vehicle);
+
+        if (distanceSquared > 0.0001d) {
+            vehicle.setPosition(vehiclePosition);
+        }
+
+        vehicle.setRotation(vehicleYaw, vehiclePitch);
+        vehicle.setHeadYaw(vehicleYaw);
+        vehicle.updateMovement();
+
+        if (boat != null) {
+            boat.updatePassengers(false, false);
+        } else {
+            player.setPosition(packetPosition);
+        }
+
+        player.setRotation(pk.yaw, pk.pitch);
+        player.setHeadYaw(pk.headYaw);
     }
 
     @Override

@@ -82,6 +82,11 @@ public class ItemBoat extends Item {
                 name = "Cherry Boat";
                 this.id = ItemID.CHERRY_BOAT;
                 this.identifier = new Identifier(ItemID.CHERRY_BOAT);
+                return;
+            case 9:
+                name = "Pale Oak Boat";
+                this.id = ItemID.PALE_OAK_BOAT;
+                this.identifier = new Identifier(ItemID.PALE_OAK_BOAT);
         }
         this.meta = 0;
     }
@@ -97,12 +102,15 @@ public class ItemBoat extends Item {
 
     @Override
     public boolean onActivate(Level level, Player player, Block block, Block target, BlockFace face, double fx, double fy, double fz) {
-        if (face != BlockFace.UP || block instanceof BlockFlowingWater) return false;
+        if (face != BlockFace.UP) return false;
+        if(block instanceof BlockFlowingWater) block = block.up();
+        double spawnY = target instanceof BlockFlowingWater ? block.getY() - 0.375 : block.getY() + 0.01d; // this 0.01 workaround to avoid boat bump when placed on solid surface.
+
         EntityBoat boat = (EntityBoat) Entity.createEntity(Entity.BOAT,
                 level.getChunk(block.getFloorX() >> 4, block.getFloorZ() >> 4), new CompoundTag()
                         .putList("Pos", new ListTag<DoubleTag>()
                                 .add(new DoubleTag(block.getX() + 0.5))
-                                .add(new DoubleTag(block.getY() - (target instanceof BlockFlowingWater ? 0.375 : 0)))
+                                .add(new DoubleTag(spawnY))
                                 .add(new DoubleTag(block.getZ() + 0.5)))
                         .putList("Motion", new ListTag<DoubleTag>()
                                 .add(new DoubleTag(0))
@@ -119,9 +127,9 @@ public class ItemBoat extends Item {
         }
 
         if (player.isSurvival() || player.isAdventure()) {
-            Item item = player.getInventory().getItemInHand();
+            Item item = player.getInventory().getItemInMainHand();
             item.setCount(item.getCount() - 1);
-            player.getInventory().setItemInHand(item);
+            player.getInventory().setItemInMainHand(item);
         }
 
         boat.spawnToAll();

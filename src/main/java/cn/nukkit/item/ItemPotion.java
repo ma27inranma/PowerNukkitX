@@ -1,11 +1,14 @@
 package cn.nukkit.item;
 
 import cn.nukkit.Player;
+import cn.nukkit.entity.effect.PotionApplicationMode;
 import cn.nukkit.entity.effect.PotionType;
 import cn.nukkit.event.player.PlayerItemConsumeEvent;
 import cn.nukkit.level.vibration.VibrationEvent;
 import cn.nukkit.level.vibration.VibrationType;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.network.protocol.CompletedUsingItemPacket;
+import cn.nukkit.network.protocol.types.LevelSoundEvent;
 
 import javax.annotation.Nullable;
 
@@ -78,6 +81,11 @@ public class ItemPotion extends Item {
     }
 
     @Override
+    public boolean isConsumable() {
+        return true;
+    }
+
+    @Override
     public boolean onClickAir(Player player, Vector3 directionVector) {
         return true;
     }
@@ -97,18 +105,22 @@ public class ItemPotion extends Item {
         if (consumeEvent.isCancelled()) {
             return false;
         }
+
+        player.completeUsingItem(this.getRuntimeId(), CompletedUsingItemPacket.ACTION_CONSUME);
+
         PotionType potion = PotionType.get(this.getDamage());
 
         player.level.getVibrationManager().callVibrationEvent(new VibrationEvent(player, player.getLocation(), VibrationType.DRINKING));
 
         if (player.isAdventure() || player.isSurvival()) {
             --this.count;
-            player.getInventory().setItemInHand(this);
+            player.getInventory().setItemInMainHand(this);
             player.getInventory().addItem(new ItemGlassBottle());
+            player.level.addLevelSoundEvent(player, LevelSoundEvent.BOTTLE_EMPTY);
         }
 
         if (potion != null) {
-            potion.applyEffects(player, false, 1);
+            potion.applyEffects(player, PotionApplicationMode.DRINK, 1);
         }
         return true;
     }

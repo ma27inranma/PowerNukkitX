@@ -1,11 +1,14 @@
 package cn.nukkit.entity.passive;
 
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.DyeColor;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -53,8 +56,17 @@ public class EntityTropicalfish extends EntityFish {
     }
 
     @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(6);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.12f);
+    }
+
+    @Override
     public void initEntity() {
-        this.setMaxHealth(6);
         super.initEntity();
         if (this.namedTag.contains("Variant")) {
             this.variant = this.namedTag.getInt("Variant");
@@ -105,7 +117,7 @@ public class EntityTropicalfish extends EntityFish {
     }
 
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         if (Utils.rand(0, 3) == 1) {
             return new Item[]{Item.get(Item.TROPICAL_FISH), Item.get(Item.BONE, 0, Utils.rand(1, 2))};
         }

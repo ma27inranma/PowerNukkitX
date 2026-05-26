@@ -26,7 +26,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import org.checkerframework.checker.units.qual.A;
 import org.jetbrains.annotations.Range;
 
 import java.util.ArrayList;
@@ -37,11 +36,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 0-8 物品栏<br>
- * 9-35 背包<br>
- * 36-39 盔甲栏<br>
- * 想获取副手库存请用{@link HumanOffHandInventory}<br>
- * <p>
  * 0-8 hotbar<br>
  * 9-35 inventory<br>
  * 36-39 Armor Inventory<br>
@@ -142,20 +136,115 @@ public class HumanInventory extends BaseInventory {
         }
     }
 
+    /**
+     * @deprecated Use {@link #getItemInMainHand()} instead.
+     * This method is kept for backward compatibility and now directly delegates to the main hand item.
+     */
+    @Deprecated
     public Item getItemInHand() {
+        return getItemInMainHand();
+    }
+
+    /**
+     * Returns the item currently held in the player's main hand.
+     *
+     * @return the item in the main hand
+     */
+    public Item getItemInMainHand() {
         return this.getItem(this.getHeldItemIndex());
     }
 
+    /**
+     * @deprecated Use {@link #getUnclonedItemInMainHand()} instead.
+     * This method is kept for backward compatibility and now directly delegates to the main hand item.
+     */
+    @Deprecated
     public Item getUnclonedItemInHand() {
+        return getUnclonedItemInMainHand();
+    }
+
+    public Item getUnclonedItemInMainHand() {
         return this.getUnclonedItem(this.getHeldItemIndex());
     }
 
+    /**
+     * Returns the item currently held in the player's off hand.
+     *
+     * @return the item in the off hand
+     */
+    public Item getItemInOffhand() {
+        return this.getHolder().getOffhandInventory().getItem(0);
+    }
+
+    public Item getUnclonedItemInOffhand() {
+        return this.getHolder().getOffhandInventory().getUnclonedItem(0);
+    }
+
+    /**
+     * @deprecated Use {@link #setItemInMainHand(Item)} instead.
+     * This method is kept for backward compatibility and delegates to the main hand setter.
+     */
+    @Deprecated
     public boolean setItemInHand(Item item) {
+        return this.setItemInMainHand(item);
+    }
+
+    /**
+     * @deprecated Use {@link #setItemInMainHand(Item, boolean)} instead.
+     * This method is kept for backward compatibility and delegates to the main hand setter.
+     *
+     * @param item the item to set in hand
+     * @param send whether to sync the change to the client
+     */
+    @Deprecated
+    public boolean setItemInHand(Item item, boolean send) {
+        return this.setItemInMainHand(item, send);
+    }
+
+    /**
+     * Sets the item in the player's main hand.
+     *
+     * @param item the item to set
+     * @return true if the item was successfully set
+     */
+    public boolean setItemInMainHand(Item item) {
         return this.setItem(this.getHeldItemIndex(), item);
     }
 
-    public boolean setItemInHand(Item item, boolean send) {
+    /**
+     * Sets the item in the player's main hand.
+     *
+     * @param item the item to set
+     * @param send whether to sync the change to the client
+     * @return true if the item was successfully set
+     */
+    public boolean setItemInMainHand(Item item, boolean send) {
         return this.setItem(this.getHeldItemIndex(), item, send);
+    }
+
+    /**
+     * Sets the item in the player's off hand.
+     * <p>
+     * Convenience wrapper for {@code getOffhandInventory().setItem(0, item)}.
+     * The offhand uses a dedicated inventory, so direct access can be used if more control is needed.
+     * @param item the item to set
+     * @return true if the item was successfully set
+     */
+    public boolean setItemInOffhand(Item item) {
+        return this.getHolder().getOffhandInventory().setItem(0, item);
+    }
+
+    /**
+     * Sets the item in the player's off hand.
+     * <p>
+     * Convenience wrapper for {@code getOffhandInventory().setItem(0, item, bool)}.
+     * The offhand uses a dedicated inventory, so direct access can be used if more control is needed.
+     * @param item the item to set
+     * @param send whether to sync the change to the client
+     * @return true if the item was successfully set
+     */
+    public boolean setItemInOffhand(Item item, boolean send) {
+        return this.getHolder().getOffhandInventory().setItem(0, item, send);
     }
 
     public void setHeldItemSlot(int slot) {
@@ -173,7 +262,7 @@ public class HumanInventory extends BaseInventory {
     }
 
     public void sendHeldItem(Player... players) {
-        Item item = this.getItemInHand();
+        Item item = this.getItemInMainHand();
 
         MobEquipmentPacket pk = new MobEquipmentPacket();
         pk.item = item;
@@ -209,7 +298,11 @@ public class HumanInventory extends BaseInventory {
             }
         } else {
             super.onSlotChange(index, before, send);
-            if (index == getHeldItemIndex() && !before.equals(this.slots.get(index))) {
+            Item current;
+            synchronized (this.slots) {
+                current = this.slots.get(index);
+            }
+            if (index == getHeldItemIndex() && !before.equals(current)) {
                 equipItem(index);
             }
         }
@@ -249,17 +342,17 @@ public class HumanInventory extends BaseInventory {
             }
         }
 
-        //使用FastUtils的IntArrayList提高性能
+        // Improve performance using IntArrayList of FastUtils
         IntList emptySlots = new IntArrayList(this.getSize());
 
         for (int i = 0; i < ARMORS_INDEX; ++i) {
-            //获取未克隆Item对象
+            // Get the uncloned Item object
             Item item = this.getUnclonedItem(i);
             if (item.isNull() || item.getCount() <= 0) {
                 emptySlots.add(i);
             }
 
-            //使用迭代器而不是新建一个ArrayList
+            // Use iterators instead of creating a new ArrayList
             for (Iterator<Item> iterator = itemSlots.iterator(); iterator.hasNext(); ) {
                 Item slot = iterator.next();
                 if (slot.equals(item)) {
@@ -268,7 +361,7 @@ public class HumanInventory extends BaseInventory {
                         int amount = Math.min(maxStackSize - item.getCount(), slot.getCount());
                         amount = Math.min(amount, this.getMaxStackSize());
                         if (amount > 0) {
-                            //在需要clone时再clone
+                            // Clone when needed
                             item = item.clone();
                             slot.setCount(slot.getCount() - amount);
                             item.setCount(item.getCount() + amount);
@@ -401,46 +494,51 @@ public class HumanInventory extends BaseInventory {
             }
             item = ev.getNewItem();
         }
-        Item old = this.getItem(index);
-        this.slots.put(index, item.clone());
+        Item old;
+        synchronized (this.slots) {
+            old = this.slots.containsKey(index) ? this.slots.get(index).clone() : Item.AIR;
+            this.slots.put(index, item.clone());
+        }
         this.onSlotChange(index, old, send);
         return true;
     }
 
     @Override
     public boolean clear(int index, boolean send) {
-        if (this.slots.containsKey(index)) {
-            Item item = Item.AIR;
-            Item old = this.slots.get(index);
-            if (index >= ARMORS_INDEX && index < this.size) {
-                EntityArmorChangeEvent ev = new EntityArmorChangeEvent(this.getHolder().getEntity(), old, item, index);
-                Server.getInstance().getPluginManager().callEvent(ev);
-                if (ev.isCancelled()) {
-                    int rel = index - ARMORS_INDEX; // 0..3
-                    this.sendArmorSlot(rel, this.getViewers());
-                    this.sendArmorSlot(rel, this.getHolder().getEntity().getViewers().values());
+        synchronized (this.slots) {
+            if (this.slots.containsKey(index)) {
+                Item item = Item.AIR;
+                Item old = this.slots.get(index);
+                if (index >= ARMORS_INDEX && index < this.size) {
+                    EntityArmorChangeEvent ev = new EntityArmorChangeEvent(this.getHolder().getEntity(), old, item, index);
+                    Server.getInstance().getPluginManager().callEvent(ev);
+                    if (ev.isCancelled()) {
+                        int rel = index - ARMORS_INDEX; // 0..3
+                        this.sendArmorSlot(rel, this.getViewers());
+                        this.sendArmorSlot(rel, this.getHolder().getEntity().getViewers().values());
+                        return false;
+                    }
+                    item = ev.getNewItem();
+                } else if (index < ARMORS_INDEX) {
+                    EntityInventoryChangeEvent ev = new EntityInventoryChangeEvent(this.getHolder().getEntity(), old, item, index, this.getSlotType(index), this.getHeldItemIndex());
+                    Server.getInstance().getPluginManager().callEvent(ev);
+                    if (ev.isCancelled()) {
+                        this.sendSlot(index, this.getViewers());
+                        return false;
+                    }
+                    item = ev.getNewItem();
+                } else {
                     return false;
                 }
-                item = ev.getNewItem();
-            } else if (index < ARMORS_INDEX) {
-                EntityInventoryChangeEvent ev = new EntityInventoryChangeEvent(this.getHolder().getEntity(), old, item, index, this.getSlotType(index), this.getHeldItemIndex());
-                Server.getInstance().getPluginManager().callEvent(ev);
-                if (ev.isCancelled()) {
-                    this.sendSlot(index, this.getViewers());
-                    return false;
+
+                if (!item.isNull()) {
+                    this.slots.put(index, item.clone());
+                } else {
+                    this.slots.remove(index);
                 }
-                item = ev.getNewItem();
-            } else {
-                return false;
-            }
 
-            if (!item.isNull()) {
-                this.slots.put(index, item.clone());
-            } else {
-                this.slots.remove(index);
+                this.onSlotChange(index, old, send);
             }
-
-            this.onSlotChange(index, old, send);
         }
 
         return true;
@@ -508,13 +606,8 @@ public class HumanInventory extends BaseInventory {
                 PlayerArmorDamagePacket pk2 = new PlayerArmorDamagePacket();
                 for (int i = 0; i < 4; ++i) {
                     Item item = armor[i];
-                    if (item.isNull()) {
-                        pk2.getArmorSlotAndDamagePairs().add(
-                                new ArmorSlotAndDamagePair(ArmorSlot.from(i), (short) 0)
-                        );
-                    } else {
-                        pk2.getArmorSlotAndDamagePairs().add(new ArmorSlotAndDamagePair(ArmorSlot.from(i), (short) item.getDamage()));
-                    }
+                    short dmg = item.isNull() ? (short) 0 : (short) item.getDamage();
+                    pk2.getArmorSlotAndDamagePairs().add(new ArmorSlotAndDamagePair(armorSlotOfIndex(i), dmg));
                 }
                 player.dataPacket(pk2);
             } else {
@@ -595,15 +688,8 @@ public class HumanInventory extends BaseInventory {
 
                 PlayerArmorDamagePacket pk2 = new PlayerArmorDamagePacket();
                 Item item = armor[index];
-                if (item.isNull()) {
-                    pk2.getArmorSlotAndDamagePairs().add(
-                            new ArmorSlotAndDamagePair(ArmorSlot.from(index), (short) 0)
-                    );
-                } else {
-                    pk2.getArmorSlotAndDamagePairs().add(
-                            new ArmorSlotAndDamagePair(ArmorSlot.from(index), (short) item.getDamage())
-                    );
-                }
+                short dmg = item.isNull() ? (short) 0 : (short) item.getDamage();
+                pk2.getArmorSlotAndDamagePairs().add(new ArmorSlotAndDamagePair(armorSlotOfIndex(index), dmg));
                 player.dataPacket(pk2);
             } else {
                 player.dataPacket(pk);
@@ -717,5 +803,9 @@ public class HumanInventory extends BaseInventory {
         if (who != holder) {
             super.onClose(who);
         }
+    }
+
+    private static ArmorSlot armorSlotOfIndex(int index) {
+        return ArmorSlot.from(index * 2);
     }
 }

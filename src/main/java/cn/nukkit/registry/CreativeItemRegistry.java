@@ -11,16 +11,24 @@ import cn.nukkit.network.protocol.types.inventory.creative.CreativeItemCategory;
 import cn.nukkit.network.protocol.types.inventory.creative.CreativeItemData;
 import cn.nukkit.network.protocol.types.inventory.creative.CreativeItemGroup;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+
+import cn.nukkit.utils.MapParsingUtils;
 import lombok.extern.slf4j.Slf4j;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.jetbrains.annotations.NotNull;
 import io.netty.util.internal.EmptyArrays;
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
@@ -40,7 +48,7 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
     static final AtomicBoolean isLoad = new AtomicBoolean(false);
 
     static final ObjectLinkedOpenHashSet<CreativeItemGroup> GROUPS = new ObjectLinkedOpenHashSet<>();
-    static final ObjectLinkedOpenHashSet<CreativeItemData> ITEM_DATA = new ObjectLinkedOpenHashSet<>();
+    public static final ObjectLinkedOpenHashSet<CreativeItemData> ITEM_DATA = new ObjectLinkedOpenHashSet<>();
     public static final Map<String, String> ITEM_GROUP_MAP = new HashMap<>();
     static final Map<CreativeCategory, Map<String, Integer>> CATEGORY_GROUP_INDEX_MAP = new HashMap<>();
 
@@ -48,15 +56,18 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
     public static int LAST_EQUIPMENTS_INDEX = -1;
     public static int LAST_ITEMS_INDEX = -1;
     public static int LAST_NATURE_INDEX = -1;
+    private static final Function<String, RuntimeException> CREATIVE_ITEMS_ERROR =
+            field -> new IllegalArgumentException("Invalid creative_items data: " + field);
 
     @Override
     public void init() {
         if (isLoad.getAndSet(true))
             return;
 
-        try (var input = CreativeItemRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/creative_items.json")) {
-            Map data = new Gson().fromJson(new InputStreamReader(input), Map.class);
-            List<Map<String, Object>> groups = (List<Map<String, Object>>) data.get("groups");
+        try (var input = CreativeItemRegistry.class.getClassLoader().getResourceAsStream("gamedata/kaooot/creative_items.json");
+             InputStreamReader reader = new InputStreamReader(input)) {
+            Map<String, Object> data = new Gson().fromJson(reader, new TypeToken<Map<String, Object>>() {}.getType());
+            List<Map<String, Object>> groups = MapParsingUtils.stringObjectMapList(data.get("groups"), "groups", CREATIVE_ITEMS_ERROR);
             int index = 0;
             for (Map<String, Object> tag : groups) {
                 int creativeCategory = ((Number) tag.getOrDefault("creative_category", 0)).intValue();
@@ -76,7 +87,7 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
             CreativeItemRegistry.LAST_ITEMS_INDEX = getLastGroupIndexFrom("ITEMS");
             CreativeItemRegistry.LAST_NATURE_INDEX = getLastGroupIndexFrom("NATURE");
 
-            List<Map<String, Object>> items = (List<Map<String, Object>>) data.get("items");
+            List<Map<String, Object>> items = MapParsingUtils.stringObjectMapList(data.get("items"), "items", CREATIVE_ITEMS_ERROR);
             for (int i = 0; i < items.size(); i++) {
                 Map<String, Object> tag = items.get(i);
                 int damage = ((Number) tag.getOrDefault("damage", 0)).intValue();
@@ -115,7 +126,9 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
                 ITEM_DATA.add(new CreativeItemData(item, groupIndex));
                 register(i, item);
             }
-        } catch (IOException | RegisterException e) {
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (RegisterException e) {
             throw new RuntimeException(e);
         }
     }
@@ -180,6 +193,43 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
         } catch (RegisterException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public int getCreativeItemGroupIndex(String id) {
+        if (id == null || id.isEmpty()) {
+            return CreativeItemRegistry.LAST_ITEMS_INDEX;
+        }
+
+        try {
+            // 1. If we already resolved a group name for this item, use it
+            String groupName = ITEM_GROUP_MAP.get(id);
+            if (groupName != null && !groupName.isEmpty()) {
+                for (Map<String, Integer> groupMap : CATEGORY_GROUP_INDEX_MAP.values()) {
+                    Integer index = groupMap.get(groupName);
+                    if (index != null) {
+                        return index;
+                    }
+                }
+            }
+
+            // 2. Try resolving by direct group-name match (id == group)
+            for (Map<String, Integer> groupMap : CATEGORY_GROUP_INDEX_MAP.values()) {
+                Integer index = groupMap.get(id);
+                if (index != null) {
+                    return index;
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to resolve creative group index for '{}': {}",
+                    id,
+                    e.getMessage()
+            );
+        }
+
+        // 3. Final fallback (items tab tail)
+        return CreativeItemRegistry.LAST_ITEMS_INDEX;
     }
 
     /**
@@ -318,14 +368,19 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
 
                     if (menu.contains("group")) {
                         String groupName = menu.getString("group");
-                        CreativeItemRegistry.ITEM_GROUP_MAP.put(identifier, groupName);
+                        boolean noGroup = groupName == null || groupName.isBlank() || "NONE".equalsIgnoreCase(groupName);
 
-                        Integer index = groupMap.get(groupName);
-                        if (index != null) {
-                            return index;
+                        if (!noGroup) {
+                            CreativeItemRegistry.ITEM_GROUP_MAP.put(identifier, groupName);
+                            Integer index = groupMap.get(groupName);
+                            if (index != null) {
+                                return index;
+                            }
+                        } else {
+                            CreativeItemRegistry.ITEM_GROUP_MAP.remove(identifier);
                         }
                     }
-                    return getLastGroupIndexFrom(categoryStr);
+                    return tailIndexForCategory(category);
                 } catch (Exception e) {
                     log.warn("Invalid creative category/group in block definition NBT for '{}': {}", identifier, e.getMessage());
                 }
@@ -333,6 +388,36 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
         }
         return CreativeItemRegistry.LAST_CONSTRUCTION_INDEX;
     }
+
+    public int resolveGroupIndexFromGroupName(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            return CreativeItemRegistry.LAST_CONSTRUCTION_INDEX;
+        }
+
+        try {
+            String groupName = identifier;
+
+            // Search all categories for this group
+            for (Map<String, Integer> groupMap : CATEGORY_GROUP_INDEX_MAP.values()) {
+                Integer index = groupMap.get(groupName);
+                if (index != null) {
+                    return index;
+                }
+            }
+
+            log.warn("Unknown creative group '{}'", groupName);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to resolve creative group index from group name '{}': {}",
+                    identifier,
+                    e.getMessage()
+            );
+        }
+
+        return CreativeItemRegistry.LAST_CONSTRUCTION_INDEX;
+    }
+
+
 
     public int resolveGroupIndexFromItemDefinition(String identifier, CompoundTag nbt) {
         if (nbt != null && nbt.contains("components")) {
@@ -359,11 +444,10 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
                             if (idx != null) {
                                 return idx;
                             }
-                            return tailIndexForCategory(category);
                         } else {
                             CreativeItemRegistry.ITEM_GROUP_MAP.remove(identifier);
-                            return tailIndexForCategory(category);
                         }
+                        return tailIndexForCategory(category);
                     } catch (Exception e) {
                         log.warn("Invalid creative category/group in item definition NBT for '{}': {}", identifier, e.getMessage());
                     }
@@ -407,5 +491,98 @@ public class CreativeItemRegistry implements ItemID, IRegistry<Integer, Item, It
             case NATURE       -> LAST_NATURE_INDEX;
             default           -> LAST_ITEMS_INDEX;
         };
+    }
+
+    void writeCache(DataOutputStream out) throws IOException {
+        RegistryCache.writeCreativeGroups(out, GROUPS);
+        out.writeInt(LAST_CONSTRUCTION_INDEX);
+        out.writeInt(LAST_EQUIPMENTS_INDEX);
+        out.writeInt(LAST_ITEMS_INDEX);
+        out.writeInt(LAST_NATURE_INDEX);
+        RegistryCache.writeCategoryGroupIndexMap(out, CATEGORY_GROUP_INDEX_MAP);
+
+        List<CreativeItemData> dataList = new ArrayList<>(ITEM_DATA);
+        out.writeInt(MAP.size());
+        int di = 0;
+        for (var e : MAP.int2ObjectEntrySet()) {
+            int  index   = e.getIntKey();
+            Item item    = e.getValue();
+            int  groupId = di < dataList.size() ? dataList.get(di).getGroupId() : -1;
+            di++;
+
+            out.writeInt(index);
+            out.writeInt(groupId);
+
+            if (item.isNull()) {
+                out.writeUTF("");
+            } else {
+                out.writeUTF(item.getId());
+                out.writeInt(item.getDamage());
+                byte[] nbt = item.getCompoundTag();
+                out.writeInt(nbt.length);
+                if (nbt.length > 0) out.write(nbt);
+                // hasBlock = true when the item had block_state data (not in INTERNAL_DIFF_ITEM)
+                boolean hasBlock = !INTERNAL_DIFF_ITEM.containsKey(index) && !item.isNull();
+                out.writeBoolean(hasBlock);
+                if (hasBlock) {
+                    out.writeInt(item.getBlockUnsafe().getBlockState().blockStateHash());
+                }
+            }
+        }
+    }
+
+    void restoreCache(DataInputStream in) throws IOException {
+        if (isLoad.getAndSet(true)) return;
+
+        List<CreativeItemGroup> groups = RegistryCache.readCreativeGroups(in);
+        GROUPS.addAll(groups);
+
+        LAST_CONSTRUCTION_INDEX = in.readInt();
+        LAST_EQUIPMENTS_INDEX   = in.readInt();
+        LAST_ITEMS_INDEX        = in.readInt();
+        LAST_NATURE_INDEX       = in.readInt();
+
+        CATEGORY_GROUP_INDEX_MAP.putAll(RegistryCache.readCategoryGroupIndexMap(in));
+
+        int count = in.readInt();
+        for (int j = 0; j < count; j++) {
+            int    index   = in.readInt();
+            int    groupId = in.readInt();
+            String id      = in.readUTF();
+
+            if (id.isEmpty()) {
+                ITEM_DATA.add(new CreativeItemData(Item.AIR, groupId));
+                MAP.put(index, Item.AIR);
+                continue;
+            }
+
+            int    damage = in.readInt();
+            int    nbtLen = in.readInt();
+            byte[] nbt    = nbtLen > 0 ? new byte[nbtLen] : EmptyArrays.EMPTY_BYTES;
+            if (nbtLen > 0) in.readFully(nbt);
+            boolean hasBlock = in.readBoolean();
+
+            Item item = Item.get(id, damage, 1, nbt);
+
+            if (hasBlock) {
+                int        blockHash = in.readInt();
+                BlockState block     = Registries.BLOCKSTATE.get(blockHash);
+                if (block == null) {
+                    item = Item.AIR;
+                } else {
+                    item.setBlockUnsafe(block.toBlock());
+                    Item updateDamage = block.toBlock().toItem();
+                    if (updateDamage.getDamage() != 0) {
+                        item.setDamage(updateDamage.getDamage());
+                    }
+                }
+            } else {
+                INTERNAL_DIFF_ITEM.put(index, item.clone());
+                item.setBlockUnsafe(null);
+            }
+
+            ITEM_DATA.add(new CreativeItemData(item, groupId));
+            MAP.put(index, item);
+        }
     }
 }

@@ -18,13 +18,17 @@ import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
@@ -66,12 +70,6 @@ public class EntityBreeze extends EntityMob {
     }
 
     @Override
-    protected void initEntity() {
-        this.setMaxHealth(30);
-        super.initEntity();
-    }
-
-    @Override
     public float getHeight() {
         return 1.77F;
     }
@@ -82,8 +80,27 @@ public class EntityBreeze extends EntityMob {
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.BREEZE_ROD, 0, Utils.rand(1, 2))};
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(30);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.4f);
+    }
+
+    @Override
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+
+        int min = 1 + looting;
+        int max = 2 + (looting * 2);
+
+        int amount = Utils.rand(min, max);
+
+        return new Item[]{
+                Item.get(Item.BREEZE_ROD, 0, amount)
+        };
     }
 
     @Override

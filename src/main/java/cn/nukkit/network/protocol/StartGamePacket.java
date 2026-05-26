@@ -6,19 +6,20 @@ import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.network.protocol.types.ExperimentEntry;
-import cn.nukkit.registry.Registries;
+import cn.nukkit.network.protocol.types.gathering.*;
+import cn.nukkit.network.protocol.types.telemetry.ServerTelemetryData;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
- * @since 15-10-13
+ * @since 15/10/2013
  */
 @Slf4j
 @Getter
@@ -86,6 +87,7 @@ public class StartGamePacket extends DataPacket {
     public boolean isTrial = false;
     public boolean isMovementServerAuthoritative;
     public Integer serverAuthoritativeMovement;
+    public Integer rewindHistorySize = 0;
     public boolean isInventoryServerAuthoritative;
     public long currentTick;
     public int enchantmentSeed;
@@ -97,7 +99,7 @@ public class StartGamePacket extends DataPacket {
     /**
      * @since v567
      */
-    public boolean emoteChatMuted;
+    public boolean muteEmoteAnnouncements;
     /**
      * Whether block runtime IDs should be replaced by 32-bit integer hashes of the NBT block state.
      * Unlike runtime IDs, this hashes should be persistent across versions and should make support for data-driven/custom blocks easier.
@@ -119,29 +121,15 @@ public class StartGamePacket extends DataPacket {
      * @since v589
      */
     public boolean isSoundsServerAuthoritative;
-    /**
-     * @since v685
-     */
-    private String serverId = "";
-    /**
-     * @since v685
-     */
-    private String worldId = "";
-    /**
-     * @since v685
-     */
-    private String scenarioId = "";
-    /**
-     * @since v818
-     */
-    private String ownerIdentifier = "";
     private List<ExperimentEntry> experiments = new ArrayList<>();
-
     /**
-     * @since v827
+     * @since v924
      */
-
-    private boolean tickDeathSystemsEnabled = false;
+    private ServerJoinInfo serverJoinInfo;
+    /**
+     * @since v924
+     */
+    private ServerTelemetryData serverTelemetryData = new ServerTelemetryData();
 
     @Override
     public void decode(HandleByteBuf byteBuf) {
@@ -161,10 +149,10 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeString(this.worldName);
         byteBuf.writeString(this.premiumWorldTemplateId);
         byteBuf.writeBoolean(this.isTrial);
-        byteBuf.writeVarInt(0); // RewindHistorySize
+        byteBuf.writeVarInt(this.rewindHistorySize);
         if (this.serverAuthoritativeMovement != null) {
             byteBuf.writeBoolean(this.serverAuthoritativeMovement > 0); // isServerAuthoritativeBlockBreaking
-        } else {//兼容nkx旧插件
+        } else { // Older PowerNukkitX plugin compatibility
             byteBuf.writeBoolean(this.isMovementServerAuthoritative); // isServerAuthoritativeBlockBreaking
         }
         byteBuf.writeLongLE(this.currentTick);
@@ -187,14 +175,20 @@ public class StartGamePacket extends DataPacket {
         try {
             byteBuf.writeBytes(NBTIO.writeNetwork(playerPropertyData)); // playerPropertyData
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
         byteBuf.writeLongLE(0); // blockRegistryChecksum
         byteBuf.writeUUID(new UUID(0, 0)); // worldTemplateId
         byteBuf.writeBoolean(this.clientSideGenerationEnabled);
         byteBuf.writeBoolean(this.blockNetworkIdsHashed); // blockIdsAreHashed
-        byteBuf.writeBoolean(this.tickDeathSystemsEnabled);
         byteBuf.writeBoolean(this.isSoundsServerAuthoritative); // serverAuthSounds
+        byteBuf.writeNotNull(this.serverJoinInfo, info -> writeServerJoinInfo(byteBuf, info)); // serverJoinInformation
+
+        // Server telemetry data
+        byteBuf.writeString(this.serverTelemetryData.getServerId()); // serverId
+        byteBuf.writeString(this.serverTelemetryData.getScenarioId()); // scenarioId
+        byteBuf.writeString(this.serverTelemetryData.getWorldId()); // worldId
+        byteBuf.writeString(this.serverTelemetryData.getOwnerId()); // ownerId
     }
 
     private void writeLevelSettings(HandleByteBuf byteBuf) {
@@ -244,7 +238,7 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeBoolean(this.isOnlySpawningV1Villagers);
         byteBuf.writeBoolean(this.isDisablingPersonas);
         byteBuf.writeBoolean(this.isDisablingCustomSkins);
-        byteBuf.writeBoolean(this.emoteChatMuted);
+        byteBuf.writeBoolean(this.muteEmoteAnnouncements);
         byteBuf.writeString("*"); // vanillaVersion
         byteBuf.writeIntLE(16); // Limited world width
         byteBuf.writeIntLE(16); // Limited world height
@@ -254,11 +248,34 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeBoolean(false); // force Experimental Gameplay (exclusive to debug clients)
         byteBuf.writeByte(this.chatRestrictionLevel);
         byteBuf.writeBoolean(this.disablePlayerInteractions);
-        byteBuf.writeString(serverId);
-        byteBuf.writeString(worldId);
-        byteBuf.writeString(scenarioId);
-        byteBuf.writeString(ownerIdentifier);
         /* Level settings end */
+    }
+
+    private void writeServerJoinInfo(HandleByteBuf byteBuf, ServerJoinInfo joinInfo) {
+        byteBuf.writeNotNull(joinInfo.getGatheringJoinInfo(), info -> writeGatheringJoinInfo(byteBuf, info));
+        byteBuf.writeNotNull(joinInfo.getStoreEntryPointInfo(), info -> writeStoreEntryPointInfo(byteBuf, info));
+        byteBuf.writeNotNull(joinInfo.getPresenceInfo(), info -> writePresenceInfo(byteBuf, info));
+    }
+
+    private void writeGatheringJoinInfo(HandleByteBuf byteBuf, GatheringJoinInfo info) {
+        byteBuf.writeUUID(info.getExperienceID());
+        byteBuf.writeString(info.getExperienceName());
+        byteBuf.writeUUID(info.getExperienceWorldID());
+        byteBuf.writeString(info.getExperienceWorldName());
+        byteBuf.writeString(info.getCreatorID());
+        byteBuf.writeUUID(info.getUnk());
+        byteBuf.writeUUID(info.getUnk1());
+        byteBuf.writeString(info.getServerID());
+    }
+
+    private void writeStoreEntryPointInfo(HandleByteBuf byteBuf, StoreEntryPointInfo info) {
+        byteBuf.writeString(info.getStoreID());
+        byteBuf.writeString(info.getStoreName());
+    }
+
+    private void writePresenceInfo(HandleByteBuf byteBuf, PresenceInfo info) {
+        byteBuf.writeString(info.getExperienceName());
+        byteBuf.writeString(info.getWorldName());
     }
 
     @Override
@@ -266,6 +283,7 @@ public class StartGamePacket extends DataPacket {
         return ProtocolInfo.START_GAME_PACKET;
     }
 
+    @Override
     public void handle(PacketHandler handler) {
         handler.handle(this);
     }

@@ -4,6 +4,7 @@ import cn.nukkit.Player;
 import cn.nukkit.block.Block;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityLiving;
+import cn.nukkit.entity.components.NameableComponent;
 import cn.nukkit.entity.item.EntityBoat;
 import cn.nukkit.entity.item.EntityEnderCrystal;
 import cn.nukkit.entity.item.EntityMinecartAbstract;
@@ -22,10 +23,13 @@ import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.nbt.tag.ListTag;
 
 import javax.annotation.Nullable;
-import java.util.Optional;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -46,6 +50,8 @@ public abstract class EntityProjectile extends Entity {
      * the initialization of the child classes.
      */
     private boolean noAge;
+
+    protected Enchantment[] enchantments;
 
     public EntityProjectile(IChunk chunk, CompoundTag nbt) {
         this(chunk, nbt, null);
@@ -75,6 +81,19 @@ public abstract class EntityProjectile extends Entity {
         return NukkitMath.ceilDouble(Math.sqrt(this.motionX * this.motionX + this.motionY * this.motionY + this.motionZ * this.motionZ) * getDamage());
     }
 
+    public Enchantment[] getEnchantments() {
+        return enchantments;
+    }
+
+    public void setEnchantments(Enchantment[] enchantments) {
+        this.enchantments = enchantments;
+    }
+
+    @Override
+    public NameableComponent getComponentNameable() {
+        return DEFAULT_NOT_NAMEABLE;
+    }
+
     @Override
     public boolean attack(EntityDamageEvent source) {
         return source.getCause() == DamageCause.VOID && super.attack(source);
@@ -92,11 +111,16 @@ public abstract class EntityProjectile extends Entity {
 
         float damage = this.getResultDamage(entity);
 
+        Map<EntityDamageEvent.DamageModifier, Float> damageMap = new EnumMap<>(EntityDamageEvent.DamageModifier.class);
+        damageMap.put(EntityDamageEvent.DamageModifier.BASE, damage);
+
+        float knockBack = 0.3f;
+
         EntityDamageEvent ev;
         if (this.shootingEntity == null) {
-            ev = new EntityDamageByEntityEvent(this, entity, DamageCause.PROJECTILE, damage);
+            ev = new EntityDamageByEntityEvent(this, entity, DamageCause.PROJECTILE, damageMap, knockBack, enchantments);
         } else {
-            ev = new EntityDamageByChildEntityEvent(this.shootingEntity, this, entity, DamageCause.PROJECTILE, damage);
+            ev = new EntityDamageByChildEntityEvent(this.shootingEntity, this, entity, DamageCause.PROJECTILE, damageMap, knockBack, enchantments);
         }
         if (entity.attack(ev)) {
             addHitEffect();
@@ -125,10 +149,19 @@ public abstract class EntityProjectile extends Entity {
         this.closeOnCollide = true;
         super.initEntity();
 
-        this.setMaxHealth(1);
-        this.setHealth(1);
+        this.setHealthMax(1);
+        this.setHealthCurrent(1);
         if (this.namedTag.contains("Age") && !this.noAge) {
             this.age = this.namedTag.getShort("Age");
+        }
+
+        if (this.namedTag.contains("ench")) {
+            ListTag<CompoundTag> enchs = this.namedTag.getList("ench", CompoundTag.class);
+            this.enchantments = new Enchantment[enchs.size()];
+            for (int i = 0; i < enchs.size(); i++) {
+                CompoundTag entry = enchs.get(i);
+                this.enchantments[i] = Enchantment.getEnchantment(entry.getShort("id")).setLevel(entry.getShort("lvl"));
+            }
         }
     }
 
@@ -142,6 +175,17 @@ public abstract class EntityProjectile extends Entity {
         super.saveNBT();
         if (!this.noAge) {
             this.namedTag.putShort("Age", this.age);
+        }
+
+        if (this.enchantments != null && this.enchantments.length > 0) {
+            ListTag<CompoundTag> enchs = new ListTag<>();
+            for (Enchantment enchantment : this.enchantments) {
+                enchs.add(new CompoundTag()
+                        .putShort("id", enchantment.getId())
+                        .putShort("lvl", (short) enchantment.getLevel())
+                );
+            }
+            this.namedTag.putList("ench", enchs);
         }
     }
 
@@ -158,11 +202,16 @@ public abstract class EntityProjectile extends Entity {
      * @return the boolean
      */
     protected boolean collideEntityFilter(Entity entity) {
-        if ((entity == this.shootingEntity && this.ticksLived < 5) ||
-                (entity instanceof Player player && player.getGamemode() == Player.SPECTATOR)
-                || (this.shootingEntity instanceof Player && Optional.ofNullable(this.shootingEntity.riding).map(e -> e.equals(entity)).orElse(false))) {
-            return false;
-        } else return true;
+        if (entity == this.shootingEntity && this.ticksLived < 5) return false;
+        if (entity instanceof Player player && player.getGamemode() == Player.SPECTATOR) return false;
+
+        if (this.shootingEntity != null) {
+            Entity shooterVehicle = this.shootingEntity.riding;
+            if (shooterVehicle != null && shooterVehicle == entity) return false;
+            if (shooterVehicle != null && entity.riding == shooterVehicle) return false;
+        }
+
+        return true;
     }
 
     @Override
@@ -247,15 +296,19 @@ public abstract class EntityProjectile extends Entity {
                 this.hadCollision = false;
             }
 
-            if (!this.hadCollision || Math.abs(this.motionX) > 0.00001 || Math.abs(this.motionY) > 0.00001 || Math.abs(this.motionZ) > 0.00001) {
-                updateRotation();
-                hasUpdate = true;
-            }
-
+            hasUpdate = this.checkCollisionAndUpdateRotation();
             this.updateMovement();
         }
 
         return hasUpdate;
+    }
+
+    protected boolean checkCollisionAndUpdateRotation() {
+        if (!this.hadCollision || Math.abs(this.motionX) > 0.00001 || Math.abs(this.motionY) > 0.00001 || Math.abs(this.motionZ) > 0.00001) {
+            updateRotation();
+            return true;
+        }
+        return false;
     }
 
     public void updateRotation() {

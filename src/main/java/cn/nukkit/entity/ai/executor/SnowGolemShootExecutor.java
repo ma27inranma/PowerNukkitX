@@ -66,7 +66,7 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
 
         if (!target.isAlive()) return false;
         else if (target instanceof Player player) {
-            if (player.isCreative() || player.isSpectator() || !player.isOnline() || !entity.level.getName().equals(player.level.getName())) {
+            if (player.isIgnoredByEntities() || !entity.level.getName().equals(player.level.getName())) {
                 return false;
             }
         }
@@ -95,7 +95,7 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
             if (tick2 > fireTick) {
                 shootSnowball(entity);
                 tick2 = 0;
-                return target.getHealth() != 0;
+                return target.getHealthCurrent() != 0;
             }
         }
         return true;
@@ -105,7 +105,7 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
     public void onStop(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
@@ -117,7 +117,7 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
     public void onInterrupt(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
@@ -127,14 +127,14 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
 
     protected void shootSnowball(EntityLiving entity) {
 
-        Location fireballLocation = entity.getLocation();
-        Vector3 directionVector = entity.getDirectionVector().multiply(1 + ThreadLocalRandom.current().nextFloat(0.2f));
-        fireballLocation.setY(entity.y + entity.getEyeHeight() + directionVector.getY());
+        Location snowballLocation = entity.getLocation();
+        Vector3 directionVector = entity.getDirectionVector().multiply(1 + ThreadLocalRandom.current().nextFloat(0.2f)).normalize();
+        snowballLocation.setY(entity.y + entity.getEyeHeight() + directionVector.getY() + 1.0f);
         CompoundTag nbt = new CompoundTag()
                 .putList("Pos", new ListTag<DoubleTag>()
-                        .add(new DoubleTag(fireballLocation.x))
-                        .add(new DoubleTag(fireballLocation.y))
-                        .add(new DoubleTag(fireballLocation.z)))
+                        .add(new DoubleTag(snowballLocation.x))
+                        .add(new DoubleTag(snowballLocation.y))
+                        .add(new DoubleTag(snowballLocation.z)))
                 .putList("Motion", new ListTag<DoubleTag>()
                         .add(new DoubleTag(-Math.sin(entity.headYaw / 180 * Math.PI) * Math.cos(entity.pitch / 180 * Math.PI)))
                         .add(new DoubleTag(-Math.sin(entity.pitch / 180 * Math.PI)))
@@ -143,16 +143,10 @@ public class SnowGolemShootExecutor implements EntityControl, IBehaviorExecutor 
                         .add(new FloatTag((entity.headYaw > 180 ? 360 : 0) - (float) entity.headYaw))
                         .add(new FloatTag((float) -entity.pitch)));
 
-        Entity projectile = Entity.createEntity(EntityID.SNOWBALL, entity.level.getChunk(entity.getChunkX(), entity.getChunkZ()), nbt);
+        EntitySnowball projectile = new EntitySnowball(entity.level.getChunk(entity.getChunkX(), entity.getChunkZ()), nbt);
 
-        if (projectile == null) {
-            return;
-        }
-        if(projectile instanceof EntitySnowball fireball) {
-            fireball.shootingEntity = entity;
-        }
-
-        ProjectileLaunchEvent projectev = new ProjectileLaunchEvent((EntityProjectile) projectile, entity);
+        projectile.shootingEntity = entity;
+        ProjectileLaunchEvent projectev = new ProjectileLaunchEvent(projectile, entity);
         Server.getInstance().getPluginManager().callEvent(projectev);
         if (projectev.isCancelled()) {
             projectile.kill();

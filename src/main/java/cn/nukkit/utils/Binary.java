@@ -21,30 +21,70 @@ import java.util.UUID;
 import java.util.function.Function;
 
 /**
- * @author MagicDroidX (Nukkit Project)
+ * Utility class for binary data manipulation and conversion.
+ * <p>
+ * Provides static methods for reading and writing primitive types, arrays, UUIDs, and more
+ * in various byte orders and formats. Used extensively for network and file IO.
+ *
+ * All methods are static and stateless.
  */
 public class Binary {
-
+    /**
+     * Converts a value to a signed byte.
+     *
+     * @param value The value to convert
+     * @return The signed byte value
+     */
     public static int signByte(int value) {
         return value << 56 >> 56;
     }
 
+    /**
+     * Converts a value to an unsigned byte.
+     *
+     * @param value The value to convert
+     * @return The unsigned byte value
+     */
     public static int unsignByte(int value) {
         return value & 0xff;
     }
 
+    /**
+     * Converts a value to a signed short.
+     *
+     * @param value The value to convert
+     * @return The signed short value
+     */
     public static int signShort(int value) {
         return value << 48 >> 48;
     }
 
+    /**
+     * Converts a value to an unsigned short.
+     *
+     * @param value The value to convert
+     * @return The unsigned short value
+     */
     public int unsignShort(int value) {
         return value & 0xffff;
     }
 
+    /**
+     * Converts a value to a signed int.
+     *
+     * @param value The value to convert
+     * @return The signed int value
+     */
     public static int signInt(int value) {
         return value << 32 >> 32;
     }
 
+    /**
+     * Returns the value as an unsigned int (no conversion).
+     *
+     * @param value The value
+     * @return The value itself
+     */
     public static int unsignInt(int value) {
         return value;
     }
@@ -104,69 +144,71 @@ public class Binary {
 
     public static byte[] writeEntityData(EntityDataMap entityDataMap) {
         BinaryStream stream = new BinaryStream();
-        stream.putUnsignedVarInt(entityDataMap.size());//size
-        for (var e : entityDataMap.entrySet()) {
-            EntityDataType<?> key = e.getKey();
-            Object data = e.getValue();
-            stream.putUnsignedVarInt(key.getValue());
-            Function<Object, Object> transformer = key.getTransformer();
-            Object applyData = transformer.apply(data);
+        synchronized (entityDataMap) {
+            stream.putUnsignedVarInt(entityDataMap.size());//size
+            for (var e : entityDataMap.entrySet()) {
+                EntityDataType<?> key = e.getKey();
+                Object data = e.getValue();
+                stream.putUnsignedVarInt(key.getValue());
+                Function<Object, Object> transformer = key.getTransformer();
+                Object applyData = transformer.apply(data);
 
-            EntityDataFormat format = EntityDataFormat.from(applyData.getClass());
-            stream.putUnsignedVarInt(format.ordinal());
+                EntityDataFormat format = EntityDataFormat.from(applyData.getClass());
+                stream.putUnsignedVarInt(format.ordinal());
 
-            switch (format) {
-                case BYTE:
-                    stream.putByte((byte) applyData);
-                    break;
-                case SHORT:
-                    stream.putLShort((short) applyData);
-                    break;
-                case INT:
-                    stream.putVarInt((int) applyData);
-                    break;
-                case FLOAT:
-                    stream.putLFloat((float) applyData);
-                    break;
-                case STRING:
-                    String s = (String) applyData;
-                    stream.putUnsignedVarInt(s.getBytes(StandardCharsets.UTF_8).length);
-                    stream.put(s.getBytes(StandardCharsets.UTF_8));
-                    break;
-                case NBT:
-                    try {
-                        stream.put(NBTIO.write((CompoundTag) applyData, ByteOrder.LITTLE_ENDIAN, true));
-                    } catch (IOException ee) {
-                        throw new UncheckedIOException(ee);
-                    }
-                    break;
-                case VECTOR3I:
-                    BlockVector3 pos = (BlockVector3) applyData;
-                    stream.putVarInt(pos.x);
-                    stream.putVarInt(pos.y);
-                    stream.putVarInt(pos.z);
-                    break;
-                case LONG:
-                    stream.putVarLong((Long) applyData);
-                    break;
-                case VECTOR3F:
-                    float x, y, z;
-                    if (applyData instanceof Vector3 vector3) {
-                        x = (float) vector3.x;
-                        y = (float) vector3.y;
-                        z = (float) vector3.z;
-                    } else {
-                        Vector3f v3data = (Vector3f) applyData;
-                        x = v3data.x;
-                        y = v3data.y;
-                        z = v3data.z;
-                    }
-                    stream.putLFloat(x);
-                    stream.putLFloat(y);
-                    stream.putLFloat(z);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown entity data type " + format);
+                switch (format) {
+                    case BYTE:
+                        stream.putByte((byte) applyData);
+                        break;
+                    case SHORT:
+                        stream.putLShort((short) applyData);
+                        break;
+                    case INT:
+                        stream.putVarInt((int) applyData);
+                        break;
+                    case FLOAT:
+                        stream.putLFloat((float) applyData);
+                        break;
+                    case STRING:
+                        String s = (String) applyData;
+                        stream.putUnsignedVarInt(s.getBytes(StandardCharsets.UTF_8).length);
+                        stream.put(s.getBytes(StandardCharsets.UTF_8));
+                        break;
+                    case NBT:
+                        try {
+                            stream.put(NBTIO.write((CompoundTag) applyData, ByteOrder.LITTLE_ENDIAN, true));
+                        } catch (IOException ee) {
+                            throw new UncheckedIOException(ee);
+                        }
+                        break;
+                    case VECTOR3I:
+                        BlockVector3 pos = (BlockVector3) applyData;
+                        stream.putVarInt(pos.x);
+                        stream.putVarInt(pos.y);
+                        stream.putVarInt(pos.z);
+                        break;
+                    case LONG:
+                        stream.putVarLong((Long) applyData);
+                        break;
+                    case VECTOR3F:
+                        float x, y, z;
+                        if (applyData instanceof Vector3 vector3) {
+                            x = (float) vector3.x;
+                            y = (float) vector3.y;
+                            z = (float) vector3.z;
+                        } else {
+                            Vector3f v3data = (Vector3f) applyData;
+                            x = v3data.x;
+                            y = v3data.y;
+                            z = v3data.z;
+                        }
+                        stream.putLFloat(x);
+                        stream.putLFloat(y);
+                        stream.putLFloat(z);
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unknown entity data type " + format);
+                }
             }
         }
         return stream.getBuffer();
@@ -375,12 +417,12 @@ public class Binary {
 
     public static String bytesToHexString(byte[] src, boolean blank) {
         StringBuilder stringBuilder = new StringBuilder();
-        if (src == null || src.length <= 0) {
+        if (src == null || src.length == 0) {
             return null;
         }
 
         for (byte b : src) {
-            if (!(stringBuilder.length() == 0) && blank) {
+            if (!stringBuilder.isEmpty() && blank) {
                 stringBuilder.append(" ");
             }
             int v = b & 0xFF;
@@ -394,7 +436,7 @@ public class Binary {
     }
 
     public static byte[] hexStringToBytes(String hexString) {
-        if (hexString == null || hexString.equals("")) {
+        if (hexString == null || hexString.isEmpty()) {
             return null;
         }
         String str = "0123456789ABCDEF";
@@ -478,5 +520,4 @@ public class Binary {
         }
         return appendedBytes;
     }
-
 }

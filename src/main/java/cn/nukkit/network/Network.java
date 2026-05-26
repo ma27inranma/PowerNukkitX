@@ -6,14 +6,19 @@ import cn.nukkit.network.connection.BedrockPeer;
 import cn.nukkit.network.connection.BedrockPong;
 import cn.nukkit.network.connection.BedrockSession;
 import cn.nukkit.network.connection.netty.initializer.BedrockServerInitializer;
+import cn.nukkit.event.server.ServerBotnetAttackEvent;
+import cn.nukkit.network.process.NetworkState;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.query.codec.QueryPacketCodec;
 import cn.nukkit.network.query.handler.QueryPacketHandler;
+import cn.nukkit.network.security.BotnetDetector;
 import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.utils.Utils;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
@@ -25,10 +30,13 @@ import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.RakServerChannel;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+import org.cloudburstmc.netty.channel.raknet.config.RakServerCookieMode;
 import org.jetbrains.annotations.Nullable;
 import oshi.SystemInfo;
 import oshi.hardware.NetworkIF;
@@ -37,7 +45,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -50,14 +57,18 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author MagicDroidX (Nukkit Project)
  */
 @Slf4j
-public class Network {
+public class Network implements NetworkInterface {
     private final Server server;
     private final LinkedList<NetWorkStatisticData> netWorkStatisticDataList = new LinkedList<>();
     private final AtomicReference<List<NetworkIF>> hardWareNetworkInterfaces = new AtomicReference<>(null);
     private final Map<InetSocketAddress, BedrockSession> sessionMap = new ConcurrentHashMap<>();
-    private final Map<InetAddress, LocalDateTime> blockIpMap = new HashMap<>();
+    private final Map<InetAddress, LocalDateTime> blockIpMap = new ConcurrentHashMap<>();
     private final RakServerChannel channel;
+    @Getter(onMethod_ = {@Override})
+    private final BotnetDetector botnetDetector;
     private BedrockPong pong;
+    @Getter @Setter
+    private NetworkState state = NetworkState.STARTING;
 
     public Network(Server server) {
         this(server, Runtime.getRuntime().availableProcessors(), new ThreadFactoryBuilder().setNameFormat("Netty Server IO #%d").build());
@@ -65,6 +76,10 @@ public class Network {
 
     public Network(Server server, int nettyThreadNumber, ThreadFactory threadFactory) {
         this.server = server;
+        var bns = server.getSettings().networkSettings().botnetSettings();
+        this.botnetDetector = bns.detectionEnabled()
+                ? new BotnetDetector(bns.suspiciousThreshold(), bns.minSuspiciousIps(), bns.minScore())
+                : null;
         server.getScheduler().scheduleTask(InternalPlugin.INSTANCE, () -> {
             List<NetworkIF> tmpIfs = null;
             try {
@@ -104,9 +119,10 @@ public class Network {
 
         this.channel = (RakServerChannel) new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(oclass))
-                .option(RakChannelOption.RAK_ADVERTISEMENT, pong.toByteBuf())
+                .option(RakChannelOption.RAK_ADVERTISEMENT, getAdvertisement())
+                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[] {11})
                 .option(RakChannelOption.RAK_PACKET_LIMIT, server.getSettings().networkSettings().packetLimit())
-                .option(RakChannelOption.RAK_SEND_COOKIE, true)
+                .option(RakChannelOption.RAK_SERVER_COOKIE_MODE, RakServerCookieMode.ACTIVE)
                 .group(eventloopgroup)
                 .childHandler(new BedrockServerInitializer() {
                     @Override
@@ -126,6 +142,11 @@ public class Network {
                     public BedrockSession createSession0(BedrockPeer peer, int subClientId) {
                         BedrockSession session = new BedrockSession(peer, subClientId);
                         InetSocketAddress address = (InetSocketAddress) session.getSocketAddress();
+
+                        if (Network.this.getState() == NetworkState.STARTING ||  Network.this.getState() == NetworkState.STOPPING) {
+                            return session;
+                        }
+
                         if (isAddressBlocked(address)) {
                             session.close("Your IP address has been blocked by this server!");
                             onSessionDisconnect(address);
@@ -155,10 +176,12 @@ public class Network {
     }
 
     public double getUpload() {
+        if (netWorkStatisticDataList.size() < 2) return 0;
         return netWorkStatisticDataList.get(1).upload - netWorkStatisticDataList.get(0).upload;
     }
 
     public double getDownload() {
+        if (netWorkStatisticDataList.size() < 2) return 0;
         return netWorkStatisticDataList.get(1).download - netWorkStatisticDataList.get(0).download;
     }
 
@@ -271,19 +294,34 @@ public class Network {
      * whether the address is blocked
      */
     public boolean isAddressBlocked(InetSocketAddress address) {
-        InetAddress a = address.getAddress();
-        if (this.blockIpMap.containsKey(a)) {
-            LocalDateTime localDateTime = this.blockIpMap.get(a);
-            return LocalDateTime.now().isBefore(localDateTime);
-        }
-        return false;
+        LocalDateTime until = this.blockIpMap.get(address.getAddress());
+        return until != null && LocalDateTime.now().isBefore(until);
     }
 
     /**
      * A function of tick for network session
      */
     public void process() {
-        this.sessionMap.values().stream().filter(session -> session.isConnected() && session.getPlayer() == null).forEach(BedrockSession::tick);
+        if (botnetDetector != null) {
+            var bns = server.getSettings().networkSettings().botnetSettings();
+            botnetDetector.tick().ifPresent(report -> {
+                ServerBotnetAttackEvent event = new ServerBotnetAttackEvent(
+                        report, bns.autoBlock(), bns.autoBlockDurationSeconds());
+                server.getPluginManager().callEvent(event);
+                if (event.isAutoBlock()) {
+                    int durationMs = event.getBlockDurationSeconds() * 1000;
+                    for (var ip : event.getSuspiciousAddresses()) {
+                        blockAddress(ip, durationMs);
+                    }
+                }
+            });
+        }
+
+        for (BedrockSession session : this.sessionMap.values()) {
+            if (session.isConnected() && session.getPlayer() == null) {
+                session.tick();
+            }
+        }
     }
 
     /**
@@ -298,5 +336,16 @@ public class Network {
      */
     public BedrockPong getPong() {
         return pong;
+    }
+
+    /**
+     * Retrieves RakNet advertisement.
+     * @return Byte buffer
+     */
+    private ByteBuf getAdvertisement() {
+        if (state == NetworkState.STARTING || state == NetworkState.STOPPING) {
+            return Unpooled.EMPTY_BUFFER;
+        }
+        return pong.toByteBuf();
     }
 }

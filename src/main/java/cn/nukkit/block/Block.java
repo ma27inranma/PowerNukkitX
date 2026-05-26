@@ -58,7 +58,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         if (player == null) {
             return true;
         }
-        Item itemInHand = player.getInventory().getItemInHand();
+        Item itemInHand = player.getInventory().getItemInMainHand();
         return (player.isSneaking() || player.isFlySneaking()) && !(itemInHand.isTool() || itemInHand.isNull());
     }
 
@@ -249,6 +249,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
      * @return The update type to continue ticking, or 0 to stop future ticks.
      */
     public int onUpdate(int type) {
+        if (isTickingDisabled()) return 0;
         if (type != Level.BLOCK_UPDATE_SCHEDULED) return 0;
 
         CustomBlockDefinition def = getCustomDefinition();
@@ -411,7 +412,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
 
     /**
-     * Check if above space is greatner than 0.5 for chests
+     * Check if the above space is greater than 0.5 for chests
      *
      * @return Can chest be opened with the above space?
      */
@@ -483,7 +484,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
             }
         }
 
-    return isSideFull(side);
+        return isSideFull(side);
     }
 
     // https://minecraft.wiki/w/Opacity#Lighting
@@ -515,11 +516,34 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         if (getWaterloggingLevel() == 0) return false;
 
         Block fluid = this.getLevelBlockAtLayer(1);
-        return fluid instanceof BlockWater && !fluid.isAir();
+        if (fluid == null || fluid.isAir()) return false;
+
+        return fluid instanceof BlockFlowingWater;
     }
 
     public final boolean canWaterloggingFlowInto() {
         return canBeFlowedInto() || getWaterloggingLevel() > 1;
+    }
+
+    /**
+     * Returns the level of snowlogging for this block.
+     * 0 means the block cannot be snowlogged.
+     */
+    public int getSnowloggingLevel() {
+        return 0;
+    }
+
+    /**
+     * Checks if this block is snowlogged.
+     * Returns {@code true} if this block supports snowlogging and has a snow layer on layer 0.
+     */
+    public boolean isSnowLogged() {
+        if (getSnowloggingLevel() == 0) return false;
+
+        Block snow = this.getLevelBlockAtLayer(0);
+        if (snow == null || snow.isAir()) return false;
+
+        return snow instanceof BlockSnowLayer;
     }
 
     /**
@@ -604,8 +628,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     public boolean canHarvest(Item item) {
-        return (getToolTier() == 0 || getToolType() == 0) ||
-                (correctTool0(getToolType(), item, this) && item.getTier() >= getToolTier());
+        return (getToolTier() == 0 || getToolType() == 0) || (correctTool0(getToolType(), item, this) && item.getTier() >= getToolTier());
     }
 
     /**
@@ -634,8 +657,8 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
         color = VANILLA_BLOCK_COLOR_MAP.get(this.blockstate.blockStateHash());
         if (color == null) {
-            log.error("Failed to get color of block " + getName());
-            log.error("Current block state hash: " + this.blockstate.blockStateHash());
+            log.error("Failed to get color of block {}", getName());
+            log.error("Current block state hash: {}", this.blockstate.blockStateHash());
             color = BlockColor.VOID_BLOCK_COLOR;
         }
         color.applyTint(level.getBiomeId(getFloorX(), getFloorY(), getFloorZ()));
@@ -714,7 +737,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     public boolean isAir() {
-        return this.blockstate == BlockAir.PROPERTIES.getDefaultState();
+        return this.blockstate == BlockAir.STATE;
     }
 
     public BlockState getBlockState() {
@@ -980,17 +1003,35 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
                     .map(Effect::getAmplifier).orElse(0);
         }
 
-        if (correctTool0(getToolType(), item, this)) {
+        CompoundTag digger = item.getCustomItemComponent("minecraft:digger");
+        boolean hasCustomDigger = digger != null;
+        boolean correctTool = correctTool0(getToolType(), item, this);
+
+        Integer customDiggerSpeed = item.getDiggerSpeed(this);
+        int efficiencyLevel = Optional.ofNullable(item.getEnchantment(Enchantment.ID_EFFICIENCY))
+                .map(Enchantment::getLevel).orElse(0);
+
+        boolean allowEfficiency = false;
+
+        if (customDiggerSpeed != null) {
+            speedMultiplier = customDiggerSpeed;
+            allowEfficiency = digger.getBoolean("use_efficiency");
+        } else if (correctTool) {
             speedMultiplier = toolBreakTimeBonus0(item);
+            allowEfficiency = true;
+        } else if (hasCustomDigger) {
+            speedMultiplier = 1;
+            allowEfficiency = false;
+        }
 
-            int efficiencyLevel = Optional.ofNullable(item.getEnchantment(Enchantment.ID_EFFICIENCY))
-                    .map(Enchantment::getLevel).orElse(0);
-
-            if (canHarvest && efficiencyLevel > 0) {
+        if ((customDiggerSpeed != null || correctTool || hasCustomDigger) && canHarvest) {
+            if (allowEfficiency && efficiencyLevel > 0) {
                 speedMultiplier += efficiencyLevel * efficiencyLevel + 1;
             }
 
-            if (hasConduitPower) hasteEffectLevel = Integer.max(hasteEffectLevel, 2);
+            if (hasConduitPower) {
+                hasteEffectLevel = Integer.max(hasteEffectLevel, 2);
+            }
 
             if (hasteEffectLevel > 0) {
                 speedMultiplier *= 1 + (0.2 * hasteEffectLevel);
@@ -1626,7 +1667,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
             if(player == null) return true;
 
             if(player.isAdventure()) {
-                Item itemInHand = player.getInventory().getItemInHand();
+                Item itemInHand = player.getInventory().getItemInMainHand();
                 if(itemInHand.isNull()) return false;
 
                 Tag tag = itemInHand.getNamedTagEntry("CanDestroy");
@@ -1720,7 +1761,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
             clonedBlock.position(pos);
             CompoundTag tag = holder.getBlockEntity().getCleanedNBT();
             //方块实体要求direct=true
-            return BlockEntityHolder.setBlockAndCreateEntity((BlockEntityHolder<?>) clonedBlock, true, update, tag) != null;
+            return BlockEntityHolder.setBlockAndCreateEntity((BlockEntityHolder<?>) clonedBlock, false, update, tag) != null;
         } else {
             return pos.level.setBlock(pos, this.layer, this.clone(), true, update);
         }
@@ -1734,8 +1775,44 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         return null;
     }
 
+    public static boolean isTickingDisabled(Level level, String id) {
+        if (level == null) return false;
+
+        List<String> disabledList = level.getServer().getSettings().chunkSettings().disableBlockTicking();
+        if (disabledList == null || disabledList.isEmpty()) return false;
+
+        String normalizedId = id.toLowerCase();
+        if (normalizedId.startsWith("minecraft:")) {
+            normalizedId = normalizedId.substring(10);
+        }
+        if (normalizedId.startsWith("flowing_")) {
+            normalizedId = normalizedId.substring(8);
+        }
+
+        for (String disabledId : disabledList) {
+            String normalizedDisabled = disabledId.toLowerCase();
+
+            if (normalizedDisabled.startsWith("minecraft:")) {
+                normalizedDisabled = normalizedDisabled.substring(10);
+            }
+            if (normalizedDisabled.startsWith("flowing_")) {
+                normalizedDisabled = normalizedDisabled.substring(8);
+            }
+
+            if (normalizedId.equals(normalizedDisabled)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isTickingDisabled() {
+        return isTickingDisabled(this.getLevel(), getId());
+    }
+
     @Override
     public int hashCode() {
-        return ((int) x ^ ((int) z << 12)) ^ ((int) (y + 64) << 23);
+        return ((int) x ^ ((int) z << 12)) ^ ((int) (y + 64) << 23) ^ (layer << 31);
     }
 }

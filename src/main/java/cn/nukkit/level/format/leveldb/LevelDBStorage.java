@@ -3,21 +3,32 @@ package cn.nukkit.level.format.leveldb;
 import cn.nukkit.level.format.Chunk;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.level.format.LevelProvider;
+import org.apache.logging.log4j.util.InternalApi;
 import org.iq80.leveldb.CompressionType;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
 import org.iq80.leveldb.WriteBatch;
 import org.iq80.leveldb.WriteOptions;
 import org.iq80.leveldb.impl.Iq80DBFactory;
+import cn.nukkit.level.util.LevelDBKeyUtil;
+import cn.nukkit.nbt.NBTIO;
+import cn.nukkit.nbt.tag.CompoundTag;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.ByteOrder;
 import java.nio.file.Path;
 
 public final class LevelDBStorage {
     private final DB db;
     private final String path;
     private int dimSum;
+
+    public DB getDb() {
+        return this.db;
+    }
 
     public LevelDBStorage(int dimSum, String path) throws IOException {
         this(dimSum, path, new Options()
@@ -50,12 +61,42 @@ public final class LevelDBStorage {
         return builder.build();
     }
 
+    WriteBatch createBatch() {
+        return this.db.createWriteBatch();
+    }
+
     public void writeChunk(IChunk chunk) throws IOException {
-        try (WriteBatch writeBatch = this.db.createWriteBatch()) {
+        try (WriteBatch writeBatch = createBatch()) {
             LevelDBChunkSerializer.INSTANCE.serialize(writeBatch, chunk);
-            WriteOptions writeOptions = new WriteOptions();
-            writeOptions.sync(true);
+            writeBatch(writeBatch);
+        }
+    }
+
+    void writeBatch(WriteBatch writeBatch) {
+        WriteOptions writeOptions = new WriteOptions();
+        writeOptions.sync(false);
+        this.db.write(writeBatch, writeOptions);
+    }
+
+    public CompoundTag readWorldDynamicProperties() {
+        try {
+            byte[] bytes = this.db.get(LevelDBKeyUtil.WORLD_DYNAMIC_PROPERTIES.getGlobalKey());
+            if (bytes == null) return null;
+            return NBTIO.read(bytes, ByteOrder.LITTLE_ENDIAN);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public void writeWorldDynamicProperties(CompoundTag tag) {
+        try (WriteBatch writeBatch = this.db.createWriteBatch()) {
+            byte[] key = LevelDBKeyUtil.WORLD_DYNAMIC_PROPERTIES.getGlobalKey();
+            CompoundTag safe = (tag == null) ? new CompoundTag() : tag;
+            writeBatch.put(key, NBTIO.write(safe, ByteOrder.LITTLE_ENDIAN));
+
+            WriteOptions writeOptions = new WriteOptions().sync(false);
             this.db.write(writeBatch, writeOptions);
+        } catch (Exception ignored) {
         }
     }
 
@@ -66,7 +107,7 @@ public final class LevelDBStorage {
                 db.close();
                 LevelDBProvider.CACHE.remove(path);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new UncheckedIOException(e);
             }
         }
     }

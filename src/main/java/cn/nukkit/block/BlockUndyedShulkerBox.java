@@ -8,6 +8,7 @@ package cn.nukkit.block;
 import cn.nukkit.Player;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityShulkerBox;
+import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.inventory.ContainerInventory;
 import cn.nukkit.inventory.ShulkerBoxInventory;
 import cn.nukkit.item.Item;
@@ -126,7 +127,7 @@ public class BlockUndyedShulkerBox extends BlockTransparent implements BlockEnti
 
     @Override
     public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, @NotNull BlockFace face, double fx, double fy, double fz, @Nullable Player player) {
-        CompoundTag nbt = new CompoundTag().putByte("facing", face.getIndex());
+        CompoundTag nbt = new CompoundTag();
 
         if (item.hasCustomName()) {
             nbt.putString("CustomName", item.getCustomName());
@@ -146,8 +147,8 @@ public class BlockUndyedShulkerBox extends BlockTransparent implements BlockEnti
                 nbt.put(tag.getKey(), tag.getValue());
             }
         }
-
-        return BlockEntityHolder.setBlockAndCreateEntity(this, true, true, nbt) != null;
+        nbt.putByte("facing", face.getIndex());
+        return BlockEntityHolder.setBlockAndCreateEntity(this, false, true, nbt) != null;
     }
 
     @Override
@@ -157,18 +158,20 @@ public class BlockUndyedShulkerBox extends BlockTransparent implements BlockEnti
 
     @Override
     public boolean onActivate(@NotNull Item item, @Nullable Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        if (player == null) {
-            return false;
-        }
+        if(isNotActivate(player)) return false;
 
         BlockEntityShulkerBox box = getOrCreateBlockEntity();
         Block block = this.getSide(BlockFace.fromIndex(box.namedTag.getByte("facing")));
-        if (!(block instanceof BlockAir) && !(block instanceof BlockLiquid) && !(block instanceof BlockFlowable)) {
+        if (!player.getDataFlag(EntityFlag.SILENT) && !this.canBeOpened(block)) {
             return false;
         }
 
         player.addWindow(box.getInventory());
         return true;
+    }
+
+    protected boolean canBeOpened(Block block) {
+        return block instanceof BlockAir || block instanceof BlockLiquid || block instanceof BlockFlowable;
     }
 
     @Override

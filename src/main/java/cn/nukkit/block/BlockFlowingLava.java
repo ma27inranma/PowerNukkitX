@@ -53,6 +53,10 @@ public class BlockFlowingLava extends BlockLiquid {
     @Override
     public void onEntityCollide(Entity entity) {
         entity.highestPosition -= (entity.highestPosition - entity.y) * 0.5;
+        if (entity.isFireImmune()) {
+            super.onEntityCollide(entity);
+            return;
+        }
 
         EntityCombustByBlockEvent ev = new EntityCombustByBlockEvent(this, entity, 8);
         Server.getInstance().getPluginManager().callEvent(ev);
@@ -191,11 +195,11 @@ public class BlockFlowingLava extends BlockLiquid {
     }
 
     @Override
-    protected void flowIntoBlock(Block block, int newFlowDecay) {
+    protected void flowIntoBlock(Block block, BlockFace blockFace, int newFlowDecay) {
         if (block instanceof BlockFlowingWater) {
             ((BlockLiquid) block).liquidCollide(this, Block.get(BlockID.STONE));
         } else {
-            super.flowIntoBlock(block, newFlowDecay);
+            super.flowIntoBlock(block, blockFace, newFlowDecay);
         }
     }
 

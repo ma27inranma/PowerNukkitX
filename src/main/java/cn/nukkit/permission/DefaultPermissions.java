@@ -94,7 +94,7 @@ public abstract class DefaultPermissions {
         registerPermission(new Permission(ROOT + ".command.teleport", "Allows the user to teleport players", Permission.DEFAULT_OP), commands);
         registerPermission(new Permission(ROOT + ".command.kick", "Allows the user to kick players", Permission.DEFAULT_OP), commands);
         registerPermission(new Permission(ROOT + ".command.stop", "Allows the user to stop the server", Permission.DEFAULT_OP), commands);
-        registerPermission(new Permission(ROOT + ".command.list", "Allows the user to list all online players", Permission.DEFAULT_OP), commands);
+        registerPermission(new Permission(ROOT + ".command.list", "Allows the user to list all online players", Permission.DEFAULT_TRUE), commands);
         registerPermission(new Permission(ROOT + ".command.help", "Allows the user to view the help menu", Permission.DEFAULT_TRUE), commands);
         registerPermission(new Permission(ROOT + ".command.plugins", "Allows the user to view the list of plugins", Permission.DEFAULT_OP), commands);
         registerPermission(new Permission(ROOT + ".command.reload", "Allows the user to reload the server settings", Permission.DEFAULT_OP), commands);
@@ -113,7 +113,8 @@ public abstract class DefaultPermissions {
         registerPermission(new Permission(ROOT + ".command.enchant", "Allows the user to enchant items", Permission.DEFAULT_OP), commands);
         registerPermission(new Permission(ROOT + ".command.difficulty", "Allows the user to change the difficulty", Permission.DEFAULT_OP), commands);
         registerPermission(new Permission(ROOT + ".command.debug.perform", "Allows the user to use debugpaste command", Permission.DEFAULT_OP), commands);
-        
+        registerPermission(new Permission(ROOT + ".command.inputpermission", "Allows the user to use inputpermission command", Permission.DEFAULT_OP), commands);
+
         registerPermission(new Permission(ROOT + ".textcolor", "Allows the user to write colored text", Permission.DEFAULT_OP), commands);
 
         commands.recalculatePermissibles();

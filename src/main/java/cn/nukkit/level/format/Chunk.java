@@ -4,24 +4,23 @@ import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockAir;
-import cn.nukkit.block.BlockLiquid;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityFlyable;
 import cn.nukkit.level.DimensionData;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.generator.densityfunction.DensityCommon;
 import cn.nukkit.level.biome.BiomeID;
 import cn.nukkit.level.entity.spawners.SpawnRule;
 import cn.nukkit.math.BlockVector3;
-import cn.nukkit.math.Vector2;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.NumberTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.registry.Registries;
-import cn.nukkit.utils.RedstoneComponent;
+import cn.nukkit.scheduler.BlockUpdateScheduler;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.collection.nb.Long2ObjectNonBlockingMap;
 import com.google.common.base.Preconditions;
@@ -30,12 +29,9 @@ import org.jetbrains.annotations.ApiStatus;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.StampedLock;
@@ -60,8 +56,10 @@ public class Chunk implements IChunk {
     protected final Long2ObjectNonBlockingMap<Entity> entities;
     protected final Long2ObjectNonBlockingMap<BlockEntity> tiles;//block entity id -> block entity
     protected final Long2ObjectNonBlockingMap<BlockEntity> tileList;//block entity position hash index -> block entity
+    protected final BlockUpdateScheduler blockUpdateScheduler;
     //delay load block entity and entity
     protected final CompoundTag extraData;
+    private volatile DensityCommon.ChunkCache densityChunkCache;
     protected final StampedLock blockLock;
     protected final StampedLock heightAndBiomeLock;
     protected final StampedLock lightLock;
@@ -84,6 +82,7 @@ public class Chunk implements IChunk {
         this.entities = new Long2ObjectNonBlockingMap<>();
         this.tiles = new Long2ObjectNonBlockingMap<>();
         this.tileList = new Long2ObjectNonBlockingMap<>();
+        this.blockUpdateScheduler = new BlockUpdateScheduler(this, levelProvider.getLevel().getCurrentTick());
         this.entityNBT = new ArrayList<>();
         this.blockEntityNBT = new ArrayList<>();
         this.extraData = new CompoundTag();
@@ -113,6 +112,7 @@ public class Chunk implements IChunk {
         this.entities = new Long2ObjectNonBlockingMap<>();
         this.tiles = new Long2ObjectNonBlockingMap<>();
         this.tileList = new Long2ObjectNonBlockingMap<>();
+        this.blockUpdateScheduler = new BlockUpdateScheduler(this, levelProvider.getLevel().getCurrentTick());
         this.entityNBT = entityNBT;
         this.blockEntityNBT = blockEntityNBT;
         this.extraData = extraData;
@@ -126,6 +126,24 @@ public class Chunk implements IChunk {
     public boolean isSectionEmpty(int fY) {
         ChunkSection section = this.getSection(fY - getDimensionData().getMinSectionY());
         return section == null || section.isEmpty();
+    }
+
+    public DensityCommon.ChunkCache getOrCreateDensityChunkCache() {
+        DensityCommon.ChunkCache cache = this.densityChunkCache;
+        if (cache == null) {
+            synchronized (this) {
+                cache = this.densityChunkCache;
+                if (cache == null) {
+                    cache = new DensityCommon.ChunkCache();
+                    this.densityChunkCache = cache;
+                }
+            }
+        }
+        return cache;
+    }
+
+    public void releaseDensityChunkCache() {
+        this.densityChunkCache = null;
     }
 
     @Override
@@ -463,10 +481,13 @@ public class Chunk implements IChunk {
 
     @Override
     public void removeEntity(Entity entity) {
+        if(entity.getId() < 0) return;
         if (this.entities != null) {
-            this.entities.remove(entity.getId());
-            if (!(entity instanceof Player) && this.isInit) {
-                this.setChanged();
+            synchronized (this.entities) {
+                this.entities.remove(entity.getId());
+                if (!(entity instanceof Player) && this.isInit) {
+                    this.setChanged();
+                }
             }
         }
     }
@@ -475,12 +496,11 @@ public class Chunk implements IChunk {
     public void addBlockEntity(BlockEntity blockEntity) {
         this.tiles.put(blockEntity.getId(), blockEntity);
         int index = ((blockEntity.getFloorZ() & 0x0f) << 16) | ((blockEntity.getFloorX() & 0x0f) << 12) | (ensureY(blockEntity.getFloorY()) + 64);
-        BlockEntity entity = this.tileList.get(index);
-        if (this.tileList.containsKey(index) && !entity.equals(blockEntity)) {
-            this.tiles.remove(entity.getId());
-            entity.close();
+        BlockEntity existing = this.tileList.put(index, blockEntity);
+        if (existing != null && !existing.equals(blockEntity)) {
+            this.tiles.remove(existing.getId());
+            existing.close();
         }
-        this.tileList.put(index, blockEntity);
         if (this.isInit) {
             this.setChanged();
         }
@@ -491,7 +511,7 @@ public class Chunk implements IChunk {
         if (this.tiles != null) {
             this.tiles.remove(blockEntity.getId());
             int index = ((blockEntity.getFloorZ() & 0x0f) << 16) | ((blockEntity.getFloorX() & 0x0f) << 12) | (ensureY(blockEntity.getFloorY()) + 64);
-            this.tileList.remove(index);
+            this.tileList.remove(index, blockEntity);
             if (this.isInit) {
                 this.setChanged();
             }
@@ -555,14 +575,29 @@ public class Chunk implements IChunk {
                 }
 
                 if (applicableRules != null && !applicableRules.isEmpty()) {
-                    SpawnRule spawnRule = applicableRules.get(Utils.rand(0, applicableRules.size() - 1));
+                    int totalWeight = 0;
+                    for (SpawnRule rule : applicableRules) {
+                        totalWeight += rule.getWeight();
+                    }
+
+                    int selectedWeight = Utils.rand(1, totalWeight);
+                    SpawnRule spawnRule = applicableRules.get(applicableRules.size() - 1);
+                    for (SpawnRule rule : applicableRules) {
+                        selectedWeight -= rule.getWeight();
+                        if (selectedWeight <= 0) {
+                            spawnRule = rule;
+                            break;
+                        }
+                    }
+
                     int herd = Utils.rand(spawnRule.getHerdMin(), spawnRule.getHerdMax());
                     int herdSpread = spawnRule.getHerdMax() - spawnRule.getHerdMin();
 
                     for (int i = 0; i < herd; i++) {
                         Vector3 spawnPos = lookVec;
                         if (!EntityFlyable.class.isAssignableFrom(Registries.ENTITY.getEntityClass(spawnRule.getEntityId()))) {
-                            spawnPos = level.getSafeSpawn(lookVec, herdSpread, true).add(0.5, 0, 0.5);
+                            float offset = i / (100f * herd); //If a herd is spawned at the exact same position, they push themselves infinite
+                            spawnPos = level.getSafeSpawn(lookVec, herdSpread, true).add(0.5 + offset, 0, 0.5 + offset);
                         }
                         if (spawnedEntityCount >= maxEntityCount) {
                             break;
@@ -571,6 +606,7 @@ public class Chunk implements IChunk {
                         Entity entity = Registries.ENTITY.provideEntity(spawnRule.getEntityId(), this, Entity.getDefaultNBT(spawnPos));
                         if (entity != null) {
                             spawnedEntityCount++;
+                            entity.namedTag.putString("SpawnReason", "NATURAL");
                             entity.despawnable = true;
                             entity.spawnToAll();
                         }
@@ -578,28 +614,11 @@ public class Chunk implements IChunk {
                 }
             }
         }
+    }
 
-        // Despawning
-        if (!spawnedEntities.isEmpty()) {
-            int randIndex = Utils.rand(0, spawnedEntities.size() - 1);
-            Entity randomEntity = spawnedEntities.stream().skip(randIndex).findFirst().orElse(null);
-            if (randomEntity != null) {
-                boolean anyNear = false;
-                for (Player player : level.getPlayers().values()) {
-                    if (player.distance(randomEntity) <= 54) {
-                        anyNear = true;
-                        break;
-                    }
-                }
-                if (!anyNear && randomEntity.getAge() > 6000) {
-                    try {
-                        randomEntity.close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
+    @Override
+    public BlockUpdateScheduler getBlockUpdateScheduler() {
+        return blockUpdateScheduler;
     }
 
     @Override
@@ -796,10 +815,8 @@ public class Chunk implements IChunk {
     protected ChunkSection getOrCreateSection(int sectionY) {
         int minSectionY = this.getDimensionData().getMinSectionY();
         int offsetY = sectionY - minSectionY;
-        for (int i = 0; i <= offsetY; i++) {
-            if (sections[i] == null) {
-                sections[i] = new ChunkSection((byte) (i + minSectionY));
-            }
+        if(this.sections[offsetY] == null) {
+            this.sections[offsetY] = new ChunkSection((byte) (offsetY + minSectionY));
         }
         return sections[offsetY];
     }
@@ -825,6 +842,15 @@ public class Chunk implements IChunk {
                     e.addSuppressed(e2);
                     log.warn("Block entity validation failed", e);
                 }
+            }
+            // [ITEM_DEBUG] Log when a block entity is being removed as invalid
+            if (log.isDebugEnabled()) {
+                boolean valid;
+                try { valid = entity.isBlockEntityValid(); } catch (Exception ignored) { valid = false; }
+                log.debug("[ITEM_DEBUG] removeInvalidTile closing {} at {},{},{} (closed={}, valid={}). Caller: {}",
+                        entity.getClass().getSimpleName(), (int) entity.x, (int) entity.y, (int) entity.z,
+                        entity.closed, valid,
+                        Thread.currentThread().getStackTrace()[2]);
             }
             entity.close();
         }

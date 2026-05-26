@@ -8,13 +8,23 @@ import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.GameRules;
-import cn.nukkit.math.*;
+import cn.nukkit.math.BlockFace;
+import cn.nukkit.math.BlockVector3;
+import cn.nukkit.math.Vector2f;
+import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.stream.LittleEndianByteBufInputStreamNBTInputStream;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
-import cn.nukkit.network.protocol.types.*;
+import cn.nukkit.network.protocol.types.EntityLink;
+import cn.nukkit.network.protocol.types.ExperimentEntry;
+import cn.nukkit.network.protocol.types.PlayerInputTick;
+import cn.nukkit.network.protocol.types.PropertySyncData;
+import cn.nukkit.network.protocol.types.ScriptDebugShapeType;
+import cn.nukkit.network.protocol.types.ddui.DataStorePropertyType;
+import cn.nukkit.network.protocol.types.ddui.DataStorePropertyValue;
+import cn.nukkit.network.protocol.types.ddui.DataStoreUpdate;
 import cn.nukkit.network.protocol.types.inventory.ArmorSlot;
 import cn.nukkit.network.protocol.types.inventory.ArmorSlotAndDamagePair;
 import cn.nukkit.network.protocol.types.inventory.FullContainerName;
@@ -112,11 +122,13 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public final ByteOrder order() {
         return buf.order();
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public ByteBuf order(ByteOrder endianness) {
         return buf.order(endianness);
     }
@@ -1054,8 +1066,8 @@ public class HandleByteBuf extends ByteBuf {
         int tintsLength = this.readIntLE();
         for (int i = 0; i < tintsLength; i++) {
             String pieceType = this.readString();
-            List<String> colors = new ArrayList<>();
             int colorsLength = this.readIntLE();
+            List<String> colors = new ArrayList<>(colorsLength);
             for (int i2 = 0; i2 < colorsLength; i2++) {
                 colors.add(this.readString());
             }
@@ -1120,7 +1132,7 @@ public class HandleByteBuf extends ByteBuf {
             return Item.AIR;
         }
 
-        int count = readShortLE();
+        int count = readUnsignedShortLE();
         int damage = readUnsignedVarInt();
 
         Integer netId = null;
@@ -1181,7 +1193,7 @@ public class HandleByteBuf extends ByteBuf {
                 blockingTicks = stream.readLong();//blockingTicks
             }
             if (compoundTag != null) {
-                if(compoundTag.contains("__DamageConflict__")) {
+                if (compoundTag.contains("__DamageConflict__")) {
                     compoundTag.put("Damage", compoundTag.removeAndGet("__DamageConflict__"));
                 }
                 item.setCompoundTag(compoundTag);
@@ -1232,6 +1244,181 @@ public class HandleByteBuf extends ByteBuf {
         }
 
         writeVarInt(item.isBlock() ? item.getBlockUnsafe().getRuntimeId() : 0);
+
+        ByteBuf userDataBuf = ByteBufAllocator.DEFAULT.ioBuffer();
+        try (LittleEndianByteBufOutputStream stream = new LittleEndianByteBufOutputStream(userDataBuf)) {
+
+            int data = item.getDamage();
+            if (item.canTakeDamage() && data != 0) {
+                byte[] nbt = item.getCompoundTag();
+                CompoundTag tag;
+                if (nbt == null || nbt.length == 0) {
+                    tag = new CompoundTag();
+                } else {
+                    tag = NBTIO.read(nbt, ByteOrder.LITTLE_ENDIAN);
+                }
+                if (tag.contains("Damage")) {
+                    tag.put("__DamageConflict__", tag.removeAndGet("Damage"));
+                }
+                tag.putInt("Damage", data);
+                stream.writeShort(-1);
+                stream.writeByte(1); // Hardcoded in current version
+                stream.write(NBTIO.write(tag, ByteOrder.LITTLE_ENDIAN));
+            } else if (item.hasCompoundTag()) {
+                stream.writeShort(-1);
+                stream.writeByte(1); // Hardcoded in current version
+                stream.write(NBTIO.write(item.getNamedTag(), ByteOrder.LITTLE_ENDIAN));
+            } else {
+                userDataBuf.writeShortLE(0);
+            }
+
+            List<String> canPlaceOn = extractStringList(item, "CanPlaceOn");//write canPlace
+            stream.writeInt(canPlaceOn.size());
+            for (String string : canPlaceOn) {
+                stream.writeUTF(string);
+            }
+
+            List<String> canDestroy = extractStringList(item, "CanDestroy");//write canBreak
+            stream.writeInt(canDestroy.size());
+            for (String string : canDestroy) {
+                stream.writeUTF(string);
+            }
+
+            if (Objects.equals(item.getId(), ItemID.SHIELD)) {
+                stream.writeLong(0);//BlockingTicks // todo add BlockingTicks to Item Class. Find out what Blocking Ticks are
+            }
+
+            byte[] bytes = Utils.convertByteBuf2Array(userDataBuf);
+            writeByteArray(bytes);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to write item user data", e);
+        } finally {
+            userDataBuf.release();
+        }
+    }
+
+    public Item readCerealSlot() {
+        return this.readCerealSlot(false);
+    }
+
+    public Item readCerealSlot(boolean instanceItem) {
+        int runtimeId = readShortLE();
+        int count = readUnsignedShortLE();
+        int damage = readUnsignedVarInt();
+
+        Integer netId = null;
+        if (!instanceItem) {
+            boolean hasNetId = readBoolean();
+            if (hasNetId) {
+                this.readUnsignedVarInt(); // net id type
+                netId = this.readVarInt();
+            }
+        }
+        int blockRuntimeId = this.readUnsignedVarInt();
+
+        long blockingTicks = 0;
+        CompoundTag compoundTag = null;
+        String[] canPlace;
+        String[] canBreak;
+        Item item;
+        if (runtimeId != 0) {
+            if (blockRuntimeId == 0) {
+                item = Item.get(Registries.ITEM_RUNTIMEID.getIdentifier(runtimeId), damage, count);
+            } else {
+                item = Item.get(Registries.ITEM_RUNTIMEID.getIdentifier(runtimeId), damage, count);
+                BlockState blockState = Registries.BLOCKSTATE.get(blockRuntimeId);
+                if (blockState != null) {
+                    item.setBlockUnsafe(blockState.toBlock());
+                }
+            }
+        } else {
+            item = Item.AIR;
+        }
+
+        if (netId != null) {
+            item.setNetId(netId);
+        }
+
+        byte[] bytes = new byte[readUnsignedVarInt()];
+        readBytes(bytes);
+        ByteBuf buf = ByteBufAllocator.DEFAULT.ioBuffer(bytes.length);
+        buf.writeBytes(bytes);
+        if (!buf.isReadable()) {
+            return item;
+        }
+        try (LittleEndianByteBufInputStream stream = new LittleEndianByteBufInputStream(buf)) {
+            int nbtSize = stream.readShort();
+            if (nbtSize > 0) {
+                LittleEndianByteBufInputStreamNBTInputStream ls = new LittleEndianByteBufInputStreamNBTInputStream(stream);
+                compoundTag = (CompoundTag) ls.readTag();
+            } else if (nbtSize == -1) {
+                int tagCount = stream.readUnsignedByte();
+                if (tagCount != 1) throw new IllegalArgumentException("Expected 1 tag but got " + tagCount);
+                LittleEndianByteBufInputStreamNBTInputStream ls = new LittleEndianByteBufInputStreamNBTInputStream(stream);
+                compoundTag = (CompoundTag) ls.readTag();
+            }
+
+            canPlace = new String[stream.readInt()];
+            for (int i = 0; i < canPlace.length; i++) {
+                canPlace[i] = stream.readUTF();
+            }
+
+            canBreak = new String[stream.readInt()];
+            for (int i = 0; i < canBreak.length; i++) {
+                canBreak[i] = stream.readUTF();
+            }
+
+            if (Objects.equals(item.getId(), ItemID.SHIELD)) {
+                blockingTicks = stream.readLong();//blockingTicks
+            }
+            if (compoundTag != null) {
+                if (compoundTag.contains("__DamageConflict__")) {
+                    compoundTag.put("Damage", compoundTag.removeAndGet("__DamageConflict__"));
+                }
+                item.setCompoundTag(compoundTag);
+            }
+            Block[] canPlaces = new Block[canPlace.length];
+            for (int i = 0; i < canPlace.length; i++) {
+                canPlaces[i] = Block.get(canPlace[i]);
+            }
+            if (canPlaces.length > 0) {
+                item.setCanDestroy(canPlaces);
+            }
+            Block[] canBreaks = new Block[canBreak.length];
+            for (int i = 0; i < canBreak.length; i++) {
+                canBreaks[i] = Block.get(canBreak[i]);
+            }
+            if (canBreaks.length > 0) {
+                item.setCanPlaceOn(canBreaks);
+            }
+            return item;
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read item user data", e);
+        } finally {
+            buf.release();
+        }
+    }
+
+    public void writeCerealSlot(Item item) {
+        this.writeCerealSlot(item, false);
+    }
+
+    public void writeCerealSlot(Item item, boolean instanceItem) {
+        int networkId = item.getRuntimeId();
+        writeShortLE(networkId);//write item runtimeId
+        writeShortLE(item.getCount());//write item count
+        writeUnsignedVarInt(item.getDamage());//write damage value
+
+
+        if (!instanceItem) {
+            writeBoolean(item.isUsingNetId()); // isUsingNetId
+            if (item.isUsingNetId()) {
+                writeVarInt(0); // net id type
+                writeVarInt(item.getNetId()); // netId
+            }
+        }
+
+        writeUnsignedVarInt(item.isBlock() ? item.getBlockUnsafe().getRuntimeId() : 0);
 
         ByteBuf userDataBuf = ByteBufAllocator.DEFAULT.ioBuffer();
         try (LittleEndianByteBufOutputStream stream = new LittleEndianByteBufOutputStream(userDataBuf)) {
@@ -1385,7 +1572,7 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public BlockVector3 readBlockVector3() {
-        return new BlockVector3(this.readVarInt(), this.readUnsignedVarInt(), this.readVarInt());
+        return new BlockVector3(this.readVarInt(), this.readVarInt(), this.readVarInt());
     }
 
     public void writeBlockVector3(BlockVector3 v) {
@@ -1394,7 +1581,7 @@ public class HandleByteBuf extends ByteBuf {
 
     public void writeBlockVector3(int x, int y, int z) {
         this.writeVarInt(x);
-        this.writeUnsignedVarInt(y);
+        this.writeVarInt(y);
         this.writeVarInt(z);
     }
 
@@ -1510,7 +1697,8 @@ public class HandleByteBuf extends ByteBuf {
                 readEntityUniqueId(),
                 EntityLink.Type.values()[readByte()],
                 readBoolean(),
-                readBoolean()
+                readBoolean(),
+                readFloatLE()
         );
     }
 
@@ -1618,7 +1806,8 @@ public class HandleByteBuf extends ByteBuf {
 
     protected ItemStackRequestAction readRequestActionData(ItemStackRequestActionType type) {
         return switch (type) {
-            case CRAFT_REPAIR_AND_DISENCHANT -> new CraftGrindstoneAction(readUnsignedVarInt(), readByte(), readVarInt());
+            case CRAFT_REPAIR_AND_DISENCHANT ->
+                    new CraftGrindstoneAction(readUnsignedVarInt(), readByte(), readVarInt());
             case CRAFT_LOOM -> new CraftLoomAction(readString(), readUnsignedByte());
             case CRAFT_RECIPE_AUTO -> {
                 int recipeId = readUnsignedVarInt();
@@ -1904,7 +2093,7 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public void writeExperiments(List<ExperimentEntry> experiments) {
-        for(ExperimentEntry experiment : experiments) {
+        for (ExperimentEntry experiment : experiments) {
             this.writeString(experiment.name());
             this.writeBoolean(experiment.enabled());
         }
@@ -1919,5 +2108,129 @@ public class HandleByteBuf extends ByteBuf {
         final ArmorSlot slot = ArmorSlot.from(buffer.readUnsignedByte());
         final short damage = buffer.readShortLE();
         return new ArmorSlotAndDamagePair(slot, damage);
+    }
+
+    public void writeDataStoreUpdate(DataStoreUpdate update) {
+        writeString(update.getDataStoreName());
+        writeString(update.getProperty());
+        writeString(update.getPath());
+        Object value = update.getData();
+        DataStorePropertyType type = update.getType();
+
+        if (type == null) {
+            type = switch (value) {
+                case Boolean ignored -> DataStorePropertyType.BOOLEAN;
+                case String ignored -> DataStorePropertyType.STRING;
+                default -> DataStorePropertyType.INT64;
+            };
+        }
+
+        int control;
+
+        switch (type) {
+            case BOOLEAN -> control = 1;
+            case STRING -> control = 2;
+            case INT64 -> control = 0;
+            default -> throw new IllegalStateException("Invalid data store update type: " + type);
+        }
+
+        writeUnsignedVarInt(control);
+        switch (control) {
+            case 0:
+                if (value instanceof Double d) {
+                    writeDoubleLE(d);
+                } else if (value instanceof Number n) {
+                    writeDoubleLE(n.doubleValue());
+                } else {
+                    throw new IllegalStateException("Invalid numeric data store update value: " + value);
+                }
+                break;
+            case 1:
+                writeBoolean((boolean) value);
+                break;
+            case 2:
+                writeString((String) value);
+                break;
+            default:
+                throw new IllegalStateException("Invalid data store update control: " + control);
+        }
+        writeIntLE(update.getPropertyUpdateCount());
+        writeIntLE(update.getPathUpdateCount());
+    }
+
+    public DataStoreUpdate readDataStoreUpdate() {
+        final DataStoreUpdate update = new DataStoreUpdate();
+        update.setDataStoreName(readString());
+        update.setProperty(readString());
+        update.setPath(readString());
+        int control = readUnsignedVarInt();
+        switch (control) {
+            case 0:
+                update.setData(readDoubleLE());
+                update.setType(DataStorePropertyType.INT64);
+                break;
+            case 1:
+                update.setData(readBoolean());
+                update.setType(DataStorePropertyType.BOOLEAN);
+                break;
+            case 2:
+                update.setData(readString());
+                update.setType(DataStorePropertyType.STRING);
+                break;
+            default:
+                throw new IllegalStateException("Invalid data store update control: " + control);
+        }
+        update.setPropertyUpdateCount(readIntLE());
+        update.setPathUpdateCount(readIntLE());
+        return update;
+    }
+
+    private void writeDataStorePropertyValue(DataStorePropertyValue value) {
+        switch (value.getType()) {
+            case NONE:
+                break;
+            case BOOL:
+                writeBoolean((boolean) value.getValue());
+                break;
+            case INT64:
+                writeLongLE((long) value.getValue());
+                break;
+            case STRING:
+                writeString((String) value.getValue());
+                break;
+            case TYPE:
+                final Map<String, DataStorePropertyValue> map = (Map<String, DataStorePropertyValue>) value.getValue();
+                writeUnsignedVarInt(map.size());
+                for (Map.Entry<String, DataStorePropertyValue> entry : map.entrySet()) {
+                    writeString(entry.getKey());
+                    writeIntLE(entry.getValue().getType().getId());
+                    writeDataStorePropertyValue(entry.getValue());
+                }
+                break;
+        }
+    }
+
+    private DataStorePropertyValue readDataStorePropertyValue(DataStorePropertyValue.Type type) {
+        switch (type) {
+            case NONE:
+                return null;
+            case BOOL:
+                return DataStorePropertyValue.ofBoolean(readBoolean());
+            case INT64:
+                return DataStorePropertyValue.ofLong(readLongLE());
+            case STRING:
+                return DataStorePropertyValue.ofString(readString());
+            case TYPE:
+                final int length = readUnsignedVarInt();
+                final Map<String, DataStorePropertyValue> map = new HashMap<>();
+                for (int i = 0; i < length; i++) {
+                    final String key = readString();
+                    final DataStorePropertyValue.Type valueType = DataStorePropertyValue.Type.from(readIntLE());
+                    map.put(key, readDataStorePropertyValue(valueType));
+                }
+                return DataStorePropertyValue.ofObject(map);
+            default:
+                throw new IllegalStateException("Read invalid DataStorePropertyValueType");
+        }
     }
 }

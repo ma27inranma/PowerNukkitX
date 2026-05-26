@@ -26,21 +26,25 @@ import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.BlockSensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
 import cn.nukkit.entity.ai.sensor.NearestTargetEntitySensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.item.EntityItem;
 import cn.nukkit.entity.passive.EntityTurtle;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.inventory.EntityInventoryHolder;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.TakeItemEntityPacket;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class EntityZombie extends EntityMob implements EntityWalkable, EntitySmite {
     @Override
@@ -84,7 +88,7 @@ public class EntityZombie extends EntityMob implements EntityWalkable, EntitySmi
 
     @Override
     public boolean attack(EntityDamageEvent source) {
-        if(getHealth()-source.getFinalDamage() <= 1) {
+        if(getHealthCurrent()-source.getFinalDamage() <= 1) {
             if(source.getCause() == EntityDamageEvent.DamageCause.DROWNING) {
                 transform();
                 return true;
@@ -95,7 +99,6 @@ public class EntityZombie extends EntityMob implements EntityWalkable, EntitySmi
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(20);
         this.diffHandDamage = new float[]{2.5f, 3f, 4.5f};
         super.initEntity();
     }
@@ -108,6 +111,17 @@ public class EntityZombie extends EntityMob implements EntityWalkable, EntitySmi
     @Override
     public float getHeight() {
         return 1.9f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(20);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        float ageMovement = this.isBaby() ? 0.35f : 0.23f;
+        return MovementComponent.value(ageMovement);
     }
 
     @Override
@@ -149,16 +163,26 @@ public class EntityZombie extends EntityMob implements EntityWalkable, EntitySmi
     }
 
     @Override
-    public Item[] getDrops() {
-        float drops = ThreadLocalRandom.current().nextFloat(100);
-        if (drops < 0.83) {
-            return switch (Utils.rand(0, 2)) {
-                case 0 -> new Item[]{Item.get(Item.IRON_INGOT, 0, 1), Item.get(Item.ROTTEN_FLESH, 0, Utils.rand(0, 2))};
-                case 1 -> new Item[]{Item.get(Item.CARROT, 0, 1), Item.get(Item.ROTTEN_FLESH, 0, Utils.rand(0, 2))};
-                default -> new Item[]{Item.get(Item.POTATO, 0, 1), Item.get(Item.ROTTEN_FLESH, 0, Utils.rand(0, 2))};
-            };
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+        List<Item> drops = new ArrayList<>();
+
+        int flesh = Utils.rand(0, 3 + looting);
+        if (flesh > 0) {
+            drops.add(Item.get(Item.ROTTEN_FLESH, 0, flesh));
         }
-        return new Item[]{Item.get(Item.ROTTEN_FLESH, 0, Utils.rand(0, 2))};
+
+        float rareChance = (1f/120f) + ((1f/300f) * looting);
+        if (Utils.rand(0f, 1f) < rareChance) {
+            int roll = Utils.rand(0, 3);
+            switch (roll) {
+                case 0 -> drops.add(Item.get(Item.IRON_INGOT));
+                case 1 -> drops.add(Item.get(Item.CARROT));
+                case 2 -> drops.add(Item.get(Item.POTATO));
+            }
+        }
+
+        return drops.toArray(Item.EMPTY_ARRAY);
     }
 
     @Override

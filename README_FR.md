@@ -15,22 +15,19 @@
 
 <p align="center">
    <img alt="Version" src="https://img.shields.io/badge/version-2.0.0-blue.svg?cacheSeconds=2592000" />
-   <a href="https://feedback.minecraft.net/hc/en-us/articles/26247797084173--Minecraft-1-21-1-Bedrock">
-      <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-v1.21.93%20(Bedrock)-56383E" />
+   <a href="https://feedback.minecraft.net/hc/en-us/articles/45400537384333-Minecraft-Bedrock-Edition-26-20-Changelog">
+      <img alt="Minecraft" src="https://img.shields.io/badge/minecraft-v26.20%20(Bedrock)-56383E" />
    </a>
    <a href="https://github.com/Mojang/bedrock-protocol-docs">
-      <img alt="Protocol" src="https://img.shields.io/badge/protocol-819-blue" />
+      <img alt="Protocol" src="https://img.shields.io/badge/protocol-975-blue" />
    </a>
    <a href="https://github.com/PowerNukkitX/PowerNukkitX/actions?query=branch%3Amaster+is%3Asuccess" target="_blank">
-      <img alt="Action" src="https://github.com/PowerNukkitX/PowerNukkitX/actions/workflows/pnx.yml/badge.svg?branch=master" />
-   </a>
-   <a href="https://jitpack.io/#PowerNukkitX/PowerNukkitX" target="_blank">
-      <img alt="JitPack" src="https://jitpack.io/v/PowerNukkitX/PowerNukkitX.svg" />
+      <img alt="Action" src="https://img.shields.io/badge/action-all%20builds-FF9B21" />
    </a>
    <a href="https://discord.com/invite/XXus4FB6qf">
       <img alt="Discord" src="https://img.shields.io/discord/944227466912870410?label=discord&color=7289DA&logo=discord" />
    </a>
-   <a href="https://docs.powernukkitx.com" target="_blank">
+   <a href="https://docs.powernukkitx.org" target="_blank">
       <img alt="Documentation" src="https://img.shields.io/badge/documentation-yes-brightgreen.svg" />
    </a>
    <a href="https://codecov.io/github/PowerNukkitX/PowerNukkitX" > 
@@ -67,14 +64,13 @@
 ## Installation
 
 1. Assurez-vous d'avoir `JDK21` installé, sinon [téléchargez-le ici](https://www.graalvm.org/downloads)
-2. Téléchargez le fichier [`PowerNukkitX-Run.zip`](https://github.com/PowerNukkitX/PowerNukkitX/releases/download/snapshot/powernukkitx-run.zip)
-3. Décompressez `PowerNukkitX-Run.zip` dans le répertoire de votre choix.
-4. Configurez les variables d'environnement Java ou décompressez JDK dans le même répertoire que l'étape précédente.
+2. Téléchargez le [`powernukkitx.jar`](https://github.com/PowerNukkitX/PowerNukkitX/releases/download/snapshot/powernukkitx.jar)
+3. Récupérez votre script de démarrage [ici](https://github.com/PowerNukkitX/scripts/tree/master)
 
 ## Utilisation
 
 ```sh
-java -jar cli.jar
+java -jar --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED .\powernukkitx.jar
 ```
 
 ## Communauté & Support

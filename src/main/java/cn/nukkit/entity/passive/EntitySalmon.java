@@ -1,5 +1,7 @@
 package cn.nukkit.entity.passive;
 
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
@@ -8,6 +10,7 @@ import cn.nukkit.utils.Utils;
 import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author PetteriM1
@@ -54,13 +57,17 @@ public class EntitySalmon extends EntityFish {
     }
 
     @Override
-    public void initEntity() {
-        this.setMaxHealth(3);
-        super.initEntity();
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(3);
     }
 
     @Override
-    public Item[] getDrops() {
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.12f);
+    }
+
+    @Override
+    public Item[] getDrops(@NotNull Item weapon) {
         int rand = Utils.rand(0, 3);
         if (this.isLarge()) {
             //只有25%获得骨头 来自wiki https://zh.minecraft.wiki/w/%E9%B2%91%E9%B1%BC

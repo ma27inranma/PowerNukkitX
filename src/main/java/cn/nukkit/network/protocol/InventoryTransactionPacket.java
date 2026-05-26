@@ -29,6 +29,7 @@ public class InventoryTransactionPacket extends DataPacket {
     public static final int USE_ITEM_ACTION_CLICK_BLOCK = 0;
     public static final int USE_ITEM_ACTION_CLICK_AIR = 1;
     public static final int USE_ITEM_ACTION_BREAK_BLOCK = 2;
+    public static final int USE_ITEM_ACTION_SPEAR_STAB = 3;
 
     public static final int RELEASE_ITEM_ACTION_RELEASE = 0; //bow shoot
     public static final int RELEASE_ITEM_ACTION_CONSUME = 1; //eat food, drink potion
@@ -51,6 +52,7 @@ public class InventoryTransactionPacket extends DataPacket {
     public int legacyRequestId;
     private UseItemData.TriggerType triggerType;
     private UseItemData.PredictedResult clientInteractPrediction;
+    private int clientCooldownState;
 
     /**
      * NOTE: THESE FIELDS DO NOT EXIST IN THE PROTOCOL, it's merely used for convenience for us to easily
@@ -100,6 +102,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 itemData.clickPos = byteBuf.readVector3f();
                 itemData.blockRuntimeId = byteBuf.readUnsignedVarInt();
                 itemData.clientInteractPrediction = UseItemData.PredictedResult.values()[byteBuf.readUnsignedVarInt()];
+                this.clientCooldownState = byteBuf.readByte();
 
                 this.transactionData = itemData;
                 break;
@@ -126,7 +129,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 this.transactionData = releaseItemData;
                 break;
             default:
-                throw new RuntimeException("Unknown transaction type " + this.transactionType);
+                throw new IllegalStateException("Unknown transaction type " + this.transactionType);
         }
     }
 
@@ -165,6 +168,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 byteBuf.writeVector3f(useItemData.clickPos);
                 byteBuf.writeUnsignedVarInt(useItemData.blockRuntimeId);
                 byteBuf.writeUnsignedVarInt(useItemData.clientInteractPrediction.ordinal());
+                byteBuf.writeByte(this.getClientCooldownState());
                 break;
             case TYPE_USE_ITEM_ON_ENTITY:
                 UseItemOnEntityData useItemOnEntityData = (UseItemOnEntityData) this.transactionData;
@@ -185,7 +189,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 byteBuf.writeVector3f(releaseItemData.headRot.asVector3f());
                 break;
             default:
-                throw new RuntimeException("Unknown transaction type " + this.transactionType);
+                throw new IllegalStateException("Unknown transaction type " + this.transactionType);
         }
     }
 

@@ -3,7 +3,10 @@ package cn.nukkit.level.generator;
 import cn.nukkit.block.BlockID;
 import cn.nukkit.level.DimensionData;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.format.ChunkState;
 import cn.nukkit.level.format.IChunk;
+import cn.nukkit.level.generator.holder.EmptyObjectHolder;
+import cn.nukkit.level.generator.holder.ObjectHolder;
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -49,12 +52,20 @@ public abstract class Generator implements BlockID {
         return dimensionData;
     }
 
-    public final IChunk syncGenerate(IChunk chunk) {
-        return this.syncGenerate(chunk, end.name());
+    public IChunk syncGenerate(IChunk chunk) {
+        return this.syncGenerate(chunk, getEndName(chunk));
     }
 
-    public final IChunk syncGenerate(IChunk chunk, String to) {
+    protected IChunk syncGenerate(IChunk chunk, String to) {
+        Preconditions.checkNotNull(to);
         final ChunkGenerateContext context = new ChunkGenerateContext(this, level, chunk);
+        final GenerateStage start = getStart(context);
+        if (chunk.getChunkState().ordinal() < ChunkState.STARTED.ordinal()) {
+            chunk.setChunkState(ChunkState.STARTED);
+        }
+        if (start == null) {
+            return context.getChunk();
+        }
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
             start.apply(context);
         }, start.getExecutor());
@@ -71,24 +82,39 @@ public abstract class Generator implements BlockID {
         return context.getChunk();
     }
 
+    protected String getEndName(IChunk chunk) {
+        return end.name();
+    }
+
+    protected GenerateStage getStart(ChunkGenerateContext context) {
+        return start;
+    }
+
     public final void asyncGenerate(IChunk chunk) {
-        asyncGenerate(chunk, end.name(), (c) -> {
+        asyncGenerate(chunk, getEndName(chunk), (c) -> {
         });
     }
 
     public final void asyncGenerate(IChunk chunk, Consumer<ChunkGenerateContext> callback) {
-        asyncGenerate(chunk, end.name(), callback);
+        asyncGenerate(chunk, getEndName(chunk), callback);
     }
 
     public final void asyncGenerate(IChunk chunk, String to, Consumer<ChunkGenerateContext> callback) {
         Preconditions.checkNotNull(to);
         final ChunkGenerateContext context = new ChunkGenerateContext(this, level, chunk);
+        final GenerateStage start = getStart(context);
+        if (chunk.getChunkState().ordinal() < ChunkState.STARTED.ordinal()) {
+            chunk.setChunkState(ChunkState.STARTED);
+        }
         asyncGenerate0(context, start, to, () -> callback.accept(context));
     }
 
 
-    private void asyncGenerate0(final ChunkGenerateContext context, final GenerateStage start, String to, final Runnable callback) {
-        if (start == null || to == null) return;
+    protected final void asyncGenerate0(final ChunkGenerateContext context, final GenerateStage start, String to, final Runnable callback) {
+        if (start == null || to == null) {
+            callback.run();
+            return;
+        }
         if (to.equals(start.name())) {
             start.getExecutor().execute(() -> {
                 start.apply(context);
@@ -100,5 +126,10 @@ public abstract class Generator implements BlockID {
             start.apply(context);
             asyncGenerate0(context, start.getNextStage(), to, callback);
         });
+
+    }
+
+    public ObjectHolder createObjectHolder(Level level) {
+        return new EmptyObjectHolder();
     }
 }

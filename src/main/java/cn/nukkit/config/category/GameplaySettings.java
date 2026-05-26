@@ -58,8 +58,15 @@ public class GameplaySettings extends OkaeriConfig {
             "gametest",
             "jigsaw_structures",
             "upcoming_creator_features",
-            "villager_trades_rebalance"
+            "villager_trades_rebalance",
+            "voxel_shapes"
     ));
     @Comment("pnx.settings.gameplay.cacheStructures")
     boolean cacheStructures = false;
+    @Comment("pnx.settings.gameplay.enableEdu")
+    boolean enableEducation = false;
+    @Comment("pnx.settings.gameplay.muteEmoteAnnouncements")
+    boolean muteEmoteAnnouncements = false;
+    @Comment("pnx.settings.gameplay.enablemobai")
+    boolean enableMobAi = true;
 }

@@ -3,7 +3,6 @@ package cn.nukkit.blockentity;
 import cn.nukkit.Player;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockBeehive;
-import cn.nukkit.block.BlockID;
 import cn.nukkit.block.BlockLiquid;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.passive.EntityBee;
@@ -228,9 +227,9 @@ public class BlockEntityBeehive extends BlockEntity {
                 if(spawnOccupant(occupant) instanceof EntityBee bee && interactingEntity != null) {
                     if(getInteractingEntity() instanceof Player player) {
                         if(player.isSurvival() || player.isAdventure()) {
-                            bee.setAngry(player);
+                            bee.setAngryOnTarget(player);
                         }
-                    } else bee.setAngry(interactingEntity);
+                    } else bee.setAngryOnTarget(interactingEntity);
                 }
             }
         }
@@ -341,7 +340,7 @@ public class BlockEntityBeehive extends BlockEntity {
                 if (entity instanceof EntityBee) {
                     EntityBee bee = (EntityBee) entity;
                     if (player != null) {
-                        bee.setAngry(player);
+                        bee.setAngryOnTarget(player);
                     } else {
                         bee.setAngry(true);
                     }
@@ -399,7 +398,7 @@ public class BlockEntityBeehive extends BlockEntity {
         public Occupant(int ticksLeftToStay, String actorIdentifier, boolean hasNectar, CompoundTag saveData) {
             this.ticksLeftToStay = ticksLeftToStay;
             this.actorIdentifier = actorIdentifier;
-            this.hasNectar = true;
+            this.hasNectar = hasNectar;
             this.saveData = saveData;
         }
 

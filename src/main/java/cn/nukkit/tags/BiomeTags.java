@@ -35,6 +35,7 @@ public final class BiomeTags {
     public static final String FROZEN = "frozen";
     public static final String FROZEN_PEAKS = "frozen_peaks";
     public static final String GROVE = "grove";
+    public static final String HAS_STRUCTURE_TRAIL_RUINS = "has_structure_trail_ruins";
     public static final String HILLS = "hills";
     public static final String ICE = "ice";
     public static final String ICE_PLAINS = "ice_plains";
@@ -58,6 +59,7 @@ public final class BiomeTags {
     public static final String OCEAN = "ocean";
     public static final String OVERWORLD = "overworld";
     public static final String OVERWORLD_GENERATION = "overworld_generation";
+    public static final String PALE_GARDEN = "pale_garden";
     public static final String PLAINS = "plains";
     public static final String PLATEAU = "plateau";
     public static final String RARE = "rare";

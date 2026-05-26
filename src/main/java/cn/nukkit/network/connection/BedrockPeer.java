@@ -167,13 +167,19 @@ public class BedrockPeer extends ChannelInboundHandlerAdapter {
 
     public void setCompression(PacketCompressionAlgorithm algorithm) {
         Objects.requireNonNull(algorithm, "algorithm");
-        this.setCompression(BedrockChannelInitializer.getCompression(algorithm, this.getRakVersion(), false));
+        this.setCompression(BedrockChannelInitializer.getCompression(algorithm, false));
     }
 
     public void setCompression(CompressionStrategy strategy) {
         Objects.requireNonNull(strategy, "strategy");
 
-        boolean needsPrefix = ProtocolInfo.CURRENT_PROTOCOL >= 649; // TODO: do not hardcode
+        int protocol = ProtocolInfo.CURRENT_PROTOCOL;
+        BedrockSession session = this.sessions.get(0);
+        if (session != null) {
+            protocol = session.getProtocolVersion();
+        }
+
+        boolean needsPrefix = protocol >= 649;
 
         ChannelHandler handler = this.channel.pipeline().get(CompressionCodec.NAME);
         if (handler == null) {
@@ -236,10 +242,6 @@ public class BedrockPeer extends ChannelInboundHandlerAdapter {
 
     public Channel getChannel() {
         return this.channel;
-    }
-
-    public int getRakVersion() {
-        return this.channel.config().getOption(RakChannelOption.RAK_PROTOCOL_VERSION);
     }
 
     @Override

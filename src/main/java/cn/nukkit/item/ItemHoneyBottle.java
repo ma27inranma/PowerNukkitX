@@ -43,9 +43,11 @@ public class ItemHoneyBottle extends ItemFood {
 
     @Override
     public boolean onEaten(Player player) {
-        player.getInventory().addItem(new ItemGlassBottle());
+        if (player.isAdventure() || player.isSurvival()) {
+            player.getInventory().addItem(new ItemGlassBottle());
+        }
         player.removeEffect(EffectType.POISON);
 
-        return true;
+        return super.onEaten(player);
     }
 }

@@ -24,18 +24,24 @@ import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.ai.sensor.PlayerStaringSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.entity.projectile.EntityProjectile;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class EntityEnderman extends EntityMob implements EntityWalkable {
@@ -64,7 +70,7 @@ public class EntityEnderman extends EntityMob implements EntityWalkable {
                                 all(entity -> getLevel().isRaining(),
                                         entity -> !isUnderBlock(),
                                         entity -> getLevel().getTick()%10 == 0),
-                                entity -> isInsideOfWater(),
+                                entity -> hasWaterAt(0),
                                 all(
                                         entity -> getMemoryStorage().isEmpty(CoreMemoryTypes.ATTACK_TARGET),
                                         entity -> getLevel().getTick()%20==0,
@@ -101,7 +107,6 @@ public class EntityEnderman extends EntityMob implements EntityWalkable {
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(40);
         this.diffHandDamage = new float[]{4f, 7f, 10f};
         super.initEntity();
     }
@@ -114,6 +119,17 @@ public class EntityEnderman extends EntityMob implements EntityWalkable {
     @Override
     public float getHeight() {
         return 2.9f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(40);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        float behaviorMovement = this.isAngry() ? 0.45f : 0.3f;
+        return MovementComponent.value(behaviorMovement);
     }
 
     @Override
@@ -132,9 +148,26 @@ public class EntityEnderman extends EntityMob implements EntityWalkable {
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.ENDER_PEARL, 0, Utils.rand(0, 1)), getItemInHand()};
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+        List<Item> drops = new ArrayList<>();
+
+        float pearlChance = 0.5f + (0.05f * looting);
+        pearlChance = Math.min(pearlChance, 1.0f);
+
+        if (Utils.rand(0f, 1f) < pearlChance) {
+            int amount = Utils.rand(1, 1 + looting);
+            drops.add(Item.get(Item.ENDER_PEARL, 0, amount));
+        }
+
+        Item hand = getItemInHand();
+        if (!hand.isNull()) {
+            drops.add(hand);
+        }
+
+        return drops.toArray(Item.EMPTY_ARRAY);
     }
+
 
     @Override
     public boolean attack(EntityDamageEvent source) {

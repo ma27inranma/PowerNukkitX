@@ -18,13 +18,23 @@ import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
+import cn.nukkit.entity.weather.EntityLightningBolt;
+import cn.nukkit.event.entity.EntityDamageByEntityEvent;
+import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -44,7 +54,6 @@ public class EntitySkeleton extends EntityMob implements EntityWalkable, EntityS
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(20);
         super.initEntity();
         if (getItemInHand().isNull()) {
             setItemInHand(Item.get(ItemID.BOW));
@@ -62,6 +71,16 @@ public class EntitySkeleton extends EntityMob implements EntityWalkable, EntityS
     }
 
     @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(20);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.35f);
+    }
+
+    @Override
     public String getOriginalName() {
         return "Skeleton";
     }
@@ -72,8 +91,33 @@ public class EntitySkeleton extends EntityMob implements EntityWalkable, EntityS
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.BONE), Item.get(Item.ARROW)};
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+        List<Item> drops = new ArrayList<>();
+
+        int bones = Utils.rand(0, 2 + looting);
+        if (bones > 0) {
+            drops.add(Item.get(Item.BONE, 0, bones));
+        }
+
+        int arrows = Utils.rand(0, 2 + looting);
+        if (arrows > 0) {
+            drops.add(Item.get(Item.ARROW, 0, arrows));
+        }
+
+        for (Item equipped : this.getEquipmentInventory().getContents().values()) {
+            if (!equipped.isNull() && !equipped.hasEnchantment(Enchantment.ID_VANISHING_CURSE)) {
+                drops.add(equipped.clone());
+            }
+        }
+
+        for (Item armor : this.getArmorInventory().getContents().values()) {
+            if (!armor.isNull() && !armor.hasEnchantment(Enchantment.ID_VANISHING_CURSE)) {
+                drops.add(armor.clone());
+            }
+        }
+
+        return drops.toArray(Item.EMPTY_ARRAY);
     }
 
     @Override
@@ -88,8 +132,19 @@ public class EntitySkeleton extends EntityMob implements EntityWalkable, EntityS
 
     @Override
     public boolean onUpdate(int currentTick) {
-        burn(this);
+        if (!(this instanceof EntityParched)) {
+            burn(this);
+        }
         return super.onUpdate(currentTick);
+    }
+
+    @Override
+    public boolean attack(EntityDamageEvent source) {
+        if ((source instanceof EntityDamageByEntityEvent ev) && ev.getDamager() instanceof EntityLightningBolt) {
+            ev.setCancelled(true);
+            return false;
+        }
+        return super.attack(source);
     }
 
     @Override

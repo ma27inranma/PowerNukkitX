@@ -27,19 +27,24 @@ import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestTargetEntitySensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.entity.passive.EntitySheep;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.DyeColor;
+import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
+
 
 import static cn.nukkit.entity.ai.memory.CoreMemoryTypes.LAST_MAGIC;
 
@@ -163,12 +168,6 @@ public class EntityEvocationIllager extends EntityIllager implements EntityWalka
     }
 
     @Override
-    protected void initEntity() {
-        this.setMaxHealth(24);
-        super.initEntity();
-    }
-
-    @Override
     public float getWidth() {
         return 0.6f;
     }
@@ -176,6 +175,16 @@ public class EntityEvocationIllager extends EntityIllager implements EntityWalka
     @Override
     public float getHeight() {
         return 1.9f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(24);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.5f);
     }
 
     @Override
@@ -199,10 +208,11 @@ public class EntityEvocationIllager extends EntityIllager implements EntityWalka
     }
 
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
+        int lootingLevel = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
         return new Item[] {
                 Item.get(Item.TOTEM_OF_UNDYING),
-                Item.get(Item.EMERALD, 0, ThreadLocalRandom.current().nextInt(2))
+                Item.get(Item.EMERALD, 0, Utils.rand(0, 2 + lootingLevel))
         };
     }
 

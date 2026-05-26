@@ -32,20 +32,18 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
     protected final int coolDownTick;
     protected final int pullBowTick;
     /**
-     * 用来指定特定的攻击目标.
-     * <p>
      * Used to specify a specific attack target.
      **/
     protected Entity target;
     /**
-     * 用来射击的物品
+     * Items used for shooting
      */
     protected Supplier<Item> item;
     private int tick1;//control the coolDownTick
     private int tick2;//control the pullBowTick
 
     /**
-     * 射击执行器
+     * Shooting actuator
      *
      * @param item              the item
      * @param memory            用于读取攻击目标的记忆<br>Used to read the memory of the attack target
@@ -74,16 +72,12 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
         if (entity.getBehaviorGroup().getMemoryStorage().isEmpty(memory)) return false;
         Entity newTarget = entity.getBehaviorGroup().getMemoryStorage().get(memory);
         if (this.target == null) target = newTarget;
-        //some check
-        if (!target.isAlive()) return false;
-        else if (target instanceof Player player) {
-            if (player.isCreative() || player.isSpectator() || !player.isOnline() || !entity.level.getName().equals(player.level.getName())) {
-                return false;
-            }
+
+        if (!target.isAlive() || (target instanceof Player player && (player.isIgnoredByEntities() || !entity.level.getName().equals(player.level.getName())))) {
+            return false;
         }
 
         if (!this.target.getPosition().equals(newTarget.getPosition())) {
-            //更新目标
             target = newTarget;
         }
 
@@ -91,12 +85,10 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
         Location clone = this.target.getLocation();
 
         if (entity.distanceSquared(target) > maxShootDistanceSquared) {
-            //更新寻路target
             setRouteTarget(entity, clone);
         } else {
             setRouteTarget(entity, null);
         }
-        //更新视线target
         setLookTarget(entity, clone);
 
         if (tick2 == 0 && tick1 > coolDownTick) {
@@ -115,7 +107,7 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
                     bowShoot(bow, entity);
                     stopBowAnimation(entity);
                     tick2 = 0;
-                    return target.getHealth() != 0;
+                    return target.getHealthCurrent() != 0;
                 }
             }
         }
@@ -126,8 +118,7 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
     public void onStop(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        //重置速度
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
@@ -140,8 +131,7 @@ public class CrossBowShootExecutor implements EntityControl, IBehaviorExecutor {
     public void onInterrupt(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        //重置速度
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }

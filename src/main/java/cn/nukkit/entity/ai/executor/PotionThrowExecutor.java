@@ -18,11 +18,12 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.DoubleTag;
 import cn.nukkit.nbt.tag.FloatTag;
 import cn.nukkit.nbt.tag.ListTag;
-import cn.nukkit.plugin.InternalPlugin;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
+    private static final int SHOOT_SEQUENCE_END_DELAY = 20;
+
     protected MemoryType<? extends Entity> memory;
     protected float speed;
     protected int maxShootDistanceSquared;
@@ -37,6 +38,7 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
 
     private int tick1;//control the coolDownTick
     private int tick2;//control the pullBowTick
+    private int shootSequenceEndDelay;
 
     /**
      *
@@ -66,11 +68,8 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
         Entity newTarget = entity.getBehaviorGroup().getMemoryStorage().get(memory);
         if (this.target == null) target = newTarget;
 
-        if (!target.isAlive()) return false;
-        else if (target instanceof Player player) {
-            if (player.isCreative() || player.isSpectator() || !player.isOnline() || !entity.level.getName().equals(player.level.getName())) {
-                return false;
-            }
+        if (!target.isAlive() || (target instanceof Player player && (player.isIgnoredByEntities() || !entity.level.getName().equals(player.level.getName())))) {
+            return false;
         }
 
         if (!this.target.getPosition().equals(newTarget.getPosition())) {
@@ -87,6 +86,8 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
         }
         setLookTarget(entity, clone);
 
+        tickShootSequenceEnd(entity);
+
         if (tick2 == 0 && tick1 > coolDownTick) {
             if (entity.distanceSquared(target) <= maxShootDistanceSquared) {
                 this.tick1 = 0;
@@ -97,9 +98,9 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
             tick2++;
             if (tick2 > attackDelay) {
                 throwPotion(entity);
-                entity.getLevel().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> endShootSequence(entity), 20);
+                startShootSequenceEndDelay();
                 tick2 = 0;
-                return target.getHealth() != 0;
+                return target.getHealthCurrent() != 0;
             }
         }
         return true;
@@ -109,12 +110,13 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
     public void onStop(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
         entity.setEnablePitch(false);
         endShootSequence(entity);
+        resetShootState();
         this.target = null;
     }
 
@@ -122,13 +124,34 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
     public void onInterrupt(EntityIntelligent entity) {
         removeRouteTarget(entity);
         removeLookTarget(entity);
-        entity.setMovementSpeed(entity.getDefaultSpeed());
+        entity.setMovementSpeed(entity.getMovementSpeedDefault());
         if (clearDataWhenLose) {
             entity.getBehaviorGroup().getMemoryStorage().clear(memory);
         }
         entity.setEnablePitch(false);
         endShootSequence(entity);
+        resetShootState();
         this.target = null;
+    }
+
+    private void startShootSequenceEndDelay() {
+        this.shootSequenceEndDelay = SHOOT_SEQUENCE_END_DELAY;
+    }
+
+    private void tickShootSequenceEnd(Entity entity) {
+        if (this.shootSequenceEndDelay == 0) {
+            return;
+        }
+
+        this.shootSequenceEndDelay--;
+        if (this.shootSequenceEndDelay == 0) {
+            endShootSequence(entity);
+        }
+    }
+
+    private void resetShootState() {
+        this.tick2 = 0;
+        this.shootSequenceEndDelay = 0;
     }
 
     protected void throwPotion(EntityLiving entity) {
@@ -170,6 +193,7 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
     }
 
     private void startShootSequence(Entity entity) {
+        this.shootSequenceEndDelay = 0;
         entity.setDataProperty(EntityDataTypes.TARGET_EID, this.target.getId());
     }
 
@@ -186,7 +210,7 @@ public class PotionThrowExecutor implements EntityControl, IBehaviorExecutor {
                     return 17; //SLOWNESS
                 } else if(distance < 3 && !target.hasEffect(EffectType.WEAKNESS) && ThreadLocalRandom.current().nextInt(4) == 0) {
                     return 34; //WEAKNESS
-                } else if(target.getHealth() > 8 && !target.hasEffect(EffectType.POISON)) {
+                } else if(target.getHealthCurrent() > 8 && !target.hasEffect(EffectType.POISON)) {
                     return 25; //POISON
                 }
             }

@@ -37,6 +37,11 @@ public class BlockFern extends BlockFlowable implements BlockFlowerPot.FlowerPot
     }
 
     @Override
+    public int getSnowloggingLevel() {
+        return 1;
+    }
+
+    @Override
     public int getBurnChance() {
         return 60;
     }

@@ -19,14 +19,20 @@ import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * @author PikyCZ
@@ -54,7 +60,7 @@ public class EntityWitch extends EntityMob implements EntityWalkable {
                         new Behavior(new UsePotionExecutor(0.3f, 30, 20), all(
                                 new MemoryCheckNotEmptyEvaluator(CoreMemoryTypes.LAST_BE_ATTACKED_TIME),
                                 entity -> entity.getLevel().getTick() - getMemoryStorage().get(CoreMemoryTypes.LAST_BE_ATTACKED_TIME) <= 1
-                        ), 4, 1),
+                        ), 4, 1, 1, false),
                         new Behavior(new PotionThrowExecutor(CoreMemoryTypes.ATTACK_TARGET, 0.3f, 15, true, 30, 20), new EntityCheckEvaluator(CoreMemoryTypes.ATTACK_TARGET), 3, 1),
                         new Behavior(new PotionThrowExecutor(CoreMemoryTypes.NEAREST_GOLEM, 0.3f, 15, true, 30, 20), new EntityCheckEvaluator(CoreMemoryTypes.NEAREST_GOLEM), 2, 1),
                         new Behavior(new PotionThrowExecutor(CoreMemoryTypes.NEAREST_PLAYER, 0.3f, 15, true, 30, 20), new EntityCheckEvaluator(CoreMemoryTypes.NEAREST_PLAYER), 1, 1)
@@ -70,12 +76,6 @@ public class EntityWitch extends EntityMob implements EntityWalkable {
     }
 
     @Override
-    protected void initEntity() {
-        this.setMaxHealth(26);
-        super.initEntity();
-    }
-
-    @Override
     public float getWidth() {
         return 0.6f;
     }
@@ -83,6 +83,16 @@ public class EntityWitch extends EntityMob implements EntityWalkable {
     @Override
     public float getHeight() {
         return 1.9f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(26);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.25f);
     }
 
     @Override
@@ -101,18 +111,35 @@ public class EntityWitch extends EntityMob implements EntityWalkable {
     }
 
     @Override
-    public Item[] getDrops() {
-        String itemId = switch (ThreadLocalRandom.current().nextInt(7)) {
-            case 0 -> Item.STICK;
-            case 1 -> Item.SPIDER_EYE;
-            case 2 -> Item.GLOWSTONE_DUST;
-            case 3 -> Item.GUNPOWDER;
-            case 4 -> Item.REDSTONE;
-            case 5 -> Item.SUGAR;
-            default -> Item.GLASS_BOTTLE;
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+        List<Item> drops = new ArrayList<>();
+
+        drops.add(Item.get(
+                Item.REDSTONE,
+                0,
+                Utils.rand(4, 8 + looting)
+        ));
+
+        int max = 6 + (looting * 3);
+
+        record ExtraDrop(String id, int chance) {}
+
+        ExtraDrop[] extras = {
+                new ExtraDrop(Item.STICK, 3349),
+                new ExtraDrop(Item.SPIDER_EYE, 1787),
+                new ExtraDrop(Item.GLOWSTONE_DUST, 1787),
+                new ExtraDrop(Item.GUNPOWDER, 1787),
+                new ExtraDrop(Item.SUGAR, 1787),
+                new ExtraDrop(Item.GLASS_BOTTLE, 1787)
         };
-        return new Item[] {
-                Item.get(itemId,0, ThreadLocalRandom.current().nextInt(5))
-        };
+
+        for (ExtraDrop drop : extras) {
+            if (Utils.rand(0, 9999) < drop.chance()) {
+                drops.add(Item.get(drop.id(), 0, Utils.rand(0, max)));
+            }
+        }
+
+        return drops.toArray(Item.EMPTY_ARRAY);
     }
 }

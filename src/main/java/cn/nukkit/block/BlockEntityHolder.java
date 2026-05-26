@@ -62,7 +62,6 @@ public interface BlockEntityHolder<E extends BlockEntity> {
                 args);
 
         Class<? extends E> entityClass = getBlockEntityClass();
-
         if (!entityClass.isInstance(created)) {
             String error = "Failed to create the block entity " + typeName + " of class " + entityClass + " at " + getLocation() + ", " +
                     "the created type is not an instance of the requested class. Created: " + created;
@@ -104,7 +103,7 @@ public interface BlockEntityHolder<E extends BlockEntity> {
 
     @Nullable
     static <E extends BlockEntity, H extends BlockEntityHolder<E>> E setBlockAndCreateEntity(@NotNull H holder) {
-        return setBlockAndCreateEntity(holder, true, true);
+        return setBlockAndCreateEntity(holder, false, true);
     }
 
     @Nullable

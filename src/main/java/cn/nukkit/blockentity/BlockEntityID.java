@@ -37,6 +37,8 @@ public interface BlockEntityID {
 
     String CONDUIT = "Conduit";
 
+    String COPPER_GOLEM_STATUE = "CopperGolemStatue";
+
     String CRAFTER = "Crafter";
 
     String CREAKING_HEART = "CreakingHeart";
@@ -85,6 +87,8 @@ public interface BlockEntityID {
 
     String SCULK_SHRIEKER = "SculkShrieker";
 
+    String SHELF = "Shelf";
+
     String SHULKER_BOX = "ShulkerBox";
 
     String SIGN = "Sign";
@@ -102,4 +106,9 @@ public interface BlockEntityID {
     String END_GATEWAY = "EndGateway";
 
     String TARGET = "Target";//???? todo check this
+
+    String TRIAL_SPAWNER = "TrialSpawner";
+
+    String VAULT = "Vault";
+
 }

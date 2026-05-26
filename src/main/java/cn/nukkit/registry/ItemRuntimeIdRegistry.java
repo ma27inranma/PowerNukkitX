@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -77,18 +78,19 @@ public class ItemRuntimeIdRegistry implements IRegistry<String, Integer, Integer
         // We use ProxyPass data since protocol 776 since we need item version and componentBased now.
         try (InputStream stream = ItemRegistry.class.getClassLoader().getResourceAsStream("gamedata/proxypass/runtime_item_states.json")){
             if (stream == null) {
-                throw new RuntimeException("Failed to load runtime_item_states.json");
+                throw new IllegalStateException("Failed to load runtime_item_states.json");
             }
 
-            JsonArray items = JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonArray();
+            final JsonObject itemPalette =  JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonObject();
+            JsonArray items = itemPalette.getAsJsonArray("items");
 
             for (JsonElement element : items) {
                 JsonObject item = element.getAsJsonObject();
-                register1(new ItemData(item.get("name").getAsString(), item.get("id").getAsInt(), item.get("version").getAsInt(), item.get("componentBased").getAsBoolean()));
+                register1(new ItemData(item.get("name").getAsString(), item.get("id").getAsInt(), item.get("version").getAsInt(), item.get("component_based").getAsBoolean()));
             }
             trim();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -115,6 +117,44 @@ public class ItemRuntimeIdRegistry implements IRegistry<String, Integer, Integer
 
     public String getIdentifier(int runtimeId) {
         return ID2NAME.get(runtimeId);
+    }
+
+    void writeCache(java.io.DataOutputStream out) throws java.io.IOException {
+        // REGISTRY (ID2NAME is a mirror and reconstructed on read)
+        out.writeInt(REGISTRY.size());
+        for (var e : REGISTRY.object2IntEntrySet()) {
+            out.writeUTF(e.getKey());
+            out.writeInt(e.getIntValue());
+        }
+        // ITEMDATA
+        out.writeInt(ITEMDATA.size());
+        for (ItemData d : ITEMDATA) {
+            out.writeUTF(d.identifier());
+            out.writeInt(d.runtimeId());
+            out.writeInt(d.version());
+            out.writeBoolean(d.componentBased());
+        }
+        // itemPalette
+        out.writeInt(itemPalette.length);
+        out.write(itemPalette);
+    }
+
+    void restoreCache(java.io.DataInputStream in) throws java.io.IOException {
+        if (isLoad.getAndSet(true)) return;
+        int regSize = in.readInt();
+        for (int i = 0; i < regSize; i++) {
+            String key = in.readUTF();
+            int    val = in.readInt();
+            REGISTRY.put(key, val);
+            ID2NAME.put(val, key); // reconstruct mirror
+        }
+        int dataSize = in.readInt();
+        for (int i = 0; i < dataSize; i++) {
+            ITEMDATA.add(new ItemData(in.readUTF(), in.readInt(), in.readInt(), in.readBoolean()));
+        }
+        int palLen = in.readInt();
+        itemPalette = new byte[palLen];
+        in.readFully(itemPalette);
     }
 
     @Override

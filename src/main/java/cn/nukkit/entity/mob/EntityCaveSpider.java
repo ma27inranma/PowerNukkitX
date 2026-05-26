@@ -21,14 +21,19 @@ import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
 import cn.nukkit.entity.ai.sensor.NearestTargetEntitySensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.passive.EntityArmadillo;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -73,7 +78,6 @@ public class EntityCaveSpider extends EntityMob implements EntityWalkable, Entit
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(12);
         this.diffHandDamage = new float[]{2.5f, 3f, 4.5f};
         super.initEntity();
     }
@@ -86,6 +90,16 @@ public class EntityCaveSpider extends EntityMob implements EntityWalkable, Entit
     @Override
     public float getHeight() {
         return 0.5f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(12);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.3f);
     }
 
     @Override
@@ -109,7 +123,25 @@ public class EntityCaveSpider extends EntityMob implements EntityWalkable, Entit
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.STRING, 0, Utils.rand(0, 2))};
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+
+        List<Item> drops = new ArrayList<>();
+
+        int stringAmount = Utils.rand(0, 2 + looting);
+        if (stringAmount > 0) {
+            drops.add(Item.get(Item.STRING, 0, stringAmount));
+        }
+
+        float eyeChance = 0.5f - (looting * (1f / 12f));
+        if (eyeChance < 0f) {
+            eyeChance = 0f;
+        }
+
+        if (Utils.rand(0f, 1f) < eyeChance) {
+            drops.add(Item.get(Item.SPIDER_EYE, 0, 1));
+        }
+
+        return drops.toArray(Item.EMPTY_ARRAY);
     }
 }

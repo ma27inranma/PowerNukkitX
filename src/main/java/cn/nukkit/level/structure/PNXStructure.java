@@ -3,15 +3,18 @@ package cn.nukkit.level.structure;
 import cn.nukkit.block.BlockState;
 import cn.nukkit.level.Position;
 import cn.nukkit.level.generator.object.BlockManager;
+import cn.nukkit.math.BlockVector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.IntTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.network.protocol.types.StructureMirror;
-import cn.nukkit.network.protocol.types.StructureRotation;
+import cn.nukkit.network.protocol.types.Rotation;
 import cn.nukkit.registry.Registries;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
@@ -26,15 +29,21 @@ public class PNXStructure extends AbstractStructure {
     private final int sizeX;
     private final int sizeY;
     private final int sizeZ;
-    private final BlockState[] palette;
-    private final byte[] blocks; // indices into palette (+1), 0 = air
+    private BlockState[] palette;
+    private final byte[] blocks; // indices into palette (+1), 0 = structure void
+    private final Jigsaw[] jigsaws;
 
-    private PNXStructure(int sizeX, int sizeY, int sizeZ, BlockState[] palette, byte[] blocks) {
+    private PNXStructure(int sizeX, int sizeY, int sizeZ, BlockState[] palette, byte[] blocks, Jigsaw[] jigsaws) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.sizeZ = sizeZ;
         this.palette = palette;
         this.blocks = blocks;
+        this.jigsaws = jigsaws;
+    }
+
+    public BlockVector3 getBounds() {
+        return new BlockVector3(sizeX, sizeY, sizeZ);
     }
 
     public static PNXStructure fromNbt(CompoundTag nbt) {
@@ -58,12 +67,33 @@ public class PNXStructure extends AbstractStructure {
 
         // --- blocks (raw indices) ---
         byte[] blocks = nbt.getByteArray("blocks");
-
-        return new PNXStructure(sizeX, sizeY, sizeZ, palette, blocks);
+        Jigsaw[] jigsaws = nbt.getList("jigsaw", CompoundTag.class).getAll().stream().map(Jigsaw::new).toArray(Jigsaw[]::new);
+        return new PNXStructure(sizeX, sizeY, sizeZ, palette, blocks, jigsaws);
     }
 
     public static CompletableFuture<PNXStructure> fromNbtAsync(CompoundTag nbt) {
         return CompletableFuture.supplyAsync(() -> fromNbt(nbt));
+    }
+
+    public void setBlock(int x, int y, int z, BlockState state) {
+        checkBounds(x, y, z);
+
+        if (state == null || state == STATE_STRUCTURE_VOID) {
+            blocks[flattenIndex(x, y, z)] = 0;
+            return;
+        }
+
+        int paletteIndex = findPaletteIndex(state);
+        if (paletteIndex < 0) {
+            if (palette.length >= 255) {
+                throw new IllegalStateException("PNXStructure palette limit exceeded at 255 entries");
+            }
+            paletteIndex = palette.length;
+            palette = Arrays.copyOf(palette, palette.length + 1);
+            palette[paletteIndex] = state;
+        }
+
+        blocks[flattenIndex(x, y, z)] = (byte) (paletteIndex + 1);
     }
 
     /**
@@ -88,7 +118,7 @@ public class PNXStructure extends AbstractStructure {
                 int paletteIndex = (blocks[index] & 0xFF) - 1;
                 BlockState state;
                 if (paletteIndex == -1) {
-                    state = STATE_AIR;
+                    state = STATE_STRUCTURE_VOID;
                 } else if (paletteIndex < 0 || paletteIndex >= palette.length) {
                     state = STATE_UNKNOWN;
                 } else {
@@ -100,27 +130,61 @@ public class PNXStructure extends AbstractStructure {
         };
     }
 
+    @Override
     public void preparePlace(Position position, BlockManager blockManager) {
-        int baseX = position.getFloorX();
-        int baseY = position.getFloorY();
-        int baseZ = position.getFloorZ();
+        placeBlocks(position, blockManager, getBlockInstances(), new BlockAccessor<StructureBlockInstance>() {
+            @Override
+            public int x(StructureBlockInstance block) {
+                return block.x;
+            }
 
-        for (StructureBlockInstance b : getBlockInstances()) {
-            blockManager.setBlockStateAt(baseX + b.x, baseY + b.y, baseZ + b.z, b.state);
-        }
+            @Override
+            public int y(StructureBlockInstance block) {
+                return block.y;
+            }
+
+            @Override
+            public int z(StructureBlockInstance block) {
+                return block.z;
+            }
+
+            @Override
+            public BlockState state(StructureBlockInstance block) {
+                return block.state;
+            }
+        });
     }
 
+    @Override
     public void place(Position position, boolean includeEntities, BlockManager blockManager) {
         preparePlace(position, blockManager);
         blockManager.applySubChunkUpdate();
     }
 
-    public PNXStructure rotate(StructureRotation rotation) {
-        // Rotation support could also be done lazily, but here we materialize.
-        if (rotation == StructureRotation.NONE) return this;
+    @Override
+    public PNXStructure rotate(Rotation rotation) {
+        return rotate(rotation, inverseRotation(rotation));
+    }
 
-        int newSizeX = (rotation == StructureRotation.ROTATE_180) ? sizeX : sizeZ;
-        int newSizeZ = (rotation == StructureRotation.ROTATE_180) ? sizeZ : sizeX;
+    public PNXStructure rotate(Rotation geometryRotation, Rotation stateRotation) {
+        if (geometryRotation == Rotation.NONE && stateRotation == Rotation.NONE) return this;
+
+        int newSizeX = rotatedSizeX(sizeX, sizeZ, geometryRotation);
+        int newSizeZ = rotatedSizeZ(sizeX, sizeZ, geometryRotation);
+        BlockState[] rotatedPalette = new BlockState[palette.length];
+        for (int i = 0; i < palette.length; i++) {
+            BlockState state = palette[i];
+            if (state == STATE_STRUCTURE_VOID || state == STATE_UNKNOWN) {
+                rotatedPalette[i] = state;
+                continue;
+            }
+            rotatedPalette[i] = switch (stateRotation) {
+                case ROTATE_90 -> Rotation.clockwise90(state);
+                case ROTATE_180 -> Rotation.clockwise180(state);
+                case ROTATE_270 -> Rotation.counterclockwise90(state);
+                default -> state;
+            };
+        }
 
         byte[] rotatedBlocks = new byte[blocks.length];
 
@@ -129,20 +193,38 @@ public class PNXStructure extends AbstractStructure {
             int y = (idx / sizeX) % sizeY;
             int z = idx / (sizeX * sizeY);
 
-            int rx = x, rz = z;
-            switch (rotation) {
-                case ROTATE_90 -> { rx = z; rz = sizeX - 1 - x; }
-                case ROTATE_180 -> { rx = sizeX - 1 - x; rz = sizeZ - 1 - z; }
-                case ROTATE_270 -> { rx = sizeZ - 1 - z; rz = x; }
-            }
+            int rx = rotateX(sizeX, sizeZ, x, z, geometryRotation);
+            int rz = rotateZ(sizeX, sizeZ, x, z, geometryRotation);
 
             int newIdx = rx + (y * newSizeX) + (rz * newSizeX * sizeY);
             rotatedBlocks[newIdx] = blocks[idx];
         }
+        Jigsaw[] rotatedJigsaws = new Jigsaw[jigsaws.length];
+        for (int idx = 0; idx < jigsaws.length; idx++) {
+            Jigsaw jigsaw = this.jigsaws[idx];
+            int rx = rotateX(sizeX, sizeZ, jigsaw.x, jigsaw.z, geometryRotation);
+            int rz = rotateZ(sizeX, sizeZ, jigsaw.x, jigsaw.z, geometryRotation);
+            BlockState rotatedFinalState = switch (stateRotation) {
+                case ROTATE_90 -> Rotation.clockwise90(jigsaw.finalState);
+                case ROTATE_180 -> Rotation.clockwise180(jigsaw.finalState);
+                case ROTATE_270 -> Rotation.counterclockwise90(jigsaw.finalState);
+                default -> jigsaw.finalState;
+            };
+            rotatedJigsaws[idx] = new Jigsaw(rx, jigsaw.y, rz, rotatedFinalState, jigsaw.name, jigsaw.joint, jigsaw.pool, jigsaw.target, jigsaw.placementPriority, jigsaw.selectionPriority);
+        }
 
-        return new PNXStructure(newSizeX, sizeY, newSizeZ, palette, rotatedBlocks);
+        return new PNXStructure(newSizeX, sizeY, newSizeZ, rotatedPalette, rotatedBlocks, rotatedJigsaws);
     }
 
+    private Rotation inverseRotation(Rotation rotation) {
+        return switch (rotation) {
+            case ROTATE_90 -> Rotation.ROTATE_270;
+            case ROTATE_270 -> Rotation.ROTATE_90;
+            default -> rotation;
+        };
+    }
+
+    @Override
     public PNXStructure mirror(StructureMirror mirror) {
         if (mirror == StructureMirror.NONE) return this;
 
@@ -164,7 +246,23 @@ public class PNXStructure extends AbstractStructure {
             mirroredBlocks[newIdx] = blocks[idx];
         }
 
-        return new PNXStructure(sizeX, sizeY, sizeZ, palette, mirroredBlocks);
+        Jigsaw[] mirroredJigsaws = new Jigsaw[jigsaws.length];
+        for (int idx = 0; idx < jigsaws.length; idx++) {
+            Jigsaw jigsaw = this.jigsaws[idx];
+            int mx = jigsaw.x;
+            int mz = jigsaw.z;
+            switch (mirror) {
+                case X -> mx = sizeX - 1 - jigsaw.x;
+                case Z -> mz = sizeZ - 1 - jigsaw.z;
+                case XZ -> {
+                    mx = sizeX - 1 - jigsaw.x;
+                    mz = sizeZ - 1 - jigsaw.z;
+                }
+            }
+            mirroredJigsaws[idx] = new Jigsaw(mx, jigsaw.y, mz, jigsaw.finalState, jigsaw.name, jigsaw.joint, jigsaw.pool, jigsaw.target, jigsaw.placementPriority, jigsaw.selectionPriority);
+        }
+
+        return new PNXStructure(sizeX, sizeY, sizeZ, palette, mirroredBlocks, mirroredJigsaws);
     }
 
     @Override
@@ -182,6 +280,56 @@ public class PNXStructure extends AbstractStructure {
             this.y = y;
             this.z = z;
             this.state = state;
+        }
+    }
+
+    private int flattenIndex(int x, int y, int z) {
+        return x + (y * sizeX) + (z * sizeX * sizeY);
+    }
+
+    private void checkBounds(int x, int y, int z) {
+        if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || z < 0 || z >= sizeZ) {
+            throw new IndexOutOfBoundsException("Block position out of bounds: " + x + ", " + y + ", " + z);
+        }
+    }
+
+    private int findPaletteIndex(BlockState state) {
+        for (int i = 0; i < palette.length; i++) {
+            if (palette[i].equals(state)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class Jigsaw {
+        public int x, y, z;
+        public BlockState finalState;
+        private String name;
+        private String joint;
+        private String pool;
+        private String target;
+        private int placementPriority;
+        private int selectionPriority;
+
+        public Jigsaw(CompoundTag tag) {
+            int[] pos = tag.getIntArray("pos");
+            this.x = pos[0];
+            this.y = pos[1];
+            this.z = pos[2];
+            this.finalState = Registries.BLOCKSTATE.get(tag.getInt("final_state"));
+            this.name = tag.getString("name");
+            this.joint = tag.getString("joint");
+            this.pool = tag.getString("pool");
+            this.target = tag.getString("target");
+            this.placementPriority = tag.contains("placement_priority") ? tag.getInt("placement_priority") : 0;
+            this.selectionPriority = tag.contains("selection_priority") ? tag.getInt("selection_priority") : 0;
+        }
+
+        public Jigsaw withPosition(int x, int y, int z) {
+            return new Jigsaw(x, y, z, finalState, name, joint, pool, target, placementPriority, selectionPriority);
         }
     }
 }

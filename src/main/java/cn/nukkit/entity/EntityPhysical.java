@@ -3,21 +3,34 @@ package cn.nukkit.entity;
 import cn.nukkit.Player;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockFlowingLava;
+import cn.nukkit.block.BlockFlowingWater;
 import cn.nukkit.block.BlockLiquid;
+import cn.nukkit.block.BlockWater;
+import cn.nukkit.entity.ai.controller.EntityControlUtils;
+import cn.nukkit.entity.components.DashActionComponent;
+import cn.nukkit.entity.components.RideableComponent;
+import cn.nukkit.entity.custom.CustomEntityComponents;
+import cn.nukkit.entity.custom.CustomEntityDefinition;
+import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.player.EntityFreezeEvent;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.SimpleAxisAlignedBB;
+import cn.nukkit.math.Vector2;
+import cn.nukkit.math.Vector2f;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.network.protocol.PlayerAuthInputPacket;
+import cn.nukkit.network.protocol.types.AuthInputAction;
 import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
+@Slf4j
 public abstract class EntityPhysical extends EntityCreature implements EntityAsyncPrepare {
     /** Movement accuracy threshold. Movements with an absolute value less than this threshold are considered as no movement. */
     public static final float PRECISION = 0.00001f;
@@ -34,6 +47,16 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
     private boolean needsCollisionDamage = false;
     private static final double GROUND_FRICTION_EXPONENT = 0.5574929506502402;
 
+    protected int rideJumpingTicks = -1;
+    protected AtomicInteger rideJumping;
+    protected int rideSprintingTicks = 0;
+    private int powerDashingTicks = -1;
+    private int dashCooldownEndTick = -1;
+    private boolean waterDashChargeStartedInWater = false;
+    private boolean wasOnSlipperyGround = false;
+    private int slipperyEntryGraceTicks = 0;
+    private double slipperyEntrySpeed = 0.0d;
+
 
     public EntityPhysical(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
@@ -41,6 +64,7 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
         this.offsetBoundingBox = new SimpleAxisAlignedBB(0, 0, 0, 0, 0, 0);
         previousCollideMotion = new Vector3();
         previousCurrentMotion = new Vector3();
+        this.rideJumping = new AtomicInteger(-1);
     }
 
     @Override
@@ -73,6 +97,10 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
         if (needsCollisionDamage) {
             this.attack(new EntityDamageEvent(this, EntityDamageEvent.DamageCause.COLLIDE, 3));
         }
+
+        // Dash counter
+        if (this.hasDashCooldown()) updateDashAnimationFlag();
+
         return super.onUpdate(currentTick);
     }
 
@@ -156,7 +184,12 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
 
         // Reduce movement vector (calculate friction coefficient, slide further on ice)
         double factor = getGroundFrictionFactor();
-        if (factor > 0.0 && factor < 1.0) {
+
+        if (this.isRideable() && hasControllingPassenger() && isRideGroundSlipperyBlock()) {
+            double slipperiness = getRideGroundSlipperiness();
+            factor = factor + ((1.0d - factor) * (0.55d + slipperiness * 0.35d));
+            if (factor > 0.997d) factor = 0.997d;
+        } else if (factor > 0.0 && factor < 1.0) {
             factor = Math.pow(factor, GROUND_FRICTION_EXPONENT);
         }
 
@@ -248,7 +281,6 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
      *
      * @return the floating force factor
      */
-
     public double getFloatingForceFactor() {
         if (hasWaterAt(this.getFloatingHeight())) {
             return 1.3;
@@ -396,4 +428,887 @@ public abstract class EntityPhysical extends EntityCreature implements EntityAsy
     public int getFallingTick() {
         return this.fallingTick;
     }
+
+    @Override
+    public boolean canCollideWith(Entity entity) {
+        if (this.isRideable()) {
+            if (entity == null) return false;
+            if (this.passengers != null && this.isPassenger(entity)) return false;
+        }
+
+        return super.canCollideWith(entity);
+    }
+
+    @Override
+    public boolean onRiderInput(Player rider, PlayerAuthInputPacket pk) {
+        if (rider.isAnyUiOpen()) return false;
+
+        RideableComponent.InputType type = getInputControlType();
+        if (type == null) {
+            log.warn("Entity {} ({}) received rider input but has no RideableComponent.InputType defined.", this.getId(), this.getIdentifier());
+            return false;
+        }
+
+        if ((type == RideableComponent.InputType.GROUND || type == RideableComponent.InputType.WATER) && handleRideJumpOrDash(pk, type)) {
+            return true;
+        }
+
+        return switch (type) {
+            case GROUND -> onRiderInputGroundControlled(rider, pk);
+            case AIR    -> onRiderInputAirControlled(rider, pk);
+            case WATER  -> onRiderInputWaterControlled(rider, pk);
+        };
+    }
+
+    /** Ground Input Controls */
+    public boolean onRiderInputGroundControlled(Player rider, PlayerAuthInputPacket pk) {
+        int controlSeat = getControllingSeatIndex();
+        if (controlSeat < 0 || controlSeat >= passengers.size() || passengers.get(controlSeat) != rider) return false;
+
+        if (!(this instanceof EntityControlUtils me)) return false;
+        me.setMoveTarget(null);
+        me.setLookTarget(null);
+
+        // INPUT KNOBS
+        final double DEADZONE = 0.08;        // stick drift tolerance
+        final double CURVE_EXP = 1.6;        // >1 = more precision at low input
+        final double ACCEL_PER_TICK = 0.30;  // how fast it ramps up (0..1)
+        final double BRAKE_PER_TICK = 0.45;  // how hard it brakes (0..1)
+        final double SPEED_KNOB = 1.80d;     // Knob to parity with BDS speed
+
+        // AIR / GROUND
+        boolean slipperyGround = isRideEffectivelyOnSlipperyGround();
+        updateSlipperyGroundTransition(slipperyGround);
+
+        if (isOnGround() || level.getTick() - getRideJumping().get() <= 5) {
+            Vector2 raw = pk.motion;
+            final double GROUND_BACKWARDS_MOVEMENT_MODIFIER = 0.5d;
+            double inX = raw.x;
+            double inY = raw.y;
+            if (inY < 0.0d) {
+                inY *= GROUND_BACKWARDS_MOVEMENT_MODIFIER;
+            }
+            Vector2 adjusted = new Vector2(inX, inY);
+            double mag = adjusted.length();
+
+            double curX = this.motionX;
+            double curZ = this.motionZ;
+
+            if (mag <= DEADZONE) {
+                if (!slipperyGround) {
+                    double brake = getRideGroundBrakeFactor(BRAKE_PER_TICK);
+                    double newX = curX * (1.0 - brake);
+                    double newZ = curZ * (1.0 - brake);
+
+                    if (newX * newX + newZ * newZ < 0.000025) {
+                        newX = 0;
+                        newZ = 0;
+                    }
+
+                    this.addTmpMoveMotion(new Vector3(newX - curX, 0, newZ - curZ));
+                }
+
+            } else {
+                Vector2 dir = adjusted.normalize();
+                double yawRad = Math.toRadians(pk.yaw);
+                double wishX = -Math.sin(yawRad) * dir.y + Math.cos(yawRad) * dir.x;
+                double wishZ =  Math.cos(yawRad) * dir.y + Math.sin(yawRad) * dir.x;
+
+                double strength = mag;
+                if (strength > 1.0) strength = 1.0;
+                strength = (strength - DEADZONE) / (1.0 - DEADZONE);
+                if (strength < 0.0) strength = 0.0;
+                strength = Math.pow(strength, CURVE_EXP);
+
+                double maxSpeed = this.getMovementSpeedDefault();
+                if (pk.inputData.contains(AuthInputAction.SPRINTING)) {
+                    maxSpeed *= this.getSprintMultiplier();
+                    rideSprintingTicks++;
+                } else {
+                    rideSprintingTicks = 0;
+                }
+
+                double surfaceSpeed = getRideGroundSurfaceSpeedFactor();
+                double cap = (maxSpeed * surfaceSpeed) / SPEED_KNOB;
+
+                if (slipperyGround) {
+                    applySlipperyGroundLookInput(wishX, wishZ, strength, cap);
+                } else {
+                    double targetX = wishX * cap * strength;
+                    double targetZ = wishZ * cap * strength;
+
+                    double accel = ACCEL_PER_TICK;
+                    double newX = curX + (targetX - curX) * accel;
+                    double newZ = curZ + (targetZ - curZ) * accel;
+
+                    double s2 = newX * newX + newZ * newZ;
+                    double m2 = cap * cap;
+                    if (s2 > m2) {
+                        double inv = cap / Math.sqrt(s2);
+                        newX *= inv;
+                        newZ *= inv;
+                    }
+
+                    this.addTmpMoveMotion(new Vector3(newX - curX, 0.0d, newZ - curZ));
+                }
+            }
+
+        } else {
+            if (!isRideJumping() || level.getTick() - getRideJumping().get() > 5) {
+                handleGravity();
+                handleFloatingMovement();
+            }
+        }
+
+        this.yaw = pk.yaw;
+        this.headYaw = pk.yaw;
+        return true;
+    }
+
+    private boolean isRideEffectivelyOnSlipperyGround() {
+        if (this.hasWaterAt(0)) {
+            return false;
+        }
+
+        return isRideGroundSlipperyBlock();
+    }
+
+    private void updateSlipperyGroundTransition(boolean slipperyGround) {
+        if (slipperyGround) {
+            if (!wasOnSlipperyGround) {
+                double speedSq = this.motionX * this.motionX + this.motionZ * this.motionZ;
+                slipperyEntrySpeed = Math.sqrt(speedSq);
+                slipperyEntryGraceTicks = 16;
+            } else if (slipperyEntryGraceTicks > 0) {
+                slipperyEntryGraceTicks--;
+            }
+
+            wasOnSlipperyGround = true;
+            return;
+        }
+
+        wasOnSlipperyGround = false;
+        slipperyEntryGraceTicks = 0;
+        slipperyEntrySpeed = 0.0d;
+    }
+
+    private void applySlipperyGroundLookInput(double wishX, double wishZ, double strength, double cap) {
+        double speedSq = this.motionX * this.motionX + this.motionZ * this.motionZ;
+
+        if (speedSq < 0.000025d) {
+            applySlipperyGroundImpulse(wishX, wishZ, strength, cap);
+            return;
+        }
+
+        double speed = Math.sqrt(speedSq);
+        double moveX = this.motionX / speed;
+        double moveZ = this.motionZ / speed;
+        double sideX = -moveZ;
+        double sideZ =  moveX;
+
+        double forwardDot = wishX * moveX + wishZ * moveZ;
+        double sideDot = wishX * sideX + wishZ * sideZ;
+        double slipperiness = getRideGroundSlipperiness();
+
+        double forwardControl;
+        if (forwardDot >= 0.0d) {
+            forwardControl = forwardDot;
+        } else {
+            double speedRatio = cap <= 0.0d ? 1.0d : speed / cap;
+            if (speedRatio > 1.0d) speedRatio = 1.0d;
+            if (speedRatio < 0.0d) speedRatio = 0.0d;
+
+            double reverseAuthority = 0.10d - (slipperiness * 0.06d);
+            reverseAuthority *= 1.0d - (speedRatio * 0.65d);
+
+            if (reverseAuthority < 0.015d) reverseAuthority = 0.015d;
+
+            forwardControl = forwardDot * reverseAuthority;
+        }
+
+        double sideAuthority = 0.38d - (slipperiness * 0.22d);
+        if (sideAuthority < 0.10d) sideAuthority = 0.10d;
+
+        double speedRatio = cap <= 0.0d ? 1.0d : speed / cap;
+        if (speedRatio > 1.0d) {
+            sideAuthority *= 0.55d;
+        }
+
+        double mergedX = (moveX * forwardControl) + (sideX * sideDot * sideAuthority);
+        double mergedZ = (moveZ * forwardControl) + (sideZ * sideDot * sideAuthority);
+
+        double mergedLen = Math.sqrt(mergedX * mergedX + mergedZ * mergedZ);
+        if (mergedLen < 0.000001d) return;
+
+        mergedX /= mergedLen;
+        mergedZ /= mergedLen;
+
+        double controlScale = Math.abs(forwardControl) + Math.abs(sideDot) * sideAuthority;
+        if (controlScale > 1.0d) controlScale = 1.0d;
+        if (controlScale < 0.0d) controlScale = 0.0d;
+
+        applySlipperyGroundImpulse(mergedX, mergedZ, strength, cap, controlScale);
+    }
+
+    private void applySlipperyGroundImpulse(double wishX, double wishZ, double strength, double cap) {
+        applySlipperyGroundImpulse(wishX, wishZ, strength, cap, 1.0d);
+    }
+
+    private void applySlipperyGroundImpulse(double wishX, double wishZ, double strength, double cap, double controlScale) {
+        double slipperiness = getRideGroundSlipperiness();
+
+        double speedSq = this.motionX * this.motionX + this.motionZ * this.motionZ;
+        double speed = Math.sqrt(speedSq);
+
+        double speedRatio = cap <= 0.0d ? 0.0d : speed / cap;
+        if (speedRatio > 1.0d) speedRatio = 1.0d;
+        if (speedRatio < 0.0d) speedRatio = 0.0d;
+
+        double traction = 0.20d - (slipperiness * 0.145d);
+        if (traction < 0.035d) traction = 0.035d;
+
+        double lowSpeedLimiter = 0.14d + (speedRatio * 0.86d);
+
+        double impulse = cap
+                * 0.075d
+                * strength
+                * traction
+                * controlScale
+                * lowSpeedLimiter;
+
+        if (speed > cap) impulse *= 0.22d;
+
+        double oldX = this.motionX;
+        double oldZ = this.motionZ;
+        double oldSpeed = speed;
+
+        double newX = oldX + wishX * impulse;
+        double newZ = oldZ + wishZ * impulse;
+
+        double newSpeedSq = newX * newX + newZ * newZ;
+        double newSpeed = Math.sqrt(newSpeedSq);
+        double maxSlideSpeed = cap * (1.50d + slipperiness * 0.65d);
+
+        if (slipperyEntryGraceTicks > 0 && slipperyEntrySpeed > maxSlideSpeed) {
+            maxSlideSpeed = slipperyEntrySpeed;
+        }
+
+        double allowedSpeed;
+        if (oldSpeed < cap * 0.35d) {
+            allowedSpeed = oldSpeed + (cap * 0.014d * strength * controlScale);
+        } else {
+            allowedSpeed = oldSpeed + (cap * 0.0035d * strength * controlScale);
+        }
+
+        if (allowedSpeed < oldSpeed) {
+            allowedSpeed = oldSpeed;
+        }
+
+        if (allowedSpeed > maxSlideSpeed) {
+            allowedSpeed = maxSlideSpeed;
+        }
+
+        if (newSpeed > allowedSpeed && newSpeed > 0.000001d) {
+            double mul = allowedSpeed / newSpeed;
+            newX *= mul;
+            newZ *= mul;
+        }
+
+        this.motionX = newX;
+        this.motionZ = newZ;
+    }
+
+    private double getRideGroundSlipperiness() {
+        double friction = getRideGroundBlockFriction();
+        double normal = Block.DEFAULT_FRICTION_FACTOR;
+
+        if (friction <= normal) return 0.0d;
+
+        double slipperiness = (friction - normal) / (1.0d - normal);
+        if (slipperiness < 0.0d) return 0.0d;
+        if (slipperiness > 1.0d) return 1.0d;
+        return slipperiness;
+    }
+
+    private double getRideGroundSurfaceSpeedFactor() {
+        Block under = getRideGroundBlock();
+        if (under == null) return 1.0d;
+
+        if (under.getId().equals(Block.SOUL_SAND)) return 0.4d;
+
+        double friction = getRideGroundBlockFriction();
+        double normal = Block.DEFAULT_FRICTION_FACTOR;
+
+        if (friction <= normal + 0.05d) return 1.0d;
+
+        double slipperiness = (friction - normal) / (1.0d - normal);
+        if (slipperiness < 0.0d) slipperiness = 0.0d;
+        if (slipperiness > 1.0d) slipperiness = 1.0d;
+
+        return 1.0d + (slipperiness * 0.85d);
+    }
+
+    private Block getRideGroundBlock() {
+        if (this.level == null || this.getBoundingBox() == null) {
+            return null;
+        }
+
+        AxisAlignedBB bb = this.getBoundingBox();
+
+        int minX = (int) Math.floor(bb.getMinX() + 0.05d);
+        int maxX = (int) Math.floor(bb.getMaxX() - 0.05d);
+        int minZ = (int) Math.floor(bb.getMinZ() + 0.05d);
+        int maxZ = (int) Math.floor(bb.getMaxZ() - 0.05d);
+        int y = (int) Math.floor(bb.getMinY() - 0.05d);
+
+        Block bestBlock = null;
+        double bestFriction = Block.DEFAULT_FRICTION_FACTOR;
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                Block block = this.level.getBlock(x, y, z);
+                if (block == null || block.getId().equals(Block.AIR)) {
+                    continue;
+                }
+
+                double friction = block.getFrictionFactor();
+                if (!Double.isFinite(friction) || friction <= 0.0d) {
+                    continue;
+                }
+
+                if (bestBlock == null || friction > bestFriction) {
+                    bestBlock = block;
+                    bestFriction = friction;
+                }
+            }
+        }
+
+        return bestBlock;
+    }
+
+    private double getRideGroundBlockFriction() {
+        Block under = getRideGroundBlock();
+        if (under == null) {
+            return Block.DEFAULT_FRICTION_FACTOR;
+        }
+
+        double friction = under.getFrictionFactor();
+        if (!Double.isFinite(friction) || friction <= 0.0d) {
+            return Block.DEFAULT_FRICTION_FACTOR;
+        }
+
+        return friction;
+    }
+
+    private boolean isRideGroundSlipperyBlock() {
+        return getRideGroundBlockFriction() > Block.DEFAULT_FRICTION_FACTOR + 0.05d;
+    }
+
+    private double getRideGroundBrakeFactor(double baseBrake) {
+        Block under = getRideGroundBlock();
+        if (under == null) return baseBrake;
+
+        if (under.getId().equals(Block.SOUL_SAND)) return baseBrake;
+
+        double friction = under.getFrictionFactor();
+        if (!Double.isFinite(friction) || friction <= 0.0d) return baseBrake;
+
+        double normal = Block.DEFAULT_FRICTION_FACTOR;
+        if (friction <= normal) return baseBrake;
+
+        double slipperiness = (friction - normal) / (1.0d - normal);
+        if (slipperiness < 0.0d) slipperiness = 0.0d;
+        if (slipperiness > 1.0d) slipperiness = 1.0d;
+
+        // Higher slipperiness = much weaker active brake
+        double brake = 0.018d - (slipperiness * 0.014d);
+
+        if (!Double.isFinite(brake)) return baseBrake;
+        if (brake < 0.004d) return 0.004d;
+        if (brake > baseBrake) return baseBrake;
+        return brake;
+    }
+
+    /** Air Input Controls */
+    public boolean onRiderInputAirControlled(Player rider, PlayerAuthInputPacket pk) {
+        int controlSeat = getControllingSeatIndex();
+        if (controlSeat < 0 || controlSeat >= passengers.size() || passengers.get(controlSeat) != rider) return false;
+
+        if (!(this instanceof EntityControlUtils me)) return false;
+        me.setMoveTarget(null);
+        me.setLookTarget(null);
+
+        // INPUT KNOBS
+        final double HORIZONTAL_TUNE = 0.97d;   // Horizontal movement speed
+        final double VERTICAL_TUNE   = 0.60d;   // Vertical movement speed
+        final double FRICTION_KNOB = 7.0d;      // Knob to parity with BDS speed
+
+        setYaw(pk.interactRotation.y);
+        setHeadYaw(pk.interactRotation.y);
+        setPitch(pk.interactRotation.x);
+
+        Vector2f input = pk.rawMoveVector;
+        float forward = input.y;
+        float strafe = input.x;
+
+        float strafeSpeedModifier = this.getAirStrafeSpeedModifier();
+        float backwardsMovementModifier = this.getAirBackwardsMovementModifier();
+
+        strafe *= strafeSpeedModifier;
+        if (forward < 0f) forward *= backwardsMovementModifier;
+
+        boolean rushing = pk.inputData.contains(AuthInputAction.SPRINT_DOWN)
+                || pk.inputData.contains(AuthInputAction.SPRINTING)
+                || pk.inputData.contains(AuthInputAction.START_SPRINTING);
+
+        boolean upPressed = pk.inputData.contains(AuthInputAction.WANT_UP)
+                || pk.inputData.contains(AuthInputAction.JUMP_DOWN)
+                || pk.inputData.contains(AuthInputAction.JUMPING)
+                || pk.inputData.contains(AuthInputAction.START_JUMPING);
+
+        double speed = this.getDefaultFlyingSpeed() * FRICTION_KNOB;
+        if (rushing) speed *= this.getSprintMultiplier();
+
+        if (Math.abs(forward) < 0.01f && Math.abs(strafe) < 0.01f && !upPressed) {
+            this.motionX = 0;
+            this.motionY = 0;
+            this.motionZ = 0;
+
+            updateMovement();
+            return true;
+        }
+
+        double yawRad = Math.toRadians(this.yaw);
+        double dx = (-Math.sin(yawRad) * forward + Math.cos(yawRad) * strafe) * speed * HORIZONTAL_TUNE;
+        double dz = ( Math.cos(yawRad) * forward + Math.sin(yawRad) * strafe) * speed * HORIZONTAL_TUNE;
+        double pitch = Math.max(-80, Math.min(80, pk.interactRotation.x));
+        double pitchRad = Math.toRadians(pitch);
+        double dy = -Math.sin(pitchRad) * speed * VERTICAL_TUNE;
+        if (upPressed) dy = speed * VERTICAL_TUNE;
+
+        motionX = dx;
+        motionY = dy;
+        motionZ = dz;
+
+        moveFlying(forward, strafe, 0);
+        updateMovement();
+        return true;
+    }
+
+    /** Water Input Controls */
+    public boolean onRiderInputWaterControlled(Player rider, PlayerAuthInputPacket pk) {
+        int controlSeat = getControllingSeatIndex();
+        if (controlSeat < 0 || controlSeat >= passengers.size() || passengers.get(controlSeat) != rider) return false;
+
+        if (!(this instanceof EntityControlUtils me)) return false;
+        me.setMoveTarget(null);
+        me.setLookTarget(null);
+
+        // INPUT KNOBS
+        final double HORIZONTAL_TUNE = 0.97d;
+        final double VERTICAL_TUNE   = 0.60d;
+        final double SPEED_KNOB = 2.40d; // Knob to parity with BDS speed
+        final double WATER_DASH_DRAG = 0.88d;
+        final double OUT_OF_WATER_EXTRA_GRAVITY = 0.05d;
+        final double MAX_UPWARD_WHILE_OUT = 0.35d;
+
+        setYaw(pk.interactRotation.y);
+        setHeadYaw(pk.interactRotation.y);
+        setPitch(pk.interactRotation.x);
+
+        // Water surface detection on our X/Z column.
+        final int bx = (int) Math.floor(this.x);
+        final int bz = (int) Math.floor(this.z);
+
+        int yMin = (int) Math.floor(this.y) - 2;
+        int yMax = (int) Math.floor(this.y + this.getHeight()) + 2;
+
+        int topWaterBlockY = Integer.MIN_VALUE;
+        for (int y = yMax; y >= yMin; y--) {
+            Block b = this.level.getBlock(bx, y, bz);
+            if (b instanceof BlockWater || b instanceof BlockFlowingWater) {
+                topWaterBlockY = y;
+                break;
+            }
+        }
+
+        double surfaceY = (topWaterBlockY != Integer.MIN_VALUE) ? (topWaterBlockY + 1.0d) : Double.NaN;
+
+        boolean inWaterColumn = false;
+        if (this.isTouchingWater()) {
+            inWaterColumn = true;
+        } else if (topWaterBlockY != Integer.MIN_VALUE) {
+            double sY = topWaterBlockY + 1.0d;
+            final double BREACH_EPS = 0.25d;
+            inWaterColumn = (this.y <= sY + BREACH_EPS);
+        }
+
+        // Keep at least 65% of body submerged while moving (max 35% outside water)
+        double maxFeetY = Double.NaN;
+        if (Double.isFinite(surfaceY)) {
+            maxFeetY = surfaceY - (this.getHeight() * 0.65d);
+        }
+
+        // Movement input
+        Vector2f input = pk.rawMoveVector;
+        float forward = input.y;
+        float strafe  = input.x;
+
+        float strafeSpeedModifier = getAirStrafeSpeedModifier();
+        float backwardsMovementModifier = getAirBackwardsMovementModifier();
+        strafe *= strafeSpeedModifier;
+        if (forward < 0f) forward *= backwardsMovementModifier;
+
+        boolean rushing =
+                pk.inputData.contains(AuthInputAction.SPRINT_DOWN) ||
+                pk.inputData.contains(AuthInputAction.SPRINTING) ||
+                pk.inputData.contains(AuthInputAction.START_SPRINTING);
+
+        double speed = getDefaultUnderWaterSpeed() * SPEED_KNOB;
+        if (rushing) speed *= getSprintMultiplier();
+
+        boolean moving = (Math.abs(forward) >= 0.01f) || (Math.abs(strafe) >= 0.01f);
+        final double DASH_EPS2 = 0.02d * 0.02d;
+        boolean isDashing =
+                (powerDashingTicks != -1) ||
+                (this.hasDashCooldown() && (this.motionX * this.motionX + this.motionY * this.motionY + this.motionZ * this.motionZ) > DASH_EPS2);
+
+        if (!moving && inWaterColumn && !isDashing) {
+            motionX = 0;
+            motionY = 0;
+            motionZ = 0;
+            updateMovement();
+            return true;
+        }
+
+        if (!moving && isDashing) {
+            if (inWaterColumn) {
+                this.motionX *= WATER_DASH_DRAG;
+                this.motionZ *= WATER_DASH_DRAG;
+            }
+            if (!inWaterColumn) {
+                if (this.motionY > MAX_UPWARD_WHILE_OUT) this.motionY = MAX_UPWARD_WHILE_OUT;
+                this.motionY -= OUT_OF_WATER_EXTRA_GRAVITY;
+            }
+
+            updateMovement();
+            return true;
+        }
+
+        double yawRad = Math.toRadians(this.yaw);
+        double desiredX = (-Math.sin(yawRad) * forward + Math.cos(yawRad) * strafe) * speed * HORIZONTAL_TUNE;
+        double desiredZ = ( Math.cos(yawRad) * forward + Math.sin(yawRad) * strafe) * speed * HORIZONTAL_TUNE;
+        double pitch = Math.max(-80, Math.min(80, pk.interactRotation.x));
+        double desiredY = -Math.sin(Math.toRadians(pitch)) * speed * VERTICAL_TUNE;
+        final double DRIVE_GRAVITY_BIAS_IN_WATER = 0.01d;
+        desiredY -= DRIVE_GRAVITY_BIAS_IN_WATER;
+
+        // Prevent flying out of water during NORMAL swim movement
+        if (inWaterColumn && Double.isFinite(maxFeetY)) {
+            if (this.y >= maxFeetY) {
+                if (desiredY > 0) desiredY = 0;
+                if (this.motionY > 0 && !isDashing) this.motionY = 0;
+            } else if (desiredY > 0) {
+                double headroom = maxFeetY - this.y;
+                if (headroom <= 0) desiredY = 0;
+                else if (desiredY > headroom) desiredY = headroom;
+            }
+        } else if (!inWaterColumn && desiredY > 0) {
+            desiredY = 0;
+        }
+
+        // Gravity feel AFTER breaching water
+        if (getInputControlType() == RideableComponent.InputType.WATER && !inWaterColumn) {
+            if (this.motionY > MAX_UPWARD_WHILE_OUT) this.motionY = MAX_UPWARD_WHILE_OUT;
+            if (isDashing) {
+                this.motionY -= OUT_OF_WATER_EXTRA_GRAVITY;
+            } else {
+                desiredY -= OUT_OF_WATER_EXTRA_GRAVITY;
+            }
+        }
+
+        if (inWaterColumn) {
+            final double MAX_DOWNWARD_IN_WATER = -0.10d;
+            if (this.motionY < MAX_DOWNWARD_IN_WATER) this.motionY = MAX_DOWNWARD_IN_WATER;
+        }
+
+        double curX = this.motionX;
+        double curY = this.motionY;
+        double curZ = this.motionZ;
+
+        if (isDashing) {
+            // Blend input with dash momentum
+            final double DASH_INPUT_BLEND = 0.35d; // 0 = pure dash momentum, 1 = pure input
+            desiredX = curX + (desiredX - curX) * DASH_INPUT_BLEND;
+            desiredZ = curZ + (desiredZ - curZ) * DASH_INPUT_BLEND;
+            desiredY = curY;
+        }
+
+        this.addTmpMoveMotion(new Vector3(desiredX - curX, desiredY - curY, desiredZ - curZ));
+        updateMovement();
+        return true;
+    }
+
+    // INPUT CONTROLS HELPERS START
+
+    protected boolean handleRideJumpOrDash(PlayerAuthInputPacket pk, RideableComponent.InputType type) {
+        final boolean dashHeld =
+                pk.inputData.contains(AuthInputAction.WANT_UP) ||
+                pk.inputData.contains(AuthInputAction.JUMP_DOWN) ||
+                pk.inputData.contains(AuthInputAction.JUMPING) ||
+                pk.inputData.contains(AuthInputAction.START_JUMPING);
+
+        // POWER JUMP
+        if (this.canPowerJump()) {
+            final boolean canChargeJump = isOnGround();
+            if (dashHeld) {
+                if (canChargeJump) {
+                    rideJumpingTicks++;
+                    return true;
+                }
+                return false;
+            }
+
+            if (rideJumpingTicks != -1) {
+                if (isOnGround()) {
+                    float charge = Math.min(rideJumpingTicks / 10f, 1.0f);
+                    float js = this.getRideJumpStrength();
+                    float t = (js - 0.4f) / 0.6f;
+                    t = Math.max(0f, Math.min(1f, t));
+                    double desiredHeight = 1.0d + (5.5d - 1.0d) * t;
+                    double baseMotionY = solveJumpMotionYForHeight(desiredHeight);
+                    double motion = baseMotionY * charge;
+
+                    this.getRideJumping().set(this.getLevel().getTick());
+                    this.motionY = 0;
+                    this.addTmpMoveMotion(new Vector3(0, motion, 0));
+                    this.setDataFlag(EntityFlag.STANDING, true);
+
+                    rideJumpingTicks = -1;
+                    return true;
+                }
+                rideJumpingTicks = -1;
+                return false;
+            }
+
+            return false;
+        }
+
+        // DASH
+        if (this.canDash()) {
+            if (dashHeld) {
+                if (this.isDashOnCooldown()) return false;
+                if (type == RideableComponent.InputType.GROUND && !isOnGround()) return false;
+                if (powerDashingTicks == -1) {
+                    powerDashingTicks = 0;
+                    if (type == RideableComponent.InputType.WATER) waterDashChargeStartedInWater = isInWaterForDash();
+                }
+                powerDashingTicks++;
+                return true;
+            }
+
+            if (powerDashingTicks != -1) {
+                float charge = Math.min(powerDashingTicks / 10f, 1.0f);
+                powerDashingTicks = -1;
+
+                if (type == RideableComponent.InputType.WATER) {
+                    final DashActionComponent dash = this.getComponentDashAction();
+                    if (dash == null) {
+                        waterDashChargeStartedInWater = false;
+                        return true;
+                    }
+                    boolean allow = waterDashChargeStartedInWater || isInWaterForDash();
+                    waterDashChargeStartedInWater = false;
+                    if (!allow) return true;
+                    if (!dash.resolvedCanDashUnderwater() && this.isTouchingWater()) return true;
+                }
+
+                return tryDash(pk, charge);
+            }
+        }
+
+        return false;
+    }
+
+    protected boolean tryDash(PlayerAuthInputPacket pk, float charge) {
+        if (this.isDashOnCooldown()) return false;
+
+        final DashActionComponent dash = this.getComponentDashAction();
+        if (dash == null) return false;
+        if (this.isTouchingWater() && !dash.resolvedCanDashUnderwater()) return false;
+
+        final float  MIN_CHARGE = 0.05f;
+        final float  CHARGE_EXP = 1.40f;
+        final double CURVE_EXP  = 1.10d;
+        final double H_SCALE    = 0.026d;
+        final double V_SCALE    = 0.61355d;
+        final double WATER_DASH_HORIZONTAL_SCALE = 0.40d;
+        final double WATER_DASH_VERTICAL_SCALE = 0.08d;
+
+        final DashActionComponent.Direction dirMode = dash.resolvedDirection();
+        final double yaw   = (dirMode == DashActionComponent.Direction.ENTITY) ? this.yaw : pk.interactRotation.y;
+        final float  pitch = (dirMode == DashActionComponent.Direction.PASSENGER) ? pk.interactRotation.x : 0.0f;
+
+        final double yawRad   = Math.toRadians(yaw);
+        final double pitchRad = Math.toRadians(pitch);
+
+        double x, y, z;
+        if (dirMode == DashActionComponent.Direction.ENTITY) {
+            x = -Math.sin(yawRad);
+            y = 0.0d;
+            z =  Math.cos(yawRad);
+        } else {
+            final double cosPitch = Math.cos(pitchRad);
+            x = -Math.sin(yawRad) * cosPitch;
+            y = -Math.sin(pitchRad);
+            z =  Math.cos(yawRad) * cosPitch;
+        }
+
+        final double len = Math.sqrt(x * x + y * y + z * z);
+        if (len < 1.0e-9) return false;
+        x /= len; y /= len; z /= len;
+
+        if (charge < 0f) charge = 0f;
+        if (charge > 1f) charge = 1f;
+        if (charge < MIN_CHARGE) return false;
+
+        final double c  = Math.pow(charge, CHARGE_EXP);
+        final double hc = Math.pow(c, CURVE_EXP);
+        final double hMomentum = dash.resolvedHorizontalMomentum();
+        final double vMomentum = dash.resolvedVerticalMomentum();
+
+        double hImpulse = (hMomentum * c) * H_SCALE * hc;
+        final double maxHImpulse = hMomentum * H_SCALE;
+        if (hImpulse > maxHImpulse) hImpulse = maxHImpulse;
+
+        double my;
+        if (dirMode == DashActionComponent.Direction.ENTITY) {
+            my = (vMomentum * V_SCALE) * c;
+        } else {
+            final double vImpulse = (vMomentum * V_SCALE) * c;
+            my = (y * hImpulse) + vImpulse;
+        }
+
+        if (getInputControlType() == RideableComponent.InputType.WATER && isInWaterForDash()) {
+            hImpulse *= WATER_DASH_HORIZONTAL_SCALE;
+            my *= WATER_DASH_VERTICAL_SCALE;
+        }
+
+        this.addTmpMoveMotion(new Vector3(x * hImpulse, my, z * hImpulse));
+        startDashCooldown(dash.resolvedCooldownTime());
+        return true;
+    }
+
+    protected boolean isDashOnCooldown() {
+        return dashCooldownEndTick != -1 && this.level.getTick() < dashCooldownEndTick;
+    }
+
+    protected void startDashCooldown(float seconds) {
+        if (seconds < 0f) seconds = 0f;
+        int ticks = (int) Math.ceil(seconds * 20.0d);
+        if (ticks <= 0) {
+            dashCooldownEndTick = -1;
+            this.setDashCooldown(false);
+            return;
+        }
+
+        dashCooldownEndTick = this.level.getTick() + ticks;
+        this.setDashCooldown(true);
+    }
+
+    protected void updateDashAnimationFlag() {
+        if (!this.hasDashCooldown()) return;
+
+        if (!isDashOnCooldown()) {
+            this.setDashCooldown(false);
+        }
+    }
+
+    private boolean isInWaterForDash() {
+        if (this.isTouchingWater()) return true;
+
+        final int bx = (int) Math.floor(this.x);
+        final int bz = (int) Math.floor(this.z);
+
+        int yMin = (int) Math.floor(this.y) - 2;
+        int yMax = (int) Math.floor(this.y + this.getHeight()) + 2;
+
+        for (int y = yMax; y >= yMin; y--) {
+            Block b = this.level.getBlock(bx, y, bz);
+            if (b instanceof BlockWater || b instanceof BlockFlowingWater) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public float getAirStrafeSpeedModifier() {
+        if (!isCustomEntity()) return 0.4f;
+        CustomEntityDefinition.Meta.InputAirControlled air = meta().getInputAirControlled(CustomEntityComponents.INPUT_AIR_CONTROLLED);
+
+        if (air == null) return 0.4f;
+        return air.strafeSpeedModifier();
+    }
+
+    public float getAirBackwardsMovementModifier() {
+        if (!isCustomEntity()) return 0.5f;
+        CustomEntityDefinition.Meta.InputAirControlled air = meta().getInputAirControlled(CustomEntityComponents.INPUT_AIR_CONTROLLED);
+
+        if (air == null) return 0.5f;
+        return air.backwardsMovementModifier();
+    }
+
+    public AtomicInteger getRideJumping() {
+        if (this.rideJumping == null) {
+            this.rideJumping = new AtomicInteger(-1);
+        }
+
+        return this.rideJumping;
+    }
+
+    public boolean isRideJumping() {
+        return this.getRideJumping().get() != -1;
+    }
+
+    public boolean isRideSprinting() {
+        return this.rideSprintingTicks > 0;
+    }
+
+    protected double solveJumpMotionYForHeight(double targetHeight) {
+        double lo = 0.05d;
+        double hi = 2.00d;
+
+        while (simulateJumpHeight(hi) < targetHeight && hi < 10.0d) {
+            hi *= 1.5d;
+        }
+
+        for (int i = 0; i < 30; i++) {
+            double mid = (lo + hi) * 0.5d;
+            double h = simulateJumpHeight(mid);
+            if (h >= targetHeight) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        return hi;
+    }
+
+    protected double simulateJumpHeight(double motionY) {
+        final double DRAG = 0.98d;
+        double y = 0.0d;
+        double maxY = 0.0d;
+
+        for (int tick = 0; tick < 60; tick++) {
+            y += motionY;
+            if (y > maxY) maxY = y;
+            motionY -= this.getGravity();
+            motionY *= DRAG;
+            if (motionY < 0 && y < maxY - 0.01d) break;
+        }
+
+        return maxY;
+    }
+
+    // INPUT CONTROLS HELPERS END
 }

@@ -1,9 +1,11 @@
 package cn.nukkit.nbt.stream;
 
+import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.utils.VarInt;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.DataOutput;
 import java.io.DataOutputStream;
@@ -17,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author MagicDroidX (Nukkit Project)
  */
+@Slf4j
 public class NBTOutputStream implements DataOutput, AutoCloseable {
     private final DataOutputStream stream;
     private final ByteOrder endianness;
@@ -156,7 +159,7 @@ public class NBTOutputStream implements DataOutput, AutoCloseable {
     }
 
     public void writeTag(Tag tag) throws IOException {
-        this.writeTag(tag, 16);
+        this.writeTag(tag, NBTIO.MAX_NBT_DEPTH);
     }
 
     public void writeTag(Tag tag, int maxDepth) throws IOException {
@@ -172,7 +175,7 @@ public class NBTOutputStream implements DataOutput, AutoCloseable {
     }
 
     public void writeValue(Tag tag) throws IOException {
-        this.writeValue(tag, 16);
+        this.writeValue(tag, NBTIO.MAX_NBT_DEPTH);
     }
 
     public void writeValue(Tag tag, int maxDepth) throws IOException {
@@ -200,6 +203,13 @@ public class NBTOutputStream implements DataOutput, AutoCloseable {
                     this.writeInt(byteArray.length);
                     this.write(byteArray);
                 }
+                case Tag.TAG_Int_Array -> {
+                    int[] intArray = tag.parseValue();
+                    this.writeInt(intArray.length);
+                    for(int i : intArray) {
+                        this.writeInt(i);
+                    }
+                }
                 case Tag.TAG_String -> {
                     String string = tag.parseValue();
                     this.writeUTF(string);
@@ -221,7 +231,9 @@ public class NBTOutputStream implements DataOutput, AutoCloseable {
                         this.serialize(t, list.type, maxDepth - 1);
                     }
                 }
-                default -> {}
+                default -> {
+                    throw new IllegalArgumentException("Cannot write Tag of Class " + tag.getClass().getSimpleName() + " type: " + type);
+                }
             }
         }
     }

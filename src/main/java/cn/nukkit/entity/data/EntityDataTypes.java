@@ -246,4 +246,30 @@ public interface EntityDataTypes {
      * @since v594
      */
     EntityDataType<Vector3f> COLLISION_BOX = new EntityDataType<>(new Vector3f(), "COLLISION_BOX", 130);
+    /**
+     * @since v685
+     */
+    EntityDataType<Long> VISIBLE_MOB_EFFECTS = new EntityDataType<>(0L, "VISIBLE_MOB_EFFECTS", 131);
+    /**
+     * @since v776
+     */
+    EntityDataType<String> FILTERED_NAME = new EntityDataType<>("", "FILTERED_NAME", 132);
+    /**
+     * @since v776
+     */
+    EntityDataType<Vector3f> BED_ENTER_POSITION = new EntityDataType<>(new Vector3f(), "BED_ENTER_POSITION", 133);
+    /**
+     * @since v800
+     */
+    EntityDataType<Float> SEAT_THIRD_PERSON_CAMERA_RADIUS = new EntityDataType<>(0f, "SEAT_THIRD_PERSON_CAMERA_RADIUS", 134);
+    /**
+     * @since v800
+     */
+    EntityDataType<Float> SEAT_CAMERA_RELAX_DISTANCE_SMOOTHING = new EntityDataType<>(0f, "SEAT_CAMERA_RELAX_DISTANCE_SMOOTHING", 135);
+
+    EntityDataType<Integer> AIM_ASSIST_PRIORITY_PRESET_ID = new EntityDataType<>(0, "AIM_ASSIST_PRIORITY_PRESET_ID", 136);
+    EntityDataType<Integer> AIM_ASSIST_PRIORITY_CATEGORY_ID = new EntityDataType<>(0, "AIM_ASSIST_PRIORITY_CATEGORY_ID", 137);
+    EntityDataType<Long> AIM_ASSIST_PRIORITY_ACTOR_ID = new EntityDataType<>(0L, "AIM_ASSIST_PRIORITY_ACTOR_ID", 138);
+    EntityDataType<Long> RESERVED_139 = new EntityDataType<>(0L, "RESERVED_139", 139);
+    EntityDataType<Float> NAMEPLATE_RENDER_DISTANCE_MAX = new EntityDataType<>(0f, "NAMEPLATE_RENDER_DISTANCE_MAX", 140);
 }

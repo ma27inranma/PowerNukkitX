@@ -20,11 +20,14 @@ import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.data.EntityDataTypes;
 import cn.nukkit.entity.projectile.EntityProjectile;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.player.PlayerTeleportEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Location;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
@@ -33,6 +36,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -117,7 +121,7 @@ public class EntityShulker extends EntityMob implements EntityVariant {
 
     @Override
     public boolean attack(EntityDamageEvent source) {
-        if(getHealth() - source.getDamage() < getMaxHealth()/2f) {
+        if(getHealthCurrent() - source.getDamage() < getHealthMax()/2f) {
             if(Utils.rand(0,4) == 0) {
                 teleport();
                 return true;
@@ -128,7 +132,6 @@ public class EntityShulker extends EntityMob implements EntityVariant {
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(30);
         super.initEntity();
         if(getMemoryStorage().get(CoreMemoryTypes.VARIANT) == null) setVariant(16);
         setDataProperty(EntityDataTypes.SHULKER_ATTACH_POS, getLevelBlock().getSide(BlockFace.UP).asBlockVector3());
@@ -142,6 +145,16 @@ public class EntityShulker extends EntityMob implements EntityVariant {
     @Override
     public float getHeight() {
         return 0.99f;
+    }
+
+    @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(30);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.0f);
     }
 
     @Override
@@ -160,8 +173,19 @@ public class EntityShulker extends EntityMob implements EntityVariant {
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.SHULKER_SHELL, 0, Utils.rand(0, 2))};
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+
+        if (Utils.rand(0, 1) == 0) {
+            int amount = Utils.rand(0, 1 + looting);
+            if (amount > 0) {
+                return new Item[]{
+                        Item.get(Item.SHULKER_SHELL, 0, amount)
+                };
+            }
+        }
+
+        return Item.EMPTY_ARRAY;
     }
 
     public void teleport() {

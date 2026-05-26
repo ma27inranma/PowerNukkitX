@@ -1,7 +1,6 @@
 package cn.nukkit.block;
 
 import cn.nukkit.Player;
-import cn.nukkit.Server;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.CommonPropertyMap;
 import cn.nukkit.block.property.enums.Orientation;
@@ -18,7 +17,9 @@ import cn.nukkit.level.Sound;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.network.protocol.LevelEventPacket;
+import cn.nukkit.recipe.MultiRecipe;
 import cn.nukkit.recipe.Recipe;
+import cn.nukkit.recipe.UserDataShapelessRecipe;
 import cn.nukkit.utils.RedstoneComponent;
 import org.jetbrains.annotations.NotNull;
 
@@ -168,12 +169,25 @@ public class BlockCrafter extends BlockSolid implements RedstoneComponent, Block
         }
 
         Recipe recipe = getBlockEntity().getInventory().getRecipe();
-        if(recipe == null) return false;
+        if(recipe == null || recipe instanceof MultiRecipe) return false;
 
         CraftItemEvent event = new CraftItemEvent(blockEntity, getBlockEntity().getInventory().getInput().getFlatItems(), recipe, 1);
         getLevel().getServer().getPluginManager().callEvent(event);
         if(event.isCancelled()) return false;
-        
+
+        if (recipe instanceof UserDataShapelessRecipe) {
+            Inventory inv = blockEntity.getInventory();
+            for (int i = 0; i < inv.getSize(); i++) {
+                Item inputItem = inv.getItem(i);
+                if (!inputItem.isNull() && inputItem.hasCompoundTag()) {
+                    for (Item result : recipe.getResults()) {
+                        result.setCompoundTag(inputItem.getCompoundTag());
+                    }
+                    break;
+                }
+            }
+        }
+
         for(Item target : recipe.getResults()) {
 
             LevelEventPacket pk = new LevelEventPacket();
@@ -190,8 +204,7 @@ public class BlockCrafter extends BlockSolid implements RedstoneComponent, Block
 
             Block side = this.getSide(facing);
 
-            if (this.level.getBlockEntityIfLoaded(side) instanceof InventoryHolder) {
-                InventoryHolder invHolder = (InventoryHolder) this.level.getBlockEntityIfLoaded(side);
+            if (this.level.getBlockEntityIfLoaded(side) instanceof InventoryHolder invHolder) {
                 Inventory targetInv = invHolder.getInventory();
 
                 if (targetInv.canAddItem(target)) {

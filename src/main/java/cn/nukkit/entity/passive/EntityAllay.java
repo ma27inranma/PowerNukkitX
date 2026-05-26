@@ -2,7 +2,6 @@ package cn.nukkit.entity.passive;
 
 import cn.nukkit.Player;
 import cn.nukkit.entity.EntityFlyable;
-import cn.nukkit.entity.EntityOwnable;
 import cn.nukkit.entity.ai.behavior.Behavior;
 import cn.nukkit.entity.ai.behaviorgroup.BehaviorGroup;
 import cn.nukkit.entity.ai.behaviorgroup.IBehaviorGroup;
@@ -20,9 +19,9 @@ import cn.nukkit.entity.ai.route.finder.impl.SimpleSpaceAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.FlyingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestItemSensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.item.EntityItem;
 import cn.nukkit.entity.mob.EntityMob;
-import cn.nukkit.inventory.EntityInventoryHolder;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.inventory.InventorySlice;
 import cn.nukkit.item.Item;
@@ -33,10 +32,11 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
-public class EntityAllay extends EntityMob implements EntityFlyable, EntityOwnable, EntityInventoryHolder {
+public class EntityAllay extends EntityMob implements EntityFlyable {
 
     @Override
     @NotNull public String getIdentifier() {
@@ -52,6 +52,11 @@ public class EntityAllay extends EntityMob implements EntityFlyable, EntityOwnab
 
     public EntityAllay(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.1f);
     }
 
     @Override
@@ -121,7 +126,7 @@ public class EntityAllay extends EntityMob implements EntityFlyable, EntityOwnab
                 setItemInHand(Item.AIR);
             } else {
                 setOwnerName(player.getName());
-                Item itemInHand = player.getInventory().getItemInHand().clone().clearNamedTag();
+                Item itemInHand = player.getInventory().getItemInMainHand().clone().clearNamedTag();
                 itemInHand.setCount(1);
                 setItemInHand(itemInHand);
             }
@@ -185,9 +190,8 @@ public class EntityAllay extends EntityMob implements EntityFlyable, EntityOwnab
         this.lastItemDropTick = currentTick;
         return true;
     }
-
     @Override
-    public Item[] getDrops() {
+    public Item[] getDrops(@NotNull Item weapon) {
         return getInventory().getContents().values().toArray(Item.EMPTY_ARRAY);
     }
 }

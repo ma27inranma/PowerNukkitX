@@ -19,13 +19,17 @@ import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleSpaceAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.FlyingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
@@ -67,7 +71,6 @@ public class EntityBlaze extends EntityMob implements EntityFlyable {
 
     @Override
     protected void initEntity() {
-        this.setMaxHealth(20);
         this.diffHandDamage = new float[]{4f, 6f, 9f};
         super.initEntity();
     }
@@ -94,6 +97,16 @@ public class EntityBlaze extends EntityMob implements EntityFlyable {
     }
 
     @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(20);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.23f);
+    }
+
+    @Override
     public String getOriginalName() {
         return "Blaze";
     }
@@ -114,8 +127,18 @@ public class EntityBlaze extends EntityMob implements EntityFlyable {
     }
 
     @Override
-    public Item[] getDrops() {
-        return new Item[]{Item.get(Item.BLAZE_ROD, 0, Utils.rand(0, 1))};
+    public Item[] getDrops(@NotNull Item weapon) {
+        int looting = weapon.getEnchantmentLevel(Enchantment.ID_LOOTING);
+
+        float chance = 0.5f + (0.25f * looting);
+        chance = Math.min(chance, 1.0f);
+
+        if (Utils.rand(0f, 1f) < chance) {
+            int amount = Utils.rand(1, 1 + looting);
+            return new Item[]{Item.get(Item.BLAZE_ROD, 0, amount)};
+        }
+
+        return Item.EMPTY_ARRAY;
     }
 
     @Override

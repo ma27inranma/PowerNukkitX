@@ -70,7 +70,7 @@ public class BlockChiseledBookshelf extends BlockBookshelf implements BlockEntit
                 nbt.put(tag.getKey(), tag.getValue());
             }
         }
-        return BlockEntityHolder.setBlockAndCreateEntity(this, true, true, nbt) != null;
+        return BlockEntityHolder.setBlockAndCreateEntity(this, false, true, nbt) != null;
     }
 
     @Override
@@ -114,7 +114,7 @@ public class BlockChiseledBookshelf extends BlockBookshelf implements BlockEntit
                         Item itemClone = item.clone();
                         if (!player.isCreative()) {
                             itemClone.setCount(itemClone.getCount() - 1);
-                            player.getInventory().setItemInHand(itemClone);
+                            player.getInventory().setItemInMainHand(itemClone);
                         }
                         itemClone.setCount(1);
                         blockEntity.setBook(itemClone, index);

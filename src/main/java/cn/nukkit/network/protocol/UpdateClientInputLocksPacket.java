@@ -16,27 +16,24 @@ import java.util.Set;
 @AllArgsConstructor
 public class UpdateClientInputLocksPacket extends DataPacket {
 
-    private int lockComponentId;
-    public Vector3f serverPosition;
+    private int lockComponentData;
 
     public void setFlags(Set<ClientInputLocksFlag> flags) {
-        this.lockComponentId = ClientInputLocksFlag.toBitSet(flags);
+        this.lockComponentData = ClientInputLocksFlag.toBitSet(flags);
     }
 
     public Set<ClientInputLocksFlag> getActiveFlags() {
-        return ClientInputLocksFlag.fromBitSet(this.lockComponentId);
+        return ClientInputLocksFlag.fromBitSet(this.lockComponentData);
     }
 
     @Override
     public void decode(HandleByteBuf byteBuf) {
-        this.lockComponentId = byteBuf.readVarInt();
-        this.serverPosition = byteBuf.readVector3f();
+        this.lockComponentData = byteBuf.readUnsignedVarInt();
     }
 
     @Override
     public void encode(HandleByteBuf byteBuf) {
-        byteBuf.writeVarInt(lockComponentId);
-        byteBuf.writeVector3f(serverPosition);
+        byteBuf.writeUnsignedVarInt(lockComponentData);
     }
 
     @Override

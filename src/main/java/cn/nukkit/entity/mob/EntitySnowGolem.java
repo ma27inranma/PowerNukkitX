@@ -19,9 +19,12 @@ import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestEntitySensor;
+import cn.nukkit.entity.components.HealthComponent;
+import cn.nukkit.entity.components.MovementComponent;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemID;
 import cn.nukkit.item.ItemShears;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.format.IChunk;
@@ -37,8 +40,10 @@ import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.network.protocol.types.LevelSoundEvent;
 import cn.nukkit.registry.Registries;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 
 public class EntitySnowGolem extends EntityGolem {
@@ -59,10 +64,13 @@ public class EntitySnowGolem extends EntityGolem {
                 this.tickSpread,
                 Set.of(),
                 Set.of(
-                        new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.ATTACK_TARGET, 0.4f, 16, true, 20, 0), all(new EntityCheckEvaluator(CoreMemoryTypes.ATTACK_TARGET), entity -> !(getMemoryStorage().get(CoreMemoryTypes.ATTACK_TARGET) instanceof EntitySnowGolem)), 3, 1),
+                        new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.ATTACK_TARGET, 0.4f, 16, true, 20, 0), all(
+                                new EntityCheckEvaluator(CoreMemoryTypes.ATTACK_TARGET),
+                                        entity -> !(getMemoryStorage().get(CoreMemoryTypes.ATTACK_TARGET) instanceof EntitySnowGolem)),
+                                3, 1),
                         new Behavior(new SnowGolemShootExecutor(CoreMemoryTypes.NEAREST_SHARED_ENTITY, 0.4f, 10, true, 20, 0), all(
                                 new EntityCheckEvaluator(CoreMemoryTypes.NEAREST_SHARED_ENTITY),
-                                entity -> attackTarget(getMemoryStorage().get(CoreMemoryTypes.ATTACK_TARGET))
+                                entity -> attackTarget(getMemoryStorage().get(CoreMemoryTypes.NEAREST_SHARED_ENTITY))
                         ), 2, 1),
                         new Behavior(new FlatRandomRoamExecutor(0.3f, 12, 100, false, -1, true, 10), none(), 1, 1)
                 ),
@@ -79,7 +87,7 @@ public class EntitySnowGolem extends EntityGolem {
             if(!isSheared()) {
                 this.setSheared(true);
                 this.level.addLevelSoundEvent(this, LevelSoundEvent.SHEAR);
-                if(player.getGamemode() != Player.CREATIVE) player.getInventory().getItemInHand().setDamage(item.getDamage() + 1);
+                if(player.getGamemode() != Player.CREATIVE) player.getInventory().getItemInMainHand().setDamage(item.getDamage() + 1);
                 this.level.dropItem(this.add(0, this.getEyeHeight(), 0), Item.get(Block.CARVED_PUMPKIN));
             }
         }
@@ -112,8 +120,17 @@ public class EntitySnowGolem extends EntityGolem {
     }
 
     @Override
+    public HealthComponent getComponentHealth() {
+        return HealthComponent.value(4);
+    }
+
+    @Override
+    protected @Nullable MovementComponent getComponentMovement() {
+        return MovementComponent.value(0.2f);
+    }
+
+    @Override
     protected void initEntity() {
-        this.setMaxHealth(4);
         setSheared(false);
         super.initEntity();
     }
@@ -144,6 +161,33 @@ public class EntitySnowGolem extends EntityGolem {
             this.waterTicks = 0;
         }
         return super.onUpdate(currentTick);
+    }
+
+    @Override
+    public Item[] getDrops(@NotNull Item weapon) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        int randDrop = random.nextInt(3);
+
+        switch (randDrop) {
+            case 0:
+                return new Item[]{
+                        Item.get(ItemID.SNOWBALL, 0, random.nextInt(0, 9))
+                };
+            case 1:
+                return new Item[]{
+                        Item.get(ItemID.SNOWBALL, 0, random.nextInt(8, 17))
+                };
+            case 2:
+                return new Item[0];
+            default:
+                return new Item[0];
+        }
+    }
+
+    @Override
+    public boolean attack(EntityDamageEvent source) {
+        if(source.getCause() == EntityDamageEvent.DamageCause.FALL) return false;
+        return super.attack(source);
     }
 
     public static void checkAndSpawnGolem(Block block) {

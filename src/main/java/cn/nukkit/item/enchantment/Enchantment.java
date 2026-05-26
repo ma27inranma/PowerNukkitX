@@ -22,6 +22,7 @@ import cn.nukkit.item.enchantment.protection.EnchantmentProtectionExplosion;
 import cn.nukkit.item.enchantment.protection.EnchantmentProtectionFall;
 import cn.nukkit.item.enchantment.protection.EnchantmentProtectionFire;
 import cn.nukkit.item.enchantment.protection.EnchantmentProtectionProjectile;
+import cn.nukkit.item.enchantment.spear.EnchantmentLunge;
 import cn.nukkit.item.enchantment.trident.EnchantmentTridentChanneling;
 import cn.nukkit.item.enchantment.trident.EnchantmentTridentImpaling;
 import cn.nukkit.item.enchantment.trident.EnchantmentTridentLoyalty;
@@ -150,10 +151,14 @@ public abstract class Enchantment implements Cloneable {
     public static final String NAME_SOUL_SPEED = "soul_speed";
     public static final int ID_SWIFT_SNEAK = 37;
     public static final String NAME_SWIFT_SNEAK = "swift_sneak";
+    public static final int ID_WIND_BURST = 38;
+    public static final String NAME_WIND_BURST = "wind_burst";
     public static final int ID_DENSITY = 39;
     public static final String NAME_DENSITY = "density";
     public static final int ID_BREACH = 40;
     public static final String NAME_BREACH = "breach";
+    public static final int ID_LUNGE = 41;
+    public static final String NAME_LUNGE = "lunge";
 
 
     public static void init() {
@@ -196,9 +201,10 @@ public abstract class Enchantment implements Cloneable {
         enchantments[ID_CROSSBOW_QUICK_CHARGE] = new EnchantmentCrossbowQuickCharge();
         enchantments[ID_SOUL_SPEED] = new EnchantmentSoulSpeed();
         enchantments[ID_SWIFT_SNEAK] = new EnchantmentSwiftSneak();
-        enchantments[38] = null;
+        enchantments[ID_WIND_BURST] = new EnchantmentWindBurst();
         enchantments[ID_DENSITY] = new EnchantmentDensity();
         enchantments[ID_BREACH] = new EnchantmentBreach();
+        enchantments[ID_LUNGE] = new EnchantmentLunge();
         //custom
         namedEnchantments.put(new Identifier("minecraft", NAME_PROTECTION_ALL), enchantments[0]);
         namedEnchantments.put(new Identifier("minecraft", NAME_PROTECTION_FIRE), enchantments[1]);
@@ -207,8 +213,8 @@ public abstract class Enchantment implements Cloneable {
         namedEnchantments.put(new Identifier("minecraft", NAME_PROTECTION_PROJECTILE), enchantments[4]);
         namedEnchantments.put(new Identifier("minecraft", NAME_THORNS), enchantments[5]);
         namedEnchantments.put(new Identifier("minecraft", NAME_WATER_BREATHING), enchantments[6]);
-        namedEnchantments.put(new Identifier("minecraft", NAME_WATER_WORKER), enchantments[7]);
-        namedEnchantments.put(new Identifier("minecraft", NAME_WATER_WALKER), enchantments[8]);
+        namedEnchantments.put(new Identifier("minecraft", NAME_WATER_WALKER), enchantments[7]);
+        namedEnchantments.put(new Identifier("minecraft", NAME_WATER_WORKER), enchantments[8]);
         namedEnchantments.put(new Identifier("minecraft", NAME_DAMAGE_ALL), enchantments[9]);
         namedEnchantments.put(new Identifier("minecraft", NAME_DAMAGE_SMITE), enchantments[10]);
         namedEnchantments.put(new Identifier("minecraft", NAME_DAMAGE_ARTHROPODS), enchantments[11]);
@@ -238,9 +244,10 @@ public abstract class Enchantment implements Cloneable {
         namedEnchantments.put(new Identifier("minecraft", NAME_CROSSBOW_QUICK_CHARGE), enchantments[35]);
         namedEnchantments.put(new Identifier("minecraft", NAME_SOUL_SPEED), enchantments[36]);
         namedEnchantments.put(new Identifier("minecraft", NAME_SWIFT_SNEAK), enchantments[37]);
+        namedEnchantments.put(new Identifier("minecraft", NAME_WIND_BURST), enchantments[38]);
         namedEnchantments.put(new Identifier("minecraft", NAME_DENSITY), enchantments[39]);
         namedEnchantments.put(new Identifier("minecraft", NAME_BREACH), enchantments[40]);
-
+        namedEnchantments.put(new Identifier("minecraft", NAME_LUNGE), enchantments[41]);
     }
 
     private static String getLevelString(int level) {
@@ -839,5 +846,52 @@ public abstract class Enchantment implements Cloneable {
             }
             return COMMON;
         }
+    }
+
+    public static Item addRandomEnchantments(@NotNull Item item, int enchantCount) {
+        return addRandomEnchantments(item, enchantCount, false);
+    }
+
+    public static Item addRandomEnchantments(@NotNull Item item, int enchantCount, boolean allowCustom) {
+        if (enchantCount <= 0) return item;
+
+        var rnd = ThreadLocalRandom.current();
+
+        ArrayList<Enchantment> pool = new ArrayList<>(getRegisteredEnchantments(allowCustom));
+        pool.removeIf(e -> e == null || !e.canEnchant(item) || !e.isObtainableFromEnchantingTable());
+
+        if (pool.isEmpty()) return item;
+
+        int target = Math.min(enchantCount, pool.size());
+        ArrayList<Enchantment> chosen = new ArrayList<>(target);
+
+        while (chosen.size() < target && !pool.isEmpty()) {
+            int idx = rnd.nextInt(pool.size());
+            Enchantment candidate = pool.remove(idx);
+            if (candidate == null) continue;
+
+            boolean compatible = true;
+            for (Enchantment already : chosen) {
+                if (!candidate.isCompatibleWith(already)) {
+                    compatible = false;
+                    break;
+                }
+            }
+            if (!compatible) continue;
+
+            int min = Math.max(1, candidate.getMinLevel());
+            int max = Math.max(min, candidate.getMaxLevel());
+            int level = (min == max) ? min : rnd.nextInt(min, max + 1);
+
+            Enchantment applied = candidate.clone();
+            if (applied != null) {
+                applied.setLevel(level, true);
+                chosen.add(applied);
+            }
+        }
+
+        if (!chosen.isEmpty()) item.addEnchantment(chosen.toArray(EMPTY_ARRAY));
+
+        return item;
     }
 }

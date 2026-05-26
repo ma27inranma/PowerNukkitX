@@ -4,7 +4,6 @@ import cn.nukkit.Player;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityInteractable;
 import cn.nukkit.entity.EntityLiving;
-import cn.nukkit.entity.EntityRideable;
 import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.vehicle.VehicleDamageByEntityEvent;
@@ -17,12 +16,17 @@ import cn.nukkit.nbt.tag.CompoundTag;
 /**
  * @author MagicDroidX (Nukkit Project)
  */
-public abstract class EntityVehicle extends Entity implements EntityRideable, EntityInteractable {
+public abstract class EntityVehicle extends Entity implements EntityInteractable {
 
     protected boolean rollingDirection = true;
 
     public EntityVehicle(IChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
+    }
+
+    @Override
+    protected void initEntity() {
+        super.initEntity();
     }
 
     public int getRollingAmplitude() {
@@ -55,8 +59,23 @@ public abstract class EntityVehicle extends Entity implements EntityRideable, En
     }
 
     @Override
+    public boolean isRideable() {
+        return true;
+    }
+
+    @Override
+    public boolean hasGroundInputControlsMeta() {
+        return true;
+    }
+
+    @Override
     public boolean canDoInteraction() {
         return passengers.isEmpty();
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return true;
     }
 
     @Override
@@ -121,7 +140,7 @@ public abstract class EntityVehicle extends Entity implements EntityRideable, En
                 return false;
         }
 
-        if (instantKill || getHealth() - source.getFinalDamage() < 1) {
+        if (instantKill || getHealthCurrent() - source.getFinalDamage() < 1) {
             if (source instanceof EntityDamageByEntityEvent) {
                 final Entity damagingEntity = ((EntityDamageByEntityEvent) source).getDamager();
                 final VehicleDestroyByEntityEvent byDestroyEvent = new VehicleDestroyByEntityEvent(this, damagingEntity);
