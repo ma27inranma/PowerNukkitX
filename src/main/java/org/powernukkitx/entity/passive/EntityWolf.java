@@ -126,17 +126,11 @@ public class EntityWolf extends EntityAnimal implements EntityWalkable, EntityCa
 
     @Override
     public float getWidth() {
-        if (isBaby()) {
-            return 0.3f;
-        }
         return 0.6f;
     }
 
     @Override
     public float getHeight() {
-        if (isBaby()) {
-            return 0.425f;
-        }
         return 0.8f;
     }
 
@@ -575,10 +569,7 @@ public class EntityWolf extends EntityAnimal implements EntityWalkable, EntityCa
                         ),
                         new Behavior(
                                 new FlatRandomRoamExecutor(0.2f, 12, 150, false, -1, true, 10),
-                                all(
-                                        e -> !this.isSitting(),
-                                        new ProbabilityEvaluator(5, 10)
-                                ),
+                                e -> !this.isSitting(),
                                 1, 1, 50
                         )
                 )
