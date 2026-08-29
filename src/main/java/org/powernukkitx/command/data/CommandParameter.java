@@ -327,6 +327,22 @@ public class CommandParameter {
         return result;
     }
 
+    public boolean isRestOfLine() {
+        return this.enumData == null
+                && (this.type == CommandParamType.MESSAGE
+                || this.type == CommandParamType.MESSAGE_ROOT
+                || this.type == CommandParamType.MESSAGE_EXP);
+    }
+
+    public CommandParameter asRequired() {
+        if (!this.optional) {
+            return this;
+        }
+        final CommandParameter copy = new CommandParameter(this.name, false, this.type, this.enumData, this.postFix, this.paramNode);
+        copy.paramOptions = this.paramOptions;
+        return copy;
+    }
+
     public CommandParamData toNetwork() {
         final CommandParamData data = new CommandParamData();
         data.setName(this.name);
@@ -336,6 +352,9 @@ public class CommandParameter {
             CommandParamType type = this.type;
             if (type == null) {
                 type = CommandParamType.RAW_TEXT;
+            }
+            if (type == CommandParamType.MESSAGE) {
+                type = CommandParamType.MESSAGE_ROOT;
             }
             final Field field = CommandParam.class.getDeclaredField(type.name());
             final CommandParam param = (CommandParam) field.get(null);

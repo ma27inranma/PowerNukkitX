@@ -294,8 +294,6 @@ public class Server {
 
     // default levels
     private Level defaultLevel = null;
-    private boolean allowNether;
-    private boolean allowTheEnd;
     private List<ExperimentToggle> experiments;
 
     private final BedrockMigrationService migrationService = new BedrockMigrationService(this);
@@ -419,8 +417,6 @@ public class Server {
             return;
         }
 
-        this.allowNether = this.settings.gameplaySettings().allowNether();
-        this.allowTheEnd = this.settings.gameplaySettings().allowTheEnd();
         this.checkLoginTime = this.settings.networkSettings().checkLoginTime();
 
         log.info(this.getLanguage().tr("language.selected", getLanguage().getName(), getLanguage().getLang()));
@@ -908,8 +904,6 @@ public class Server {
                 log.error("Exception while kicking player on shutdown", e);
             }
         }
-
-        this.getSettings().save();
 
         try {
             log.debug("Disabling all plugins");
@@ -2868,6 +2862,7 @@ public class Server {
 
     public void setWhitelistMessage(String message) {
         this.settings.baseSettings().allowListMessage(message);
+        this.settings.save();
     }
 
     public boolean isOp(String name) {
@@ -3040,6 +3035,7 @@ public class Server {
         if (value > 3)
             value = 3;
         this.settings.gameplaySettings().difficulty(value);
+        this.settings.save();
     }
 
     /**
@@ -3047,6 +3043,16 @@ public class Server {
      */
     public boolean hasWhitelist() {
         return this.settings.baseSettings().allowList();
+    }
+
+    /**
+     * Enable or disable the server whitelist and persist the change.
+     *
+     * @param value whether the whitelist should be enforced
+     */
+    public void setWhitelist(boolean value) {
+        this.settings.baseSettings().allowList(value);
+        this.settings.save();
     }
 
     /**
@@ -3097,6 +3103,7 @@ public class Server {
      */
     public void setMotd(String motd) {
         this.settings.baseSettings().motd(motd);
+        this.settings.save();
         this.getNetwork().updatePong(this.getNetwork().getPong().motd(motd));
     }
 
@@ -3118,6 +3125,7 @@ public class Server {
      */
     public void setSubMotd(String subMotd) {
         this.settings.baseSettings().subMotd(subMotd);
+        this.settings.save();
         this.getNetwork().updatePong(this.getNetwork().getPong().subMotd(subMotd));
     }
 
@@ -3193,14 +3201,6 @@ public class Server {
 
     public void setProxyAuthProvider(ProxyAuthProvider proxyAuthProvider) {
         this.proxyAuthProvider = proxyAuthProvider;
-    }
-
-    public boolean isNetherAllowed() {
-        return this.allowNether;
-    }
-
-    public boolean isTheEndAllowed() {
-        return this.allowTheEnd;
     }
 
     public boolean canLogPacket(Class<? extends BedrockPacket> clazz) {
